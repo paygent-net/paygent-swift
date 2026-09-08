@@ -6,6 +6,29 @@ Versions of the public Swift package. The contract is the operation set in
 A release is refused when this file has no section for the version being cut,
 which is why an entry exists before the tag does.
 
+## 0.3.0
+
+The Solana owner ops price the rent of the accounts they create, and the
+binding no longer takes a fee. No agent-tier operation arrives or moves; the
+agent tier is unchanged from 0.2.0.
+
+Owner tier (reachable, unsupported on this package): every
+`prepare_solana_*` operation drops its `maxFee` / `actualFee` arguments -- the
+engine computes the schedule the owner signs, from the operation and the SOL
+price this release pins -- and `owner.solana_owner_op_fees` takes the operation
+it is pricing. `owner.prepare_solana_add_agent_webauthn` takes the agent's
+Ed25519 key (`agentOwner`) instead of a pocket address, and creates the pocket
+in the same transaction; `owner.prepare_solana_close_agent_webauthn` no longer
+takes a rent destination, which is the wallet's guard account, and the Solana
+target of `owner.prepare_agent_disownment` drops the same three fields
+(`rentDestination`, `maxFee`, `actualFee`) for the same reason;
+`owner.quote_solana_op_fee` takes the operation instead of two fee numbers and
+its quote gains `uncoveredUsdc`. Three rows join
+the owner tier: `owner.sol_usdc_rate_micros`, `owner.solana_fee_coverage` and
+`owner.derive_solana_agent_pocket`. A host on 0.2.0 that calls any of the
+changed operations does not compile against this release, which is the point:
+the fee it used to pass is not a number it gets to choose.
+
 ## 0.2.0
 
 Enrollment (RFC-0065 S5), the half an attached app can use today. One

@@ -598,6 +598,13 @@ public protocol AgentAttachmentPlanProtocol: AnyObject, Sendable {
     func chainId()  -> UInt64
     
     /**
+     * Ask the chain whether this attachment took effect. Only
+     * [`AttachmentOutcomeFfi::Landed`] yields the value
+     * `build_agent_attachment_granted` takes.
+     */
+    func confirmAgentAttachment() async throws  -> AttachmentOutcomeFfi
+    
+    /**
      * The agent's executor module on this chain, derived from `(safe, key)`.
      */
     func executorModule()  -> String
@@ -614,10 +621,41 @@ public protocol AgentAttachmentPlanProtocol: AnyObject, Sendable {
     func `guard`()  -> String
     
     /**
+     * The MOST `baseGas` this attachment may be quoted, which
+     * `prepare_direct_agent_attachment` refuses above.
+     *
+     * `baseGas` is not a limit: the Safe refunds `(gasUsed + baseGas) *
+     * gasPrice` whether or not that gas was spent, so a quote borrowed from
+     * an unrelated operation (a deploy quote's `baseGas` is millions)
+     * overpays the relayer on a transaction that otherwise succeeds. This is
+     * the honest ceiling -- everything `execTransaction` costs outside the
+     * inner call -- computed from this transaction's own bytes, so a host
+     * with no exec-shaped quote can pass it directly.
+     */
+    func maxBaseGas()  -> UInt64
+    
+    /**
      * Whether the module already had code when the plan was made. When
      * `false`, the attachment transaction deploys it first.
      */
     func moduleIsDeployed()  -> Bool
+    
+    /**
+     * The gas limit the OUTER transaction needs, computed from this
+     * transaction's own calldata: the 21,000 base, the module's creation code
+     * where it is being deployed, `execTransaction`'s own work, and the
+     * sixty-fourth EIP-150 holds back before the inner call.
+     */
+    func requiredOuterGas()  -> UInt64
+    
+    /**
+     * The `safeTxGas` this attachment needs. A FIRST attachment deploys the
+     * agent's executor module, and that code deposit alone is 1,299,200 gas
+     * -- five times everything else the transaction does -- so a quote
+     * borrowed from `deploy` or `set_spending_limit` is short by the whole
+     * term and the transaction runs out of gas inside the MultiSend.
+     */
+    func requiredSafeTxGas()  -> UInt64
     
     /**
      * The Safe the agent is attached to.
@@ -698,6 +736,28 @@ open func chainId() -> UInt64  {
 }
     
     /**
+     * Ask the chain whether this attachment took effect. Only
+     * [`AttachmentOutcomeFfi::Landed`] yields the value
+     * `build_agent_attachment_granted` takes.
+     */
+open func confirmAgentAttachment()async throws  -> AttachmentOutcomeFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_agentattachmentplan_confirm_agent_attachment(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeAttachmentOutcomeFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
      * The agent's executor module on this chain, derived from `(safe, key)`.
      */
 open func executorModule() -> String  {
@@ -729,12 +789,58 @@ open func `guard`() -> String  {
 }
     
     /**
+     * The MOST `baseGas` this attachment may be quoted, which
+     * `prepare_direct_agent_attachment` refuses above.
+     *
+     * `baseGas` is not a limit: the Safe refunds `(gasUsed + baseGas) *
+     * gasPrice` whether or not that gas was spent, so a quote borrowed from
+     * an unrelated operation (a deploy quote's `baseGas` is millions)
+     * overpays the relayer on a transaction that otherwise succeeds. This is
+     * the honest ceiling -- everything `execTransaction` costs outside the
+     * inner call -- computed from this transaction's own bytes, so a host
+     * with no exec-shaped quote can pass it directly.
+     */
+open func maxBaseGas() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentattachmentplan_max_base_gas(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
      * Whether the module already had code when the plan was made. When
      * `false`, the attachment transaction deploys it first.
      */
 open func moduleIsDeployed() -> Bool  {
     return try!  FfiConverterBool.lift(try! rustCall() {
     uniffi_paygent_mobile_core_fn_method_agentattachmentplan_module_is_deployed(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The gas limit the OUTER transaction needs, computed from this
+     * transaction's own calldata: the 21,000 base, the module's creation code
+     * where it is being deployed, `execTransaction`'s own work, and the
+     * sixty-fourth EIP-150 holds back before the inner call.
+     */
+open func requiredOuterGas() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentattachmentplan_required_outer_gas(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The `safeTxGas` this attachment needs. A FIRST attachment deploys the
+     * agent's executor module, and that code deposit alone is 1,299,200 gas
+     * -- five times everything else the transaction does -- so a quote
+     * borrowed from `deploy` or `set_spending_limit` is short by the whole
+     * term and the transaction runs out of gas inside the MultiSend.
+     */
+open func requiredSafeTxGas() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentattachmentplan_required_safe_tx_gas(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -2200,6 +2306,399 @@ public func FfiConverterTypeAgentSessionHost_lower(_ value: AgentSessionHost) ->
 
 
 /**
+ * Where a decline goes: which agent, from which owner, about which request.
+ *
+ * Opaque, and only two calls produce one --
+ * [`VerifiedAttachmentRequest::decline`] for the owner refusing on the
+ * merits, and the [`ReviewedInviteFfi::AttachmentRefused`] arm for a request
+ * this device refused at the boundary. Both sit after the hardware binding
+ * verified, so a decline is never addressed off the strength of a copied
+ * pairing secret alone.
+ */
+public protocol AttachmentDeclineProtocol: AnyObject, Sendable {
+    
+    /**
+     * The agent being told.
+     */
+    func delegateDid()  -> String
+    
+    /**
+     * The request this decline settles.
+     */
+    func requestId()  -> String
+    
+}
+/**
+ * Where a decline goes: which agent, from which owner, about which request.
+ *
+ * Opaque, and only two calls produce one --
+ * [`VerifiedAttachmentRequest::decline`] for the owner refusing on the
+ * merits, and the [`ReviewedInviteFfi::AttachmentRefused`] arm for a request
+ * this device refused at the boundary. Both sit after the hardware binding
+ * verified, so a decline is never addressed off the strength of a copied
+ * pairing secret alone.
+ */
+open class AttachmentDecline: AttachmentDeclineProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_attachmentdecline(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_attachmentdecline(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * The agent being told.
+     */
+open func delegateDid() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_attachmentdecline_delegate_did(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The request this decline settles.
+     */
+open func requestId() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_attachmentdecline_request_id(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentDecline: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = AttachmentDecline
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> AttachmentDecline {
+        return AttachmentDecline(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: AttachmentDecline) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentDecline {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: AttachmentDecline, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentDecline_lift(_ pointer: UnsafeMutableRawPointer) throws -> AttachmentDecline {
+    return try FfiConverterTypeAttachmentDecline.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentDecline_lower(_ value: AttachmentDecline) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeAttachmentDecline.lower(value)
+}
+
+
+
+
+
+
+/**
+ * An attachment the CHAIN confirms. Opaque: only `plan_agent_attachment`
+ * finding the work already done, or `confirm_agent_attachment` answering
+ * `Landed`, produces one -- so a host cannot tell an agent it is attached for
+ * a transaction that reverted.
+ */
+public protocol ConfirmedAttachmentProtocol: AnyObject, Sendable {
+    
+    /**
+     * The one chain.
+     */
+    func chainId()  -> UInt64
+    
+    /**
+     * The agent that is now attached.
+     */
+    func delegateDid()  -> String
+    
+    /**
+     * The agent's executor module on this chain.
+     */
+    func executorModule()  -> String
+    
+    /**
+     * The mandate the GUARD holds -- not the one the caller asked for.
+     */
+    func granted()  -> MandateFfi
+    
+    /**
+     * Echo it on the answer.
+     */
+    func requestId()  -> String
+    
+    /**
+     * The Safe the agent is attached to.
+     */
+    func walletAddress()  -> String
+    
+    /**
+     * RFC-0049 salt nonce of that wallet.
+     */
+    func walletIndex()  -> UInt32
+    
+}
+/**
+ * An attachment the CHAIN confirms. Opaque: only `plan_agent_attachment`
+ * finding the work already done, or `confirm_agent_attachment` answering
+ * `Landed`, produces one -- so a host cannot tell an agent it is attached for
+ * a transaction that reverted.
+ */
+open class ConfirmedAttachment: ConfirmedAttachmentProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_confirmedattachment(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_confirmedattachment(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * The one chain.
+     */
+open func chainId() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_chain_id(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The agent that is now attached.
+     */
+open func delegateDid() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_delegate_did(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The agent's executor module on this chain.
+     */
+open func executorModule() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_executor_module(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The mandate the GUARD holds -- not the one the caller asked for.
+     */
+open func granted() -> MandateFfi  {
+    return try!  FfiConverterTypeMandateFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_granted(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Echo it on the answer.
+     */
+open func requestId() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_request_id(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The Safe the agent is attached to.
+     */
+open func walletAddress() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_wallet_address(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * RFC-0049 salt nonce of that wallet.
+     */
+open func walletIndex() -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_confirmedattachment_wallet_index(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeConfirmedAttachment: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = ConfirmedAttachment
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ConfirmedAttachment {
+        return ConfirmedAttachment(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: ConfirmedAttachment) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ConfirmedAttachment {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: ConfirmedAttachment, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeConfirmedAttachment_lift(_ pointer: UnsafeMutableRawPointer) throws -> ConfirmedAttachment {
+    return try FfiConverterTypeConfirmedAttachment.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeConfirmedAttachment_lower(_ value: ConfirmedAttachment) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeConfirmedAttachment.lower(value)
+}
+
+
+
+
+
+
+/**
  * A running LDK treasury node, exposed to the native app as an opaque handle.
  */
 public protocol LightningTreasuryProtocol: AnyObject, Sendable {
@@ -2680,6 +3179,370 @@ public func FfiConverterTypeLightningTreasury_lower(_ value: LightningTreasury) 
 
 
 /**
+ * Several pairings' Nostr transports on ONE socket per relay (NIP-42
+ * multi-AUTH), held as an opaque handle.
+ *
+ * The single-pairing [`NostrTransport`] is unchanged; a host moves to this
+ * when it wants one connection per relay instead of one per pairing. Same
+ * Command vocabulary, plus `EmitMessage.pairing` saying which pairing a
+ * message is for. Locking as on [`NostrTransport`].
+ */
+public protocol NostrFleetProtocol: AnyObject, Sendable {
+    
+    /**
+     * Bring one pairing onto the fleet. The first four arguments mean exactly
+     * what they mean on [`NostrTransport::new`]; `now_ms` is the host's wall
+     * clock in milliseconds. Returns the Commands that put the pairing on any
+     * socket that is already open.
+     */
+    func addPairing(prfSecretB64: String, pairingId: String, delegationJson: String, expectedPeerDid: String, nowMs: Double) throws  -> String
+    
+    func connect()  -> String
+    
+    func disconnect()  -> String
+    
+    func getOutboundQueueSize()  -> UInt32
+    
+    /**
+     * The fleet's socket state: `disconnected` | `connecting` | `connected`.
+     * About the shared sockets, not any one pairing -- see
+     * [`Self::pairing_state`].
+     */
+    func getState()  -> String
+    
+    func onTimer(timerId: String, nowMs: Double)  -> String
+    
+    func onWsClose(connection: UInt32, code: UInt16, reason: String)  -> String
+    
+    func onWsError(connection: UInt32)  -> String
+    
+    func onWsMessage(connection: UInt32, data: String, nowMs: Double)  -> String
+    
+    func onWsOpen(connection: UInt32, nowMs: Double)  -> String
+    
+    func pairingCount()  -> UInt32
+    
+    /**
+     * One pairing's standing on every relay, as the JSON document
+     * `NostrFleet::pairing_state` describes: `state` is `connected` while a
+     * relay that is up presents the pairing, `lost` when every relay that is
+     * up has stopped (each row says why, e.g. `revoked`), and otherwise the
+     * fleet's own state.
+     */
+    func pairingState(pairingId: String) throws  -> String
+    
+    /**
+     * Take one pairing off the fleet; the sockets stay up for the others.
+     */
+    func removePairing(pairingId: String, nowMs: Double) throws  -> String
+    
+    /**
+     * Send a `RelayMessage` frame as one pairing: sealed to THAT pairing's
+     * peer.
+     */
+    func send(pairingId: String, msgJson: String, nowMs: Double)  -> String
+    
+    func setPeer(pairingId: String, recipientDid: String, writeTokenJson: String) throws 
+    
+    func transportDid(pairingId: String) throws  -> String
+    
+}
+/**
+ * Several pairings' Nostr transports on ONE socket per relay (NIP-42
+ * multi-AUTH), held as an opaque handle.
+ *
+ * The single-pairing [`NostrTransport`] is unchanged; a host moves to this
+ * when it wants one connection per relay instead of one per pairing. Same
+ * Command vocabulary, plus `EmitMessage.pairing` saying which pairing a
+ * message is for. Locking as on [`NostrTransport`].
+ */
+open class NostrFleet: NostrFleetProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_nostrfleet(self.pointer, $0) }
+    }
+    /**
+     * An empty fleet over these relays, in preference order; the same list
+     * rules as [`NostrTransport::new`]. Pairings are added with
+     * [`Self::add_pairing`], before or after `connect`. At most
+     * [`max_nostr_fleet_pairings`] per fleet; shard above that.
+     */
+public convenience init(relayUrls: [String])throws  {
+    let pointer =
+        try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_constructor_nostrfleet_new(
+        FfiConverterSequenceString.lower(relayUrls),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_nostrfleet(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Bring one pairing onto the fleet. The first four arguments mean exactly
+     * what they mean on [`NostrTransport::new`]; `now_ms` is the host's wall
+     * clock in milliseconds. Returns the Commands that put the pairing on any
+     * socket that is already open.
+     */
+open func addPairing(prfSecretB64: String, pairingId: String, delegationJson: String, expectedPeerDid: String, nowMs: Double)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_add_pairing(self.uniffiClonePointer(),
+        FfiConverterString.lower(prfSecretB64),
+        FfiConverterString.lower(pairingId),
+        FfiConverterString.lower(delegationJson),
+        FfiConverterString.lower(expectedPeerDid),
+        FfiConverterDouble.lower(nowMs),$0
+    )
+})
+}
+    
+open func connect() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_connect(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func disconnect() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_disconnect(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func getOutboundQueueSize() -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_get_outbound_queue_size(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The fleet's socket state: `disconnected` | `connecting` | `connected`.
+     * About the shared sockets, not any one pairing -- see
+     * [`Self::pairing_state`].
+     */
+open func getState() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_get_state(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func onTimer(timerId: String, nowMs: Double) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_on_timer(self.uniffiClonePointer(),
+        FfiConverterString.lower(timerId),
+        FfiConverterDouble.lower(nowMs),$0
+    )
+})
+}
+    
+open func onWsClose(connection: UInt32, code: UInt16, reason: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_on_ws_close(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(connection),
+        FfiConverterUInt16.lower(code),
+        FfiConverterString.lower(reason),$0
+    )
+})
+}
+    
+open func onWsError(connection: UInt32) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_on_ws_error(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(connection),$0
+    )
+})
+}
+    
+open func onWsMessage(connection: UInt32, data: String, nowMs: Double) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_on_ws_message(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(connection),
+        FfiConverterString.lower(data),
+        FfiConverterDouble.lower(nowMs),$0
+    )
+})
+}
+    
+open func onWsOpen(connection: UInt32, nowMs: Double) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_on_ws_open(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(connection),
+        FfiConverterDouble.lower(nowMs),$0
+    )
+})
+}
+    
+open func pairingCount() -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_pairing_count(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * One pairing's standing on every relay, as the JSON document
+     * `NostrFleet::pairing_state` describes: `state` is `connected` while a
+     * relay that is up presents the pairing, `lost` when every relay that is
+     * up has stopped (each row says why, e.g. `revoked`), and otherwise the
+     * fleet's own state.
+     */
+open func pairingState(pairingId: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_pairing_state(self.uniffiClonePointer(),
+        FfiConverterString.lower(pairingId),$0
+    )
+})
+}
+    
+    /**
+     * Take one pairing off the fleet; the sockets stay up for the others.
+     */
+open func removePairing(pairingId: String, nowMs: Double)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_remove_pairing(self.uniffiClonePointer(),
+        FfiConverterString.lower(pairingId),
+        FfiConverterDouble.lower(nowMs),$0
+    )
+})
+}
+    
+    /**
+     * Send a `RelayMessage` frame as one pairing: sealed to THAT pairing's
+     * peer.
+     */
+open func send(pairingId: String, msgJson: String, nowMs: Double) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_send(self.uniffiClonePointer(),
+        FfiConverterString.lower(pairingId),
+        FfiConverterString.lower(msgJson),
+        FfiConverterDouble.lower(nowMs),$0
+    )
+})
+}
+    
+open func setPeer(pairingId: String, recipientDid: String, writeTokenJson: String)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_set_peer(self.uniffiClonePointer(),
+        FfiConverterString.lower(pairingId),
+        FfiConverterString.lower(recipientDid),
+        FfiConverterString.lower(writeTokenJson),$0
+    )
+}
+}
+    
+open func transportDid(pairingId: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_nostrfleet_transport_did(self.uniffiClonePointer(),
+        FfiConverterString.lower(pairingId),$0
+    )
+})
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNostrFleet: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = NostrFleet
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> NostrFleet {
+        return NostrFleet(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: NostrFleet) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NostrFleet {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: NostrFleet, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNostrFleet_lift(_ pointer: UnsafeMutableRawPointer) throws -> NostrFleet {
+    return try FfiConverterTypeNostrFleet.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNostrFleet_lower(_ value: NostrFleet) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeNostrFleet.lower(value)
+}
+
+
+
+
+
+
+/**
  * One pairing's Nostr transport, held as an opaque handle.
  *
  * UniFFI hands the foreign side an `Arc<Self>` and every exported method takes
@@ -2705,8 +3568,10 @@ public protocol NostrTransportProtocol: AnyObject, Sendable {
     func getOutboundQueueSize()  -> UInt32
     
     /**
-     * `"disconnected"`, `"connecting"` or `"connected"` -- the same three names
-     * the legacy transport reports.
+     * `"disconnected"`, `"connecting"`, `"connected"` -- the three names the
+     * legacy transport reported -- or `"lost"`: the relay has revoked this
+     * pairing (or capped it out) and nothing will reconnect. `standing` says
+     * which relay and why.
      */
     func getState()  -> String
     
@@ -2739,6 +3604,13 @@ public protocol NostrTransportProtocol: AnyObject, Sendable {
      * being sent unsealed.
      */
     func setPeer(recipientDid: String, writeTokenJson: String) throws 
+    
+    /**
+     * This pairing's standing on every relay, as the JSON document
+     * `NostrFleet::pairing_state` describes (see `NostrFleet::pairing_state`
+     * below).
+     */
+    func standing()  -> String
     
     /**
      * This pairing's own transport `did:key`, which is the address a peer
@@ -2888,8 +3760,10 @@ open func getOutboundQueueSize() -> UInt32  {
 }
     
     /**
-     * `"disconnected"`, `"connecting"` or `"connected"` -- the same three names
-     * the legacy transport reports.
+     * `"disconnected"`, `"connecting"`, `"connected"` -- the three names the
+     * legacy transport reported -- or `"lost"`: the relay has revoked this
+     * pairing (or capped it out) and nothing will reconnect. `standing` says
+     * which relay and why.
      */
 open func getState() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
@@ -2974,6 +3848,18 @@ open func setPeer(recipientDid: String, writeTokenJson: String)throws   {try rus
         FfiConverterString.lower(writeTokenJson),$0
     )
 }
+}
+    
+    /**
+     * This pairing's standing on every relay, as the JSON document
+     * `NostrFleet::pairing_state` describes (see `NostrFleet::pairing_state`
+     * below).
+     */
+open func standing() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_nostrtransport_standing(self.uniffiClonePointer(),$0
+    )
+})
 }
     
     /**
@@ -3993,6 +4879,15 @@ public func FfiConverterTypeSubmitGuard_lower(_ value: SubmitGuard) -> UnsafeMut
 public protocol VerifiedAttachmentRequestProtocol: AnyObject, Sendable {
     
     /**
+     * Where a decline of THIS request goes, for
+     * [`build_agent_attachment_rejected`].
+     *
+     * One decline builder rather than two, so the owner refusing on the
+     * merits and this device refusing at the boundary cannot drift apart.
+     */
+    func decline()  -> AttachmentDecline
+    
+    /**
      * What to show the owner.
      */
     func summary()  -> AgentAttachmentSummaryFfi
@@ -4053,6 +4948,20 @@ open class VerifiedAttachmentRequest: VerifiedAttachmentRequestProtocol, @unchec
 
     
 
+    
+    /**
+     * Where a decline of THIS request goes, for
+     * [`build_agent_attachment_rejected`].
+     *
+     * One decline builder rather than two, so the owner refusing on the
+     * merits and this device refusing at the boundary cannot drift apart.
+     */
+open func decline() -> AttachmentDecline  {
+    return try!  FfiConverterTypeAttachmentDecline_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_verifiedattachmentrequest_decline(self.uniffiClonePointer(),$0
+    )
+})
+}
     
     /**
      * What to show the owner.
@@ -4121,6 +5030,108 @@ public func FfiConverterTypeVerifiedAttachmentRequest_lower(_ value: VerifiedAtt
 
 
 /**
+ * What [`prepare_direct_agent_attachment`] returns: the root to sign, and
+ * what signing it can cost.
+ */
+public struct AgentAttachmentPreparedFfi {
+    /**
+     * The merkle root to sign and the session token to submit under.
+     */
+    public var prepare: MultichainPrepareSummary
+    /**
+     * ERC-20 the refund is paid in, echoed from the quote.
+     */
+    public var gasToken: String
+    /**
+     * The MOST the Safe can pay the relayer for this transaction, in
+     * `gas_token` units, as minimal `0x` hex. Render it as the fee.
+     */
+    public var maxRefundHex: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The merkle root to sign and the session token to submit under.
+         */prepare: MultichainPrepareSummary, 
+        /**
+         * ERC-20 the refund is paid in, echoed from the quote.
+         */gasToken: String, 
+        /**
+         * The MOST the Safe can pay the relayer for this transaction, in
+         * `gas_token` units, as minimal `0x` hex. Render it as the fee.
+         */maxRefundHex: String) {
+        self.prepare = prepare
+        self.gasToken = gasToken
+        self.maxRefundHex = maxRefundHex
+    }
+}
+
+#if compiler(>=6)
+extension AgentAttachmentPreparedFfi: Sendable {}
+#endif
+
+
+extension AgentAttachmentPreparedFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentAttachmentPreparedFfi, rhs: AgentAttachmentPreparedFfi) -> Bool {
+        if lhs.prepare != rhs.prepare {
+            return false
+        }
+        if lhs.gasToken != rhs.gasToken {
+            return false
+        }
+        if lhs.maxRefundHex != rhs.maxRefundHex {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(prepare)
+        hasher.combine(gasToken)
+        hasher.combine(maxRefundHex)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentAttachmentPreparedFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentAttachmentPreparedFfi {
+        return
+            try AgentAttachmentPreparedFfi(
+                prepare: FfiConverterTypeMultichainPrepareSummary.read(from: &buf), 
+                gasToken: FfiConverterString.read(from: &buf), 
+                maxRefundHex: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentAttachmentPreparedFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeMultichainPrepareSummary.write(value.prepare, into: &buf)
+        FfiConverterString.write(value.gasToken, into: &buf)
+        FfiConverterString.write(value.maxRefundHex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentAttachmentPreparedFfi_lift(_ buf: RustBuffer) throws -> AgentAttachmentPreparedFfi {
+    return try FfiConverterTypeAgentAttachmentPreparedFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentAttachmentPreparedFfi_lower(_ value: AgentAttachmentPreparedFfi) -> RustBuffer {
+    return FfiConverterTypeAgentAttachmentPreparedFfi.lower(value)
+}
+
+
+/**
  * What to show the owner about an attachment request.
  */
 public struct AgentAttachmentSummaryFfi {
@@ -4141,7 +5152,16 @@ public struct AgentAttachmentSummaryFfi {
      */
     public var chainId: UInt64
     public var requestedToken: String
+    /**
+     * Minimal `0x` hex, and never `0x0`: `SafeModuleGuard` reads a zero side
+     * as "no ceiling at all" rather than as a limit of zero, so a request
+     * naming one is refused at the boundary. Safe to render as an amount.
+     */
     public var requestedMaxPerTxHex: String
+    /**
+     * Minimal `0x` hex, and never `0x0` -- same rule as
+     * [`Self::requested_max_per_tx_hex`].
+     */
     public var requestedDailyMaxHex: String
     /**
      * Unix milliseconds after which the request is void.
@@ -4162,7 +5182,16 @@ public struct AgentAttachmentSummaryFfi {
          */agentLabel: String?, 
         /**
          * The ONE chain the agent asked to be attached on.
-         */chainId: UInt64, requestedToken: String, requestedMaxPerTxHex: String, requestedDailyMaxHex: String, 
+         */chainId: UInt64, requestedToken: String, 
+        /**
+         * Minimal `0x` hex, and never `0x0`: `SafeModuleGuard` reads a zero side
+         * as "no ceiling at all" rather than as a limit of zero, so a request
+         * naming one is refused at the boundary. Safe to render as an amount.
+         */requestedMaxPerTxHex: String, 
+        /**
+         * Minimal `0x` hex, and never `0x0` -- same rule as
+         * [`Self::requested_max_per_tx_hex`].
+         */requestedDailyMaxHex: String, 
         /**
          * Unix milliseconds after which the request is void.
          */expiresAtMs: Int64) {
@@ -4272,6 +5301,174 @@ public func FfiConverterTypeAgentAttachmentSummaryFfi_lower(_ value: AgentAttach
 
 
 /**
+ * The relay half: what to POST, where, and with which header per relay.
+ */
+public struct AgentDisownmentFfi {
+    /**
+     * The exact bytes to POST at every relay. Never re-serialize them: each
+     * header covers these bytes.
+     */
+    public var body: Data
+    public var authorizations: [RelayAuthorizationFfi]
+    /**
+     * The route, from the root, with its version prefix.
+     */
+    public var path: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The exact bytes to POST at every relay. Never re-serialize them: each
+         * header covers these bytes.
+         */body: Data, authorizations: [RelayAuthorizationFfi], 
+        /**
+         * The route, from the root, with its version prefix.
+         */path: String) {
+        self.body = body
+        self.authorizations = authorizations
+        self.path = path
+    }
+}
+
+#if compiler(>=6)
+extension AgentDisownmentFfi: Sendable {}
+#endif
+
+
+extension AgentDisownmentFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentDisownmentFfi, rhs: AgentDisownmentFfi) -> Bool {
+        if lhs.body != rhs.body {
+            return false
+        }
+        if lhs.authorizations != rhs.authorizations {
+            return false
+        }
+        if lhs.path != rhs.path {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(body)
+        hasher.combine(authorizations)
+        hasher.combine(path)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentDisownmentFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentDisownmentFfi {
+        return
+            try AgentDisownmentFfi(
+                body: FfiConverterData.read(from: &buf), 
+                authorizations: FfiConverterSequenceTypeRelayAuthorizationFfi.read(from: &buf), 
+                path: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentDisownmentFfi, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.body, into: &buf)
+        FfiConverterSequenceTypeRelayAuthorizationFfi.write(value.authorizations, into: &buf)
+        FfiConverterString.write(value.path, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentDisownmentFfi_lift(_ buf: RustBuffer) throws -> AgentDisownmentFfi {
+    return try FfiConverterTypeAgentDisownmentFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentDisownmentFfi_lower(_ value: AgentDisownmentFfi) -> RustBuffer {
+    return FfiConverterTypeAgentDisownmentFfi.lower(value)
+}
+
+
+/**
+ * Both halves. `relay` is always present, as one variant or the other.
+ */
+public struct AgentDisownmentPlanFfi {
+    public var relay: DisownmentRelayOpFfi
+    public var chain: DisownmentChainOpFfi
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(relay: DisownmentRelayOpFfi, chain: DisownmentChainOpFfi) {
+        self.relay = relay
+        self.chain = chain
+    }
+}
+
+#if compiler(>=6)
+extension AgentDisownmentPlanFfi: Sendable {}
+#endif
+
+
+extension AgentDisownmentPlanFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentDisownmentPlanFfi, rhs: AgentDisownmentPlanFfi) -> Bool {
+        if lhs.relay != rhs.relay {
+            return false
+        }
+        if lhs.chain != rhs.chain {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(relay)
+        hasher.combine(chain)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentDisownmentPlanFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentDisownmentPlanFfi {
+        return
+            try AgentDisownmentPlanFfi(
+                relay: FfiConverterTypeDisownmentRelayOpFfi.read(from: &buf), 
+                chain: FfiConverterTypeDisownmentChainOpFfi.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentDisownmentPlanFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeDisownmentRelayOpFfi.write(value.relay, into: &buf)
+        FfiConverterTypeDisownmentChainOpFfi.write(value.chain, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentDisownmentPlanFfi_lift(_ buf: RustBuffer) throws -> AgentDisownmentPlanFfi {
+    return try FfiConverterTypeAgentDisownmentPlanFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentDisownmentPlanFfi_lower(_ value: AgentDisownmentPlanFfi) -> RustBuffer {
+    return FfiConverterTypeAgentDisownmentPlanFfi.lower(value)
+}
+
+
+/**
  * Two-step approval handle. `hash_to_sign` is the bytes the WebAuthn
  * authenticator must sign; `session_token` is opaque state the runtime
  * carries between `prepare_*` and `complete_approval`.
@@ -4348,7 +5545,10 @@ public func FfiConverterTypeApprovalPrep_lower(_ value: ApprovalPrep) -> RustBuf
 
 /**
  * What the owner's passkey signs to let the attached agent use the wallet's
- * relay subjects: one grant, so the challenge is the statement's own hash.
+ * relay subjects, and to keep this device's own access to them.
+ *
+ * Two grants under one Merkle root, so ONE assertion covers both and the
+ * owner is prompted once.
  */
 public struct AttachmentGrantChallengeFfi {
     /**
@@ -4356,9 +5556,18 @@ public struct AttachmentGrantChallengeFfi {
      */
     public var hashToSign: Data
     /**
-     * The exact sentence being signed, for the confirmation sheet.
+     * The exact sentences being signed, for the confirmation sheet: the
+     * agent's, then this device's own. Both, because one assertion covers
+     * both -- showing one understates the gesture.
      */
-    public var statement: String
+    public var statements: [String]
+    /**
+     * The expiry this challenge committed to. Pass it straight back to
+     * `build_agent_attachment_granted`: the two mix it into the same
+     * commitment, so a host that recomputed it from its own clock would
+     * produce a delegation the assertion does not authorize.
+     */
+    public var expiresAtMs: Int64
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -4367,10 +5576,19 @@ public struct AttachmentGrantChallengeFfi {
          * Pass this as the WebAuthn challenge.
          */hashToSign: Data, 
         /**
-         * The exact sentence being signed, for the confirmation sheet.
-         */statement: String) {
+         * The exact sentences being signed, for the confirmation sheet: the
+         * agent's, then this device's own. Both, because one assertion covers
+         * both -- showing one understates the gesture.
+         */statements: [String], 
+        /**
+         * The expiry this challenge committed to. Pass it straight back to
+         * `build_agent_attachment_granted`: the two mix it into the same
+         * commitment, so a host that recomputed it from its own clock would
+         * produce a delegation the assertion does not authorize.
+         */expiresAtMs: Int64) {
         self.hashToSign = hashToSign
-        self.statement = statement
+        self.statements = statements
+        self.expiresAtMs = expiresAtMs
     }
 }
 
@@ -4384,7 +5602,10 @@ extension AttachmentGrantChallengeFfi: Equatable, Hashable {
         if lhs.hashToSign != rhs.hashToSign {
             return false
         }
-        if lhs.statement != rhs.statement {
+        if lhs.statements != rhs.statements {
+            return false
+        }
+        if lhs.expiresAtMs != rhs.expiresAtMs {
             return false
         }
         return true
@@ -4392,7 +5613,8 @@ extension AttachmentGrantChallengeFfi: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(hashToSign)
-        hasher.combine(statement)
+        hasher.combine(statements)
+        hasher.combine(expiresAtMs)
     }
 }
 
@@ -4406,13 +5628,15 @@ public struct FfiConverterTypeAttachmentGrantChallengeFfi: FfiConverterRustBuffe
         return
             try AttachmentGrantChallengeFfi(
                 hashToSign: FfiConverterData.read(from: &buf), 
-                statement: FfiConverterString.read(from: &buf)
+                statements: FfiConverterSequenceString.read(from: &buf), 
+                expiresAtMs: FfiConverterInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: AttachmentGrantChallengeFfi, into buf: inout [UInt8]) {
         FfiConverterData.write(value.hashToSign, into: &buf)
-        FfiConverterString.write(value.statement, into: &buf)
+        FfiConverterSequenceString.write(value.statements, into: &buf)
+        FfiConverterInt64.write(value.expiresAtMs, into: &buf)
     }
 }
 
@@ -4429,6 +5653,287 @@ public func FfiConverterTypeAttachmentGrantChallengeFfi_lift(_ buf: RustBuffer) 
 #endif
 public func FfiConverterTypeAttachmentGrantChallengeFfi_lower(_ value: AttachmentGrantChallengeFfi) -> RustBuffer {
     return FfiConverterTypeAttachmentGrantChallengeFfi.lower(value)
+}
+
+
+/**
+ * One granted answer: the sealed reply for the agent, and the grant that
+ * stays here.
+ *
+ * Flat, like `WalletCreationFfi`, and flat in the browser too: one shape for
+ * the same value on both bindings is what stops two hosts reading it
+ * differently.
+ */
+public struct AttachmentGrantedFfi {
+    /**
+     * `paygent:principal:<delegate did>:invites`.
+     */
+    public var invitesSubject: String
+    /**
+     * The pairing-scoped key that seals `message_json`; pass it to
+     * `seal_invite`.
+     */
+    public var inviteKey: Data
+    /**
+     * The JSON body to seal and publish.
+     */
+    public var messageJson: String
+    /**
+     * This device's own delegation for the wallet, as JSON. Persist it in the
+     * wallet record: it authorizes this device's relay connection to the
+     * wallet's subjects, and it is the only grant carrying publish on the
+     * wallet's revocations facet. It is NOT inside `message_json` -- the
+     * agent has no business holding the owner's credential.
+     */
+    public var ownerDelegation: String
+    /**
+     * The wallet's per-agent two-zone body key: what OPENS the escalations
+     * this agent seals on the wallet's subjects. Persist it in the wallet
+     * record beside the delegation, the way a creation's is -- the delegation
+     * only buys the right to subscribe, and without this key what arrives on
+     * that subscription cannot be read.
+     *
+     * Derived from the pairing that carried this attachment, so two agents
+     * attached to one wallet have the same subjects and different keys: key
+     * the store by `delegate_did` too, never by the wallet subject alone.
+     *
+     * Secret material, and it stays on this device: the agent derives its own
+     * copy from the pairing secret it already holds.
+     */
+    public var bodyKey: Data
+    /**
+     * The agent this answer is for -- the second coordinate `body_key` is
+     * scoped to.
+     */
+    public var delegateDid: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * `paygent:principal:<delegate did>:invites`.
+         */invitesSubject: String, 
+        /**
+         * The pairing-scoped key that seals `message_json`; pass it to
+         * `seal_invite`.
+         */inviteKey: Data, 
+        /**
+         * The JSON body to seal and publish.
+         */messageJson: String, 
+        /**
+         * This device's own delegation for the wallet, as JSON. Persist it in the
+         * wallet record: it authorizes this device's relay connection to the
+         * wallet's subjects, and it is the only grant carrying publish on the
+         * wallet's revocations facet. It is NOT inside `message_json` -- the
+         * agent has no business holding the owner's credential.
+         */ownerDelegation: String, 
+        /**
+         * The wallet's per-agent two-zone body key: what OPENS the escalations
+         * this agent seals on the wallet's subjects. Persist it in the wallet
+         * record beside the delegation, the way a creation's is -- the delegation
+         * only buys the right to subscribe, and without this key what arrives on
+         * that subscription cannot be read.
+         *
+         * Derived from the pairing that carried this attachment, so two agents
+         * attached to one wallet have the same subjects and different keys: key
+         * the store by `delegate_did` too, never by the wallet subject alone.
+         *
+         * Secret material, and it stays on this device: the agent derives its own
+         * copy from the pairing secret it already holds.
+         */bodyKey: Data, 
+        /**
+         * The agent this answer is for -- the second coordinate `body_key` is
+         * scoped to.
+         */delegateDid: String) {
+        self.invitesSubject = invitesSubject
+        self.inviteKey = inviteKey
+        self.messageJson = messageJson
+        self.ownerDelegation = ownerDelegation
+        self.bodyKey = bodyKey
+        self.delegateDid = delegateDid
+    }
+}
+
+#if compiler(>=6)
+extension AttachmentGrantedFfi: Sendable {}
+#endif
+
+
+extension AttachmentGrantedFfi: Equatable, Hashable {
+    public static func ==(lhs: AttachmentGrantedFfi, rhs: AttachmentGrantedFfi) -> Bool {
+        if lhs.invitesSubject != rhs.invitesSubject {
+            return false
+        }
+        if lhs.inviteKey != rhs.inviteKey {
+            return false
+        }
+        if lhs.messageJson != rhs.messageJson {
+            return false
+        }
+        if lhs.ownerDelegation != rhs.ownerDelegation {
+            return false
+        }
+        if lhs.bodyKey != rhs.bodyKey {
+            return false
+        }
+        if lhs.delegateDid != rhs.delegateDid {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(invitesSubject)
+        hasher.combine(inviteKey)
+        hasher.combine(messageJson)
+        hasher.combine(ownerDelegation)
+        hasher.combine(bodyKey)
+        hasher.combine(delegateDid)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentGrantedFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentGrantedFfi {
+        return
+            try AttachmentGrantedFfi(
+                invitesSubject: FfiConverterString.read(from: &buf), 
+                inviteKey: FfiConverterData.read(from: &buf), 
+                messageJson: FfiConverterString.read(from: &buf), 
+                ownerDelegation: FfiConverterString.read(from: &buf), 
+                bodyKey: FfiConverterData.read(from: &buf), 
+                delegateDid: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AttachmentGrantedFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.invitesSubject, into: &buf)
+        FfiConverterData.write(value.inviteKey, into: &buf)
+        FfiConverterString.write(value.messageJson, into: &buf)
+        FfiConverterString.write(value.ownerDelegation, into: &buf)
+        FfiConverterData.write(value.bodyKey, into: &buf)
+        FfiConverterString.write(value.delegateDid, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentGrantedFfi_lift(_ buf: RustBuffer) throws -> AttachmentGrantedFfi {
+    return try FfiConverterTypeAttachmentGrantedFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentGrantedFfi_lower(_ value: AttachmentGrantedFfi) -> RustBuffer {
+    return FfiConverterTypeAttachmentGrantedFfi.lower(value)
+}
+
+
+/**
+ * Where one answer to an agent goes, what seals it, and the body.
+ */
+public struct AttachmentReplyFfi {
+    /**
+     * `paygent:principal:<delegate did>:invites`.
+     */
+    public var invitesSubject: String
+    /**
+     * The pairing-scoped key that seals `message_json`; pass it to
+     * `seal_invite`.
+     */
+    public var inviteKey: Data
+    /**
+     * The JSON body to seal and publish.
+     */
+    public var messageJson: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * `paygent:principal:<delegate did>:invites`.
+         */invitesSubject: String, 
+        /**
+         * The pairing-scoped key that seals `message_json`; pass it to
+         * `seal_invite`.
+         */inviteKey: Data, 
+        /**
+         * The JSON body to seal and publish.
+         */messageJson: String) {
+        self.invitesSubject = invitesSubject
+        self.inviteKey = inviteKey
+        self.messageJson = messageJson
+    }
+}
+
+#if compiler(>=6)
+extension AttachmentReplyFfi: Sendable {}
+#endif
+
+
+extension AttachmentReplyFfi: Equatable, Hashable {
+    public static func ==(lhs: AttachmentReplyFfi, rhs: AttachmentReplyFfi) -> Bool {
+        if lhs.invitesSubject != rhs.invitesSubject {
+            return false
+        }
+        if lhs.inviteKey != rhs.inviteKey {
+            return false
+        }
+        if lhs.messageJson != rhs.messageJson {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(invitesSubject)
+        hasher.combine(inviteKey)
+        hasher.combine(messageJson)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentReplyFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentReplyFfi {
+        return
+            try AttachmentReplyFfi(
+                invitesSubject: FfiConverterString.read(from: &buf), 
+                inviteKey: FfiConverterData.read(from: &buf), 
+                messageJson: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AttachmentReplyFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.invitesSubject, into: &buf)
+        FfiConverterData.write(value.inviteKey, into: &buf)
+        FfiConverterString.write(value.messageJson, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentReplyFfi_lift(_ buf: RustBuffer) throws -> AttachmentReplyFfi {
+    return try FfiConverterTypeAttachmentReplyFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentReplyFfi_lower(_ value: AttachmentReplyFfi) -> RustBuffer {
+    return FfiConverterTypeAttachmentReplyFfi.lower(value)
 }
 
 
@@ -4671,7 +6176,8 @@ public func FfiConverterTypeChainConfigFfi_lower(_ value: ChainConfigFfi) -> Rus
  * executor module is absent on purpose: the plan derives it from the verified
  * agent key. The guard is absent too: the plan reads the one the Safe
  * enforces out of the Safe's own storage. No bundler: the attachment rides
- * the self-funded direct rail.
+ * the direct `execTransaction` rail, whose fee the Safe refunds to the
+ * relayer that broadcasts it.
  */
 public struct ChainConfigInputFfi {
     public var chainId: UInt64
@@ -5699,6 +7205,130 @@ public func FfiConverterTypeDiscoveredWallet_lift(_ buf: RustBuffer) throws -> D
 #endif
 public func FfiConverterTypeDiscoveredWallet_lower(_ value: DiscoveredWallet) -> RustBuffer {
     return FfiConverterTypeDiscoveredWallet.lower(value)
+}
+
+
+/**
+ * Everything the relay half needs. `chain` is CAIP-2 (`eip155:8453`,
+ * `solana:<genesis prefix>`); `wallet_account` is the Safe address on EVM and
+ * the vault token account on Solana; `revoked_delegate_did` is the agent's
+ * durable identity as its own grant names it.
+ */
+public struct DisownmentInputFfi {
+    public var ownerDelegationJson: String
+    public var prfSecretB64: String
+    public var pairingId: String
+    public var relayOrigins: [String]
+    public var chain: String
+    public var walletAccount: String
+    public var revokedDelegateDid: String
+    public var nowMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(ownerDelegationJson: String, prfSecretB64: String, pairingId: String, relayOrigins: [String], chain: String, walletAccount: String, revokedDelegateDid: String, nowMs: Int64) {
+        self.ownerDelegationJson = ownerDelegationJson
+        self.prfSecretB64 = prfSecretB64
+        self.pairingId = pairingId
+        self.relayOrigins = relayOrigins
+        self.chain = chain
+        self.walletAccount = walletAccount
+        self.revokedDelegateDid = revokedDelegateDid
+        self.nowMs = nowMs
+    }
+}
+
+#if compiler(>=6)
+extension DisownmentInputFfi: Sendable {}
+#endif
+
+
+extension DisownmentInputFfi: Equatable, Hashable {
+    public static func ==(lhs: DisownmentInputFfi, rhs: DisownmentInputFfi) -> Bool {
+        if lhs.ownerDelegationJson != rhs.ownerDelegationJson {
+            return false
+        }
+        if lhs.prfSecretB64 != rhs.prfSecretB64 {
+            return false
+        }
+        if lhs.pairingId != rhs.pairingId {
+            return false
+        }
+        if lhs.relayOrigins != rhs.relayOrigins {
+            return false
+        }
+        if lhs.chain != rhs.chain {
+            return false
+        }
+        if lhs.walletAccount != rhs.walletAccount {
+            return false
+        }
+        if lhs.revokedDelegateDid != rhs.revokedDelegateDid {
+            return false
+        }
+        if lhs.nowMs != rhs.nowMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ownerDelegationJson)
+        hasher.combine(prfSecretB64)
+        hasher.combine(pairingId)
+        hasher.combine(relayOrigins)
+        hasher.combine(chain)
+        hasher.combine(walletAccount)
+        hasher.combine(revokedDelegateDid)
+        hasher.combine(nowMs)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDisownmentInputFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DisownmentInputFfi {
+        return
+            try DisownmentInputFfi(
+                ownerDelegationJson: FfiConverterString.read(from: &buf), 
+                prfSecretB64: FfiConverterString.read(from: &buf), 
+                pairingId: FfiConverterString.read(from: &buf), 
+                relayOrigins: FfiConverterSequenceString.read(from: &buf), 
+                chain: FfiConverterString.read(from: &buf), 
+                walletAccount: FfiConverterString.read(from: &buf), 
+                revokedDelegateDid: FfiConverterString.read(from: &buf), 
+                nowMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: DisownmentInputFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.ownerDelegationJson, into: &buf)
+        FfiConverterString.write(value.prfSecretB64, into: &buf)
+        FfiConverterString.write(value.pairingId, into: &buf)
+        FfiConverterSequenceString.write(value.relayOrigins, into: &buf)
+        FfiConverterString.write(value.chain, into: &buf)
+        FfiConverterString.write(value.walletAccount, into: &buf)
+        FfiConverterString.write(value.revokedDelegateDid, into: &buf)
+        FfiConverterInt64.write(value.nowMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownmentInputFfi_lift(_ buf: RustBuffer) throws -> DisownmentInputFfi {
+    return try FfiConverterTypeDisownmentInputFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownmentInputFfi_lower(_ value: DisownmentInputFfi) -> RustBuffer {
+    return FfiConverterTypeDisownmentInputFfi.lower(value)
 }
 
 
@@ -7964,6 +9594,93 @@ public func FfiConverterTypePairingQr_lower(_ value: PairingQr) -> RustBuffer {
 
 
 /**
+ * One relay's `Authorization` header for the disownment body.
+ */
+public struct RelayAuthorizationFfi {
+    /**
+     * The normalized ws origin the proof binds; post to that relay's http
+     * form of the same name.
+     */
+    public var relayOrigin: String
+    /**
+     * The complete header value. Send verbatim.
+     */
+    public var authorization: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The normalized ws origin the proof binds; post to that relay's http
+         * form of the same name.
+         */relayOrigin: String, 
+        /**
+         * The complete header value. Send verbatim.
+         */authorization: String) {
+        self.relayOrigin = relayOrigin
+        self.authorization = authorization
+    }
+}
+
+#if compiler(>=6)
+extension RelayAuthorizationFfi: Sendable {}
+#endif
+
+
+extension RelayAuthorizationFfi: Equatable, Hashable {
+    public static func ==(lhs: RelayAuthorizationFfi, rhs: RelayAuthorizationFfi) -> Bool {
+        if lhs.relayOrigin != rhs.relayOrigin {
+            return false
+        }
+        if lhs.authorization != rhs.authorization {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(relayOrigin)
+        hasher.combine(authorization)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRelayAuthorizationFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RelayAuthorizationFfi {
+        return
+            try RelayAuthorizationFfi(
+                relayOrigin: FfiConverterString.read(from: &buf), 
+                authorization: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RelayAuthorizationFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.relayOrigin, into: &buf)
+        FfiConverterString.write(value.authorization, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRelayAuthorizationFfi_lift(_ buf: RustBuffer) throws -> RelayAuthorizationFfi {
+    return try FfiConverterTypeRelayAuthorizationFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRelayAuthorizationFfi_lower(_ value: RelayAuthorizationFfi) -> RustBuffer {
+    return FfiConverterTypeRelayAuthorizationFfi.lower(value)
+}
+
+
+/**
  * A guard address plus whether it came from the Safe itself.
  */
 public struct ResolvedGuardFfi {
@@ -8637,18 +10354,26 @@ public struct SolanaFeeQuote {
      */
     public var feePayer: String
     /**
-     * The flat fee (USDC base units) charged per op as `actual_fee`, to display
-     * before the biometric (RFC-0031 R3: a fixed schedule, not a live estimate).
+     * What the op charges (USDC base units): the core's schedule for the op
+     * at the pinned SOL price, clamped to the cap. For `add_agent` the most it
+     * charges; the prepare reports what it bound.
      */
     public var estimateUsdc: String
     /**
-     * Suggested signing ceiling (`max_fee`), clamped to the on-chain cap.
+     * The signing ceiling (`max_fee`) the prepare binds, equal to
+     * `estimate_usdc`.
      */
     public var maxFeeSuggested: String
     /**
      * The on-chain per-op fee cap.
      */
     public var cap: String
+    /**
+     * The part of the true network cost above the cap, which the wallet is
+     * not asked for and Paygent absorbs; "0" until the SOL price pushes the
+     * op's rent past the cap. Show it when nonzero.
+     */
+    public var uncoveredUsdc: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -8662,20 +10387,28 @@ public struct SolanaFeeQuote {
          * submits, and is the account that fronts any rent.
          */feePayer: String, 
         /**
-         * The flat fee (USDC base units) charged per op as `actual_fee`, to display
-         * before the biometric (RFC-0031 R3: a fixed schedule, not a live estimate).
+         * What the op charges (USDC base units): the core's schedule for the op
+         * at the pinned SOL price, clamped to the cap. For `add_agent` the most it
+         * charges; the prepare reports what it bound.
          */estimateUsdc: String, 
         /**
-         * Suggested signing ceiling (`max_fee`), clamped to the on-chain cap.
+         * The signing ceiling (`max_fee`) the prepare binds, equal to
+         * `estimate_usdc`.
          */maxFeeSuggested: String, 
         /**
          * The on-chain per-op fee cap.
-         */cap: String) {
+         */cap: String, 
+        /**
+         * The part of the true network cost above the cap, which the wallet is
+         * not asked for and Paygent absorbs; "0" until the SOL price pushes the
+         * op's rent past the cap. Show it when nonzero.
+         */uncoveredUsdc: String) {
         self.feeReceiver = feeReceiver
         self.feePayer = feePayer
         self.estimateUsdc = estimateUsdc
         self.maxFeeSuggested = maxFeeSuggested
         self.cap = cap
+        self.uncoveredUsdc = uncoveredUsdc
     }
 }
 
@@ -8701,6 +10434,9 @@ extension SolanaFeeQuote: Equatable, Hashable {
         if lhs.cap != rhs.cap {
             return false
         }
+        if lhs.uncoveredUsdc != rhs.uncoveredUsdc {
+            return false
+        }
         return true
     }
 
@@ -8710,6 +10446,7 @@ extension SolanaFeeQuote: Equatable, Hashable {
         hasher.combine(estimateUsdc)
         hasher.combine(maxFeeSuggested)
         hasher.combine(cap)
+        hasher.combine(uncoveredUsdc)
     }
 }
 
@@ -8726,7 +10463,8 @@ public struct FfiConverterTypeSolanaFeeQuote: FfiConverterRustBuffer {
                 feePayer: FfiConverterString.read(from: &buf), 
                 estimateUsdc: FfiConverterString.read(from: &buf), 
                 maxFeeSuggested: FfiConverterString.read(from: &buf), 
-                cap: FfiConverterString.read(from: &buf)
+                cap: FfiConverterString.read(from: &buf), 
+                uncoveredUsdc: FfiConverterString.read(from: &buf)
         )
     }
 
@@ -8736,6 +10474,7 @@ public struct FfiConverterTypeSolanaFeeQuote: FfiConverterRustBuffer {
         FfiConverterString.write(value.estimateUsdc, into: &buf)
         FfiConverterString.write(value.maxFeeSuggested, into: &buf)
         FfiConverterString.write(value.cap, into: &buf)
+        FfiConverterString.write(value.uncoveredUsdc, into: &buf)
     }
 }
 
@@ -9460,7 +11199,11 @@ public func FfiConverterTypeSolanaOwnerOpCarrier_lower(_ value: SolanaOwnerOpCar
 
 
 /**
- * The flat fee schedule an owner op binds into the message the passkey signs.
+ * The fee schedule an owner op binds into the message the passkey signs.
+ *
+ * A view of the core's value, which only the core's schedule functions can
+ * construct; the host reads it to display what the owner is about to sign and
+ * never hands one back -- the `prepare_*` calls compute their own.
  */
 public struct SolanaOwnerOpFees {
     /**
@@ -9468,9 +11211,18 @@ public struct SolanaOwnerOpFees {
      */
     public var actualUsdc: UInt64
     /**
-     * The ceiling the owner's signature authorizes, USDC base units.
+     * The ceiling the owner's signature authorizes, USDC base units. Equal to
+     * `actual_usdc`: the ceiling is the only fee field the owner signs, so a
+     * ceiling above the charge is room a fee-payer node could charge into.
      */
     public var maxUsdc: UInt64
+    /**
+     * The part of the true network cost above the on-chain cap, which the
+     * wallet is not asked for and Paygent absorbs. Zero until the SOL price
+     * pushes an op's rent past the cap; a host shows it rather than letting
+     * the capped charge read as the whole cost.
+     */
+    public var uncoveredUsdc: UInt64
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -9479,10 +11231,19 @@ public struct SolanaOwnerOpFees {
          * What the wallet actually pays, USDC base units.
          */actualUsdc: UInt64, 
         /**
-         * The ceiling the owner's signature authorizes, USDC base units.
-         */maxUsdc: UInt64) {
+         * The ceiling the owner's signature authorizes, USDC base units. Equal to
+         * `actual_usdc`: the ceiling is the only fee field the owner signs, so a
+         * ceiling above the charge is room a fee-payer node could charge into.
+         */maxUsdc: UInt64, 
+        /**
+         * The part of the true network cost above the on-chain cap, which the
+         * wallet is not asked for and Paygent absorbs. Zero until the SOL price
+         * pushes an op's rent past the cap; a host shows it rather than letting
+         * the capped charge read as the whole cost.
+         */uncoveredUsdc: UInt64) {
         self.actualUsdc = actualUsdc
         self.maxUsdc = maxUsdc
+        self.uncoveredUsdc = uncoveredUsdc
     }
 }
 
@@ -9499,12 +11260,16 @@ extension SolanaOwnerOpFees: Equatable, Hashable {
         if lhs.maxUsdc != rhs.maxUsdc {
             return false
         }
+        if lhs.uncoveredUsdc != rhs.uncoveredUsdc {
+            return false
+        }
         return true
     }
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(actualUsdc)
         hasher.combine(maxUsdc)
+        hasher.combine(uncoveredUsdc)
     }
 }
 
@@ -9518,13 +11283,15 @@ public struct FfiConverterTypeSolanaOwnerOpFees: FfiConverterRustBuffer {
         return
             try SolanaOwnerOpFees(
                 actualUsdc: FfiConverterUInt64.read(from: &buf), 
-                maxUsdc: FfiConverterUInt64.read(from: &buf)
+                maxUsdc: FfiConverterUInt64.read(from: &buf), 
+                uncoveredUsdc: FfiConverterUInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: SolanaOwnerOpFees, into buf: inout [UInt8]) {
         FfiConverterUInt64.write(value.actualUsdc, into: &buf)
         FfiConverterUInt64.write(value.maxUsdc, into: &buf)
+        FfiConverterUInt64.write(value.uncoveredUsdc, into: &buf)
     }
 }
 
@@ -9569,6 +11336,12 @@ public struct SolanaOwnerOpPrep {
      * Resolved guard PDA, base58 (for the approval prompt).
      */
     public var guardPda: String
+    /**
+     * The schedule this session bound: what the wallet pays and the ceiling
+     * the signature authorizes. Returned rather than taken so the host shows
+     * exactly what the owner is about to sign.
+     */
+    public var fees: SolanaOwnerOpFees
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -9586,11 +11359,17 @@ public struct SolanaOwnerOpPrep {
          */requestId: String, 
         /**
          * Resolved guard PDA, base58 (for the approval prompt).
-         */guardPda: String) {
+         */guardPda: String, 
+        /**
+         * The schedule this session bound: what the wallet pays and the ceiling
+         * the signature authorizes. Returned rather than taken so the host shows
+         * exactly what the owner is about to sign.
+         */fees: SolanaOwnerOpFees) {
         self.hashToSign = hashToSign
         self.sessionToken = sessionToken
         self.requestId = requestId
         self.guardPda = guardPda
+        self.fees = fees
     }
 }
 
@@ -9613,6 +11392,9 @@ extension SolanaOwnerOpPrep: Equatable, Hashable {
         if lhs.guardPda != rhs.guardPda {
             return false
         }
+        if lhs.fees != rhs.fees {
+            return false
+        }
         return true
     }
 
@@ -9621,6 +11403,7 @@ extension SolanaOwnerOpPrep: Equatable, Hashable {
         hasher.combine(sessionToken)
         hasher.combine(requestId)
         hasher.combine(guardPda)
+        hasher.combine(fees)
     }
 }
 
@@ -9636,7 +11419,8 @@ public struct FfiConverterTypeSolanaOwnerOpPrep: FfiConverterRustBuffer {
                 hashToSign: FfiConverterData.read(from: &buf), 
                 sessionToken: FfiConverterString.read(from: &buf), 
                 requestId: FfiConverterString.read(from: &buf), 
-                guardPda: FfiConverterString.read(from: &buf)
+                guardPda: FfiConverterString.read(from: &buf), 
+                fees: FfiConverterTypeSolanaOwnerOpFees.read(from: &buf)
         )
     }
 
@@ -9645,6 +11429,7 @@ public struct FfiConverterTypeSolanaOwnerOpPrep: FfiConverterRustBuffer {
         FfiConverterString.write(value.sessionToken, into: &buf)
         FfiConverterString.write(value.requestId, into: &buf)
         FfiConverterString.write(value.guardPda, into: &buf)
+        FfiConverterTypeSolanaOwnerOpFees.write(value.fees, into: &buf)
     }
 }
 
@@ -9922,6 +11707,12 @@ public struct SolanaWebAuthnOwnerOpPrep {
      * Resolved guard PDA, base58 (for the approval prompt).
      */
     public var guardPda: String
+    /**
+     * The schedule this session bound: what the wallet pays and the ceiling
+     * the signature authorizes. Returned rather than taken so the host shows
+     * exactly what the owner is about to sign.
+     */
+    public var fees: SolanaOwnerOpFees
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -9939,11 +11730,17 @@ public struct SolanaWebAuthnOwnerOpPrep {
          */requestId: String, 
         /**
          * Resolved guard PDA, base58 (for the approval prompt).
-         */guardPda: String) {
+         */guardPda: String, 
+        /**
+         * The schedule this session bound: what the wallet pays and the ceiling
+         * the signature authorizes. Returned rather than taken so the host shows
+         * exactly what the owner is about to sign.
+         */fees: SolanaOwnerOpFees) {
         self.challenge = challenge
         self.sessionToken = sessionToken
         self.requestId = requestId
         self.guardPda = guardPda
+        self.fees = fees
     }
 }
 
@@ -9966,6 +11763,9 @@ extension SolanaWebAuthnOwnerOpPrep: Equatable, Hashable {
         if lhs.guardPda != rhs.guardPda {
             return false
         }
+        if lhs.fees != rhs.fees {
+            return false
+        }
         return true
     }
 
@@ -9974,6 +11774,7 @@ extension SolanaWebAuthnOwnerOpPrep: Equatable, Hashable {
         hasher.combine(sessionToken)
         hasher.combine(requestId)
         hasher.combine(guardPda)
+        hasher.combine(fees)
     }
 }
 
@@ -9989,7 +11790,8 @@ public struct FfiConverterTypeSolanaWebAuthnOwnerOpPrep: FfiConverterRustBuffer 
                 challenge: FfiConverterData.read(from: &buf), 
                 sessionToken: FfiConverterString.read(from: &buf), 
                 requestId: FfiConverterString.read(from: &buf), 
-                guardPda: FfiConverterString.read(from: &buf)
+                guardPda: FfiConverterString.read(from: &buf), 
+                fees: FfiConverterTypeSolanaOwnerOpFees.read(from: &buf)
         )
     }
 
@@ -9998,6 +11800,7 @@ public struct FfiConverterTypeSolanaWebAuthnOwnerOpPrep: FfiConverterRustBuffer 
         FfiConverterString.write(value.sessionToken, into: &buf)
         FfiConverterString.write(value.requestId, into: &buf)
         FfiConverterString.write(value.guardPda, into: &buf)
+        FfiConverterTypeSolanaOwnerOpFees.write(value.fees, into: &buf)
     }
 }
 
@@ -11729,6 +13532,11 @@ public enum AgentAttachmentRejectReasonFfi {
      * The agent's module is already enabled on that wallet.
      */
     case alreadyAttached
+    /**
+     * The request's signed expiry passed before the owner could act. Not a
+     * refusal on the merits: the agent should ask again.
+     */
+    case expired
 }
 
 
@@ -11754,6 +13562,8 @@ public struct FfiConverterTypeAgentAttachmentRejectReasonFfi: FfiConverterRustBu
         
         case 4: return .alreadyAttached
         
+        case 5: return .expired
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -11776,6 +13586,10 @@ public struct FfiConverterTypeAgentAttachmentRejectReasonFfi: FfiConverterRustBu
         
         case .alreadyAttached:
             writeInt(&buf, Int32(4))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(5))
         
         }
     }
@@ -12075,6 +13889,101 @@ extension AgentSignerBacking: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * What the chain says about a submitted attachment.
+ */
+
+public enum AttachmentOutcomeFfi {
+    
+    /**
+     * Enabled, deployed, and the guard holds exactly the planned mandate.
+     */
+    case landed(attachment: ConfirmedAttachment
+    )
+    /**
+     * The chain answered and does not show the attachment yet: unmined, or
+     * reverted. Ask again. A read that FAILED is an error, not this.
+     */
+    case pending
+    /**
+     * Enabled and deployed, but the guard holds a different mandate. Both
+     * values are decimal, as the guard reports them.
+     */
+    case mandateMismatch(onChainMaxPerTx: String, onChainDailyMax: String
+    )
+}
+
+
+#if compiler(>=6)
+extension AttachmentOutcomeFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentOutcomeFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AttachmentOutcomeFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentOutcomeFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .landed(attachment: try FfiConverterTypeConfirmedAttachment.read(from: &buf)
+        )
+        
+        case 2: return .pending
+        
+        case 3: return .mandateMismatch(onChainMaxPerTx: try FfiConverterString.read(from: &buf), onChainDailyMax: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AttachmentOutcomeFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .landed(attachment):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeConfirmedAttachment.write(attachment, into: &buf)
+            
+        
+        case .pending:
+            writeInt(&buf, Int32(2))
+        
+        
+        case let .mandateMismatch(onChainMaxPerTx,onChainDailyMax):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(onChainMaxPerTx, into: &buf)
+            FfiConverterString.write(onChainDailyMax, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentOutcomeFfi_lift(_ buf: RustBuffer) throws -> AttachmentOutcomeFfi {
+    return try FfiConverterTypeAttachmentOutcomeFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentOutcomeFfi_lower(_ value: AttachmentOutcomeFfi) -> RustBuffer {
+    return FfiConverterTypeAttachmentOutcomeFfi.lower(value)
+}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * FFI mirror of the core [`core_pairing::ChainFamily`]: which chain family the
  * paired wallet belongs to. `Evm` is the default for pre-discriminator QRs.
  */
@@ -12309,6 +14218,255 @@ public func FfiConverterTypeDirectReceiptOutcome_lower(_ value: DirectReceiptOut
 
 
 extension DirectReceiptOutcome: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * What is cancelled on chain beside the relay denial.
+ */
+
+public enum DisownTargetFfi {
+    
+    /**
+     * Solana: close the agent's record and reclaim its rent. The rent goes to
+     * the wallet's guard account and the fee comes from the engine's schedule;
+     * the host names only the pocket and the fee receiver.
+     */
+    case solanaCloseAgent(rpcUrl: String, cluster: String, mintAddress: String, pocket: String, feeReceiver: String
+    )
+    /**
+     * Nothing on chain: drop the pairing and stop the relay carrying it.
+     */
+    case unpair
+}
+
+
+#if compiler(>=6)
+extension DisownTargetFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDisownTargetFfi: FfiConverterRustBuffer {
+    typealias SwiftType = DisownTargetFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DisownTargetFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .solanaCloseAgent(rpcUrl: try FfiConverterString.read(from: &buf), cluster: try FfiConverterString.read(from: &buf), mintAddress: try FfiConverterString.read(from: &buf), pocket: try FfiConverterString.read(from: &buf), feeReceiver: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .unpair
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DisownTargetFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .solanaCloseAgent(rpcUrl,cluster,mintAddress,pocket,feeReceiver):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(rpcUrl, into: &buf)
+            FfiConverterString.write(cluster, into: &buf)
+            FfiConverterString.write(mintAddress, into: &buf)
+            FfiConverterString.write(pocket, into: &buf)
+            FfiConverterString.write(feeReceiver, into: &buf)
+            
+        
+        case .unpair:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownTargetFfi_lift(_ buf: RustBuffer) throws -> DisownTargetFfi {
+    return try FfiConverterTypeDisownTargetFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownTargetFfi_lower(_ value: DisownTargetFfi) -> RustBuffer {
+    return FfiConverterTypeDisownTargetFfi.lower(value)
+}
+
+
+extension DisownTargetFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The on-chain half of a plan.
+ */
+
+public enum DisownmentChainOpFfi {
+    
+    /**
+     * A prepared Solana `close_agent`; complete it with
+     * `complete_solana_owner_op_webauthn`.
+     */
+    case solana(prep: SolanaWebAuthnOwnerOpPrep
+    )
+    case notOnChain
+}
+
+
+#if compiler(>=6)
+extension DisownmentChainOpFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDisownmentChainOpFfi: FfiConverterRustBuffer {
+    typealias SwiftType = DisownmentChainOpFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DisownmentChainOpFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .solana(prep: try FfiConverterTypeSolanaWebAuthnOwnerOpPrep.read(from: &buf)
+        )
+        
+        case 2: return .notOnChain
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DisownmentChainOpFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .solana(prep):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeSolanaWebAuthnOwnerOpPrep.write(prep, into: &buf)
+            
+        
+        case .notOnChain:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownmentChainOpFfi_lift(_ buf: RustBuffer) throws -> DisownmentChainOpFfi {
+    return try FfiConverterTypeDisownmentChainOpFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownmentChainOpFfi_lower(_ value: DisownmentChainOpFfi) -> RustBuffer {
+    return FfiConverterTypeDisownmentChainOpFfi.lower(value)
+}
+
+
+extension DisownmentChainOpFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The relay half of a plan: minted, or why it could not be. A messaging
+ * credential the owner does not have never blocks the chain half; native must
+ * show the owner that the relay was NOT told when this is `Unavailable`.
+ */
+
+public enum DisownmentRelayOpFfi {
+    
+    case minted(disownment: AgentDisownmentFfi
+    )
+    case unavailable(detail: String
+    )
+}
+
+
+#if compiler(>=6)
+extension DisownmentRelayOpFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDisownmentRelayOpFfi: FfiConverterRustBuffer {
+    typealias SwiftType = DisownmentRelayOpFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DisownmentRelayOpFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .minted(disownment: try FfiConverterTypeAgentDisownmentFfi.read(from: &buf)
+        )
+        
+        case 2: return .unavailable(detail: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DisownmentRelayOpFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .minted(disownment):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeAgentDisownmentFfi.write(disownment, into: &buf)
+            
+        
+        case let .unavailable(detail):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(detail, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownmentRelayOpFfi_lift(_ buf: RustBuffer) throws -> DisownmentRelayOpFfi {
+    return try FfiConverterTypeDisownmentRelayOpFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDisownmentRelayOpFfi_lower(_ value: DisownmentRelayOpFfi) -> RustBuffer {
+    return FfiConverterTypeDisownmentRelayOpFfi.lower(value)
+}
+
+
+extension DisownmentRelayOpFfi: Equatable, Hashable {}
 
 
 
@@ -12774,6 +14932,16 @@ public enum InviteRefusalFfi {
      * Authentic but outside the freshness window. Show it as expired.
      */
     case expired
+    /**
+     * Authentic, in date, and asking for something no owner may act on: a
+     * signed lifetime outside the bounds a money decision may stand for.
+     *
+     * Distinct from [`Self::Expired`] because the recoveries are opposites.
+     * An expired request is fixed by asking the agent to send a new one; this
+     * one is reproduced exactly by resending it, so offering that retry loops
+     * the owner.
+     */
+    case unreasonable
 }
 
 
@@ -12797,6 +14965,8 @@ public struct FfiConverterTypeInviteRefusalFfi: FfiConverterRustBuffer {
         
         case 3: return .expired
         
+        case 4: return .unreasonable
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -12815,6 +14985,10 @@ public struct FfiConverterTypeInviteRefusalFfi: FfiConverterRustBuffer {
         
         case .expired:
             writeInt(&buf, Int32(3))
+        
+        
+        case .unreasonable:
+            writeInt(&buf, Int32(4))
         
         }
     }
@@ -13603,6 +15777,115 @@ extension PerChainStatusFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * What planning found: a transaction to sign, a wallet the agent is already
+ * attached to, or an attachment whose limit is not the one just chosen.
+ *
+ * The second arm is the recovery path. An agent whose process died between
+ * asking and reading the answer asks again, and by then the module is
+ * enabled -- refusing that made recovery impossible, because `enableModule`
+ * on an enabled module reverts (GS102) and there is no other route back to a
+ * relay grant.
+ *
+ * The third arm is what keeps that recovery honest. Nothing is submitted and
+ * nothing is applied: the guard holds a mandate other than the one passed in,
+ * so the owner is shown what the chain enforces. Approving it is planning
+ * again with it; changing it is a separate `set_spending_limit`, because the
+ * attachment transaction cannot be re-run.
+ */
+
+public enum PlannedAttachmentFfi {
+    
+    /**
+     * Prepare and submit this, then confirm it before answering the agent.
+     */
+    case attach(plan: AgentAttachmentPlan
+    )
+    /**
+     * Nothing to submit: sign the relay grant and answer.
+     */
+    case grantOnly(attachment: ConfirmedAttachment
+    )
+    /**
+     * Already attached, at a DIFFERENT mandate than the one chosen. Show
+     * `on_chain` to the owner; nothing has changed.
+     */
+    case mandateNotApplied(onChain: MandateFfi
+    )
+}
+
+
+#if compiler(>=6)
+extension PlannedAttachmentFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePlannedAttachmentFfi: FfiConverterRustBuffer {
+    typealias SwiftType = PlannedAttachmentFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PlannedAttachmentFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .attach(plan: try FfiConverterTypeAgentAttachmentPlan.read(from: &buf)
+        )
+        
+        case 2: return .grantOnly(attachment: try FfiConverterTypeConfirmedAttachment.read(from: &buf)
+        )
+        
+        case 3: return .mandateNotApplied(onChain: try FfiConverterTypeMandateFfi.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PlannedAttachmentFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .attach(plan):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeAgentAttachmentPlan.write(plan, into: &buf)
+            
+        
+        case let .grantOnly(attachment):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeConfirmedAttachment.write(attachment, into: &buf)
+            
+        
+        case let .mandateNotApplied(onChain):
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeMandateFfi.write(onChain, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePlannedAttachmentFfi_lift(_ buf: RustBuffer) throws -> PlannedAttachmentFfi {
+    return try FfiConverterTypePlannedAttachmentFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePlannedAttachmentFfi_lower(_ value: PlannedAttachmentFfi) -> RustBuffer {
+    return FfiConverterTypePlannedAttachmentFfi.lower(value)
+}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * An op the "Review & fix" reconcile flow must submit on a chain to remove drift.
  */
 
@@ -13684,8 +15967,9 @@ extension ReconcileOpFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Whatever an agent published to this device's invite mailbox, after every
- * check passed: a wallet-creation request, or a verified attachment request.
+ * Whatever an agent published to this device's invite mailbox: a
+ * wallet-creation request, a verified attachment request, or an authentic
+ * attachment request this device will not act on.
  */
 
 public enum ReviewedInviteFfi {
@@ -13699,6 +15983,23 @@ public enum ReviewedInviteFfi {
      * An `agent.attachment-request` whose hardware binding verified.
      */
     case attachment(request: VerifiedAttachmentRequest
+    )
+    /**
+     * An `agent.attachment-request` whose hardware binding verified and which
+     * this device then refused on its CONTENT -- a label it will not render,
+     * a mandate it cannot parse, or a ceiling of zero, which the guard reads
+     * as no ceiling at all on that side.
+     *
+     * It carries only where to send the decline, and there is no route from
+     * it to a plan or a grant. Send it: `Declined` is the reason to use,
+     * because the wire has no code for "the ask itself is malformed" and
+     * adding one would fail to parse on every agent built before it. Without
+     * it the agent's enrollment hangs until its own expiry.
+     */
+    case attachmentRefused(decline: AttachmentDecline, 
+        /**
+         * Why, for this device's log and screen. Never on the wire.
+         */detail: String
     )
 }
 
@@ -13723,6 +16024,9 @@ public struct FfiConverterTypeReviewedInviteFfi: FfiConverterRustBuffer {
         case 2: return .attachment(request: try FfiConverterTypeVerifiedAttachmentRequest.read(from: &buf)
         )
         
+        case 3: return .attachmentRefused(decline: try FfiConverterTypeAttachmentDecline.read(from: &buf), detail: try FfiConverterString.read(from: &buf)
+        )
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -13739,6 +16043,12 @@ public struct FfiConverterTypeReviewedInviteFfi: FfiConverterRustBuffer {
         case let .attachment(request):
             writeInt(&buf, Int32(2))
             FfiConverterTypeVerifiedAttachmentRequest.write(request, into: &buf)
+            
+        
+        case let .attachmentRefused(decline,detail):
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeAttachmentDecline.write(decline, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
             
         }
     }
@@ -14032,6 +16342,109 @@ extension SignRequestKind: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Whether the vault can pay a fee, and why not when it cannot. Only
+ * [`SolanaFeeCoverage::Covered`] permits the biometric: an uncovered fee is
+ * charged inside the guard instruction and fails the whole transaction on
+ * chain, after the owner has approved it.
+ */
+
+public enum SolanaFeeCoverage {
+    
+    /**
+     * The vault's balance is unknown, so it cannot be shown to cover the fee.
+     */
+    case balanceUnreadable(required: UInt64
+    )
+    /**
+     * The vault holds less than the fee.
+     */
+    case underfunded(balance: UInt64, required: UInt64
+    )
+    /**
+     * The vault holds at least the fee.
+     */
+    case covered(balance: UInt64, required: UInt64
+    )
+}
+
+
+#if compiler(>=6)
+extension SolanaFeeCoverage: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaFeeCoverage: FfiConverterRustBuffer {
+    typealias SwiftType = SolanaFeeCoverage
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaFeeCoverage {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .balanceUnreadable(required: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 2: return .underfunded(balance: try FfiConverterUInt64.read(from: &buf), required: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 3: return .covered(balance: try FfiConverterUInt64.read(from: &buf), required: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SolanaFeeCoverage, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .balanceUnreadable(required):
+            writeInt(&buf, Int32(1))
+            FfiConverterUInt64.write(required, into: &buf)
+            
+        
+        case let .underfunded(balance,required):
+            writeInt(&buf, Int32(2))
+            FfiConverterUInt64.write(balance, into: &buf)
+            FfiConverterUInt64.write(required, into: &buf)
+            
+        
+        case let .covered(balance,required):
+            writeInt(&buf, Int32(3))
+            FfiConverterUInt64.write(balance, into: &buf)
+            FfiConverterUInt64.write(required, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaFeeCoverage_lift(_ buf: RustBuffer) throws -> SolanaFeeCoverage {
+    return try FfiConverterTypeSolanaFeeCoverage.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaFeeCoverage_lower(_ value: SolanaFeeCoverage) -> RustBuffer {
+    return FfiConverterTypeSolanaFeeCoverage.lower(value)
+}
+
+
+extension SolanaFeeCoverage: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Operation tag baked into the canonical signed message. Must match
  * the on-chain `Op` enum in `paygent-net/solana-programs::secp256r1_auth`
  * and the client-side [`paygent_solana::GuardOp`].
@@ -14315,6 +16728,157 @@ public func FfiConverterTypeSolanaOwnerMode_lower(_ value: SolanaOwnerMode) -> R
 
 
 extension SolanaOwnerMode: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Every owner-signed Solana guard operation, by name: what a host asks the
+ * price of. Mirrors the core's `SolanaOwnerOp` variant for variant.
+ */
+
+public enum SolanaOwnerOp {
+    
+    case setLimit
+    case setGuardLimit
+    case withdraw
+    case escalateRefill
+    case initialize
+    case addAgent
+    case addOwner
+    case removeOwner
+    case setThreshold
+    case closeAgent
+    case revoke
+    case sweepLamports
+    case ownerSweepPocket
+}
+
+
+#if compiler(>=6)
+extension SolanaOwnerOp: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaOwnerOp: FfiConverterRustBuffer {
+    typealias SwiftType = SolanaOwnerOp
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaOwnerOp {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .setLimit
+        
+        case 2: return .setGuardLimit
+        
+        case 3: return .withdraw
+        
+        case 4: return .escalateRefill
+        
+        case 5: return .initialize
+        
+        case 6: return .addAgent
+        
+        case 7: return .addOwner
+        
+        case 8: return .removeOwner
+        
+        case 9: return .setThreshold
+        
+        case 10: return .closeAgent
+        
+        case 11: return .revoke
+        
+        case 12: return .sweepLamports
+        
+        case 13: return .ownerSweepPocket
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SolanaOwnerOp, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .setLimit:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .setGuardLimit:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .withdraw:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .escalateRefill:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .initialize:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .addAgent:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .addOwner:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .removeOwner:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .setThreshold:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .closeAgent:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .revoke:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .sweepLamports:
+            writeInt(&buf, Int32(12))
+        
+        
+        case .ownerSweepPocket:
+            writeInt(&buf, Int32(13))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaOwnerOp_lift(_ buf: RustBuffer) throws -> SolanaOwnerOp {
+    return try FfiConverterTypeSolanaOwnerOp.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaOwnerOp_lower(_ value: SolanaOwnerOp) -> RustBuffer {
+    return FfiConverterTypeSolanaOwnerOp.lower(value)
+}
+
+
+extension SolanaOwnerOp: Equatable, Hashable {}
 
 
 
@@ -15886,6 +18450,31 @@ fileprivate struct FfiConverterSequenceTypePairedAgentFfi: FfiConverterRustBuffe
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeRelayAuthorizationFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [RelayAuthorizationFfi]
+
+    public static func write(_ value: [RelayAuthorizationFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeRelayAuthorizationFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [RelayAuthorizationFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [RelayAuthorizationFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeRelayAuthorizationFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeSolanaAgentLimitFfi: FfiConverterRustBuffer {
     typealias SwiftType = [SolanaAgentLimitFfi]
 
@@ -16368,15 +18957,37 @@ public func uniffiForeignFutureHandleCountPaygentMobileCore() -> Int {
 }
 /**
  * Phase 1 of the relay grant: what the owner's passkey signs to let the agent
- * named by `plan` reach the wallet's relay subjects until `expires_at_ms`.
- * Without it the agent could spend inside its mandate and never escalate past
- * it. Pass `hash_to_sign` as the WebAuthn challenge.
+ * named by `attachment` reach the wallet's relay subjects until
+ * `expires_at_ms`, and to keep THIS device's own access to them.
+ *
+ * Two grants under one root, so one biometric covers both. Without the
+ * agent's the agent could spend inside its mandate and never escalate past
+ * it; without this device's own the escalation lands on a subject this phone
+ * holds no grant for, so the owner is simply never asked. Pass `hash_to_sign`
+ * as the WebAuthn challenge, and show both `statements`.
+ *
+ * Takes a CONFIRMED attachment, so the owner is never asked to sign a grant
+ * for a wallet the agent is not actually attached to. `owner_device_did` is
+ * this device's own durable relay key -- not the passkey `W`, and never the
+ * agent's, which is refused: the owner half carries publish on the wallet's
+ * revocations facet.
+ *
+ * `expires_at_ms` must be after `now_ms` and no further out than
+ * [`attachment_grant_lifetime_ms`], so the three hosts cannot each choose a
+ * different cadence for the same grant; the value is echoed on the challenge
+ * so the same one reaches [`build_agent_attachment_granted`]. Renewal is the
+ * agent asking again: the plan finds the module already attached and the
+ * grant-only arm reissues, with no transaction and no fee -- which is also
+ * why BOTH halves are renewed here, since renewing only the agent's keeps it
+ * live against an owner that has gone deaf.
  */
-public func agentAttachmentChallenge(plan: AgentAttachmentPlan, expiresAtMs: Int64)throws  -> AttachmentGrantChallengeFfi  {
+public func agentAttachmentChallenge(attachment: ConfirmedAttachment, ownerDeviceDid: String, expiresAtMs: Int64, nowMs: Int64)throws  -> AttachmentGrantChallengeFfi  {
     return try  FfiConverterTypeAttachmentGrantChallengeFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_agent_attachment_challenge(
-        FfiConverterTypeAgentAttachmentPlan_lower(plan),
-        FfiConverterInt64.lower(expiresAtMs),$0
+        FfiConverterTypeConfirmedAttachment_lower(attachment),
+        FfiConverterString.lower(ownerDeviceDid),
+        FfiConverterInt64.lower(expiresAtMs),
+        FfiConverterInt64.lower(nowMs),$0
     )
 })
 }
@@ -16461,6 +19072,20 @@ public func amountToBaseUnits(input: String, decimals: UInt32)throws  -> String 
 })
 }
 /**
+ * The longest an attachment's relay grant may stand, in milliseconds.
+ *
+ * The ceiling [`agent_attachment_challenge`] and
+ * [`build_agent_attachment_granted`] both enforce. Exported so a host picks
+ * its expiry from the shared number rather than its own, which is how one
+ * host ended up issuing ten-year grants.
+ */
+public func attachmentGrantLifetimeMs() -> Int64  {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_attachment_grant_lifetime_ms($0
+    )
+})
+}
+/**
  * Bind the threshold the CHAIN just reported to a planned intent, giving the
  * op the engine submits. Separate from planning so a stale value cannot be
  * carried in: see [`EvmOwnerIntentFfi`]. The single-chain form.
@@ -16489,33 +19114,73 @@ public func bindEvmThresholdAcross(intent: EvmOwnerIntentFfi, readings: [FreshCh
 })
 }
 /**
- * Build the `agent.attachment-granted` body to seal for the agent's mailbox
- * (with `seal_invite`) once the plan's transaction was submitted and the owner
- * has signed the `agent_attachment_challenge` for the same `expires_at_ms`.
- * The delegation is rebuilt and verified here, so an assertion that does not
- * authorize the grant fails on this device rather than on the agent.
+ * Build the whole `agent.attachment-granted` answer -- mailbox subject,
+ * sealing key and body -- once the chain has CONFIRMED the attachment and the
+ * owner has signed the `agent_attachment_challenge` for the same
+ * `owner_device_did` and `expires_at_ms`. Seal `message_json` under
+ * `invite_key` with `seal_invite` and publish it to `invites_subject`.
+ *
+ * `owner_delegation` comes back beside the answer and stays on this device:
+ * persist it in the wallet record, the way a creation's is. It is what
+ * authorizes this phone's relay connection to the wallet's subjects, and the
+ * only grant carrying publish on its revocations facet.
+ *
+ * So does `body_key`, because the grant only settles the right to LISTEN. An
+ * escalation is sealed, and a phone that attached an agent to a wallet it did
+ * not itself create held no key for that wallet -- it could subscribe, be
+ * told a request had arrived, and open nothing. Persist it beside the
+ * delegation, keyed by `delegate_did` as well as by the wallet: two agents on
+ * one wallet share its subjects and not its keys.
+ *
+ * Both delegations are rebuilt and verified here, so an assertion that does
+ * not authorize them fails on this device rather than on the agent. Both,
+ * because one assertion covers the batch: a wrong field in either changes the
+ * root and invalidates the other.
  */
-public func buildAgentAttachmentGranted(plan: AgentAttachmentPlan, expiresAtMs: Int64, authenticatorDataB64: String, clientDataJsonB64: String, signatureDerB64: String, nowMs: Int64)throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+public func buildAgentAttachmentGranted(attachment: ConfirmedAttachment, ownerDeviceDid: String, expiresAtMs: Int64, authenticatorDataB64: String, clientDataJsonB64: String, signatureDerB64: String, pairingSharedSecret: Data, nowMs: Int64)throws  -> AttachmentGrantedFfi  {
+    return try  FfiConverterTypeAttachmentGrantedFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_build_agent_attachment_granted(
-        FfiConverterTypeAgentAttachmentPlan_lower(plan),
+        FfiConverterTypeConfirmedAttachment_lower(attachment),
+        FfiConverterString.lower(ownerDeviceDid),
         FfiConverterInt64.lower(expiresAtMs),
         FfiConverterString.lower(authenticatorDataB64),
         FfiConverterString.lower(clientDataJsonB64),
         FfiConverterString.lower(signatureDerB64),
+        FfiConverterData.lower(pairingSharedSecret),
         FfiConverterInt64.lower(nowMs),$0
     )
 })
 }
 /**
- * Build the `agent.attachment-rejected` body for a request the owner refuses.
- * Sending it is required: without it the agent's enrollment hangs.
+ * Build the whole `agent.attachment-rejected` answer for a request that will
+ * not be fulfilled. Sending it is required: without it the agent's enrollment
+ * hangs until the request expires.
+ *
+ * Takes an [`AttachmentDecline`], so the decline is addressed to the agent
+ * that actually asked. Both refusals produce one:
+ * [`VerifiedAttachmentRequest::decline`] for the owner refusing on the
+ * merits, and [`ReviewedInviteFfi::AttachmentRefused`] for a request this
+ * device refused at the boundary, which previously had no way to answer at
+ * all.
  */
-public func buildAgentAttachmentRejected(requestId: String, reason: AgentAttachmentRejectReasonFfi)throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+public func buildAgentAttachmentRejected(decline: AttachmentDecline, reason: AgentAttachmentRejectReasonFfi, pairingSharedSecret: Data, nowMs: Int64)throws  -> AttachmentReplyFfi  {
+    return try  FfiConverterTypeAttachmentReplyFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_build_agent_attachment_rejected(
-        FfiConverterString.lower(requestId),
-        FfiConverterTypeAgentAttachmentRejectReasonFfi_lower(reason),$0
+        FfiConverterTypeAttachmentDecline_lower(decline),
+        FfiConverterTypeAgentAttachmentRejectReasonFfi_lower(reason),
+        FfiConverterData.lower(pairingSharedSecret),
+        FfiConverterInt64.lower(nowMs),$0
+    )
+})
+}
+/**
+ * Mint the relay half on its own -- the whole of a disownment for an agent
+ * with nothing to cancel on chain.
+ */
+public func buildAgentDisownment(input: DisownmentInputFfi)throws  -> AgentDisownmentFfi  {
+    return try  FfiConverterTypeAgentDisownmentFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_build_agent_disownment(
+        FfiConverterTypeDisownmentInputFfi_lower(input),$0
     )
 })
 }
@@ -17214,6 +19879,19 @@ public func derivePushSubkey(sharedSecret: Data)throws  -> Data  {
 })
 }
 /**
+ * FFI shim over [`paygent_authorizer_core::derive_solana_agent_pocket`]: the
+ * pocket an agent key spends from, for the duplicate check an enrolment screen
+ * runs against the guard's registered pockets.
+ */
+public func deriveSolanaAgentPocket(agentOwnerB58: String, mintB58: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_derive_solana_agent_pocket(
+        FfiConverterString.lower(agentOwnerB58),
+        FfiConverterString.lower(mintB58),$0
+    )
+})
+}
+/**
  * FFI shim over [`paygent_authorizer_core::derive_solana_guard_pda`].
  */
 public func deriveSolanaGuardPda(walletIndex: UInt32, ownerPubkeysHex: [String], ownerModes: [SolanaOwnerMode], mintB58: String)throws  -> String  {
@@ -17669,6 +20347,16 @@ public func mapEvmReconcileOp(op: ReconcileOpFfi, currentThreshold: UInt32)throw
 })
 }
 /**
+ * The most pairings one [`NostrFleet`] carries -- the relay's per-connection
+ * cap. A host with more shards them across fleets.
+ */
+public func maxNostrFleetPairings() -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_max_nostr_fleet_pairings($0
+    )
+})
+}
+/**
  * Mint the gas purse from the device passkey's opaque 32-byte WebAuthn PRF
  * secret (base64url), so the same passkey on the same device always re-derives
  * the same purse. The intermediate seed never leaves wipe-on-drop memory before
@@ -17883,22 +20571,23 @@ public func parseWebauthnAttestation(cbor: Data)throws  -> WebAuthnPublicKey  {
 }
 /**
  * Plan the attachment the owner is about to sign, on the one chain the agent
- * asked for, with the mandate the owner chose (`granted` may be narrower than
- * what was requested, never wider). Reads the chain to refuse a module the
- * Safe already enables, to learn whether the module has code yet, and to find
- * the guard the Safe enforces. `now_ms` re-tests the request's signed expiry.
+ * asked for, with the mandate the owner chose (on the arms that WRITE one,
+ * `granted` may be narrower than what was requested, never wider). Reads the
+ * chain to learn whether the module is enabled and whether it has code, to
+ * check that `safe` is the wallet at `walletIndex`, and to find the guard the
+ * Safe enforces. `now_ms` re-tests the request's signed expiry.
  */
-public func planAgentAttachment(request: VerifiedAttachmentRequest, chain: ChainConfigInputFfi, granted: SpendingLimitInputFfi, nowMs: Int64)async throws  -> AgentAttachmentPlan  {
+public func planAgentAttachment(request: VerifiedAttachmentRequest, chain: ChainConfigInputFfi, granted: SpendingLimitInputFfi, nowMs: Int64)async throws  -> PlannedAttachmentFfi  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_paygent_mobile_core_fn_func_plan_agent_attachment(FfiConverterTypeVerifiedAttachmentRequest_lower(request),FfiConverterTypeChainConfigInputFfi_lower(chain),FfiConverterTypeSpendingLimitInputFfi_lower(granted),FfiConverterInt64.lower(nowMs)
                 )
             },
-            pollFunc: ffi_paygent_mobile_core_rust_future_poll_pointer,
-            completeFunc: ffi_paygent_mobile_core_rust_future_complete_pointer,
-            freeFunc: ffi_paygent_mobile_core_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeAgentAttachmentPlan_lift,
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypePlannedAttachmentFfi_lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
@@ -17990,6 +20679,24 @@ public func planSolanaSetThreshold(chain: ChainOwnerStateFfi, newThreshold: UInt
     )
 })
 }
+/**
+ * Mint the relay half and prepare the on-chain half together. Submit the
+ * relay half first.
+ */
+public func prepareAgentDisownment(input: DisownmentInputFfi, target: DisownTargetFfi)async throws  -> AgentDisownmentPlanFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_agent_disownment(FfiConverterTypeDisownmentInputFfi_lower(input),FfiConverterTypeDisownTargetFfi_lower(target)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeAgentDisownmentPlanFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
 public func prepareAuthorizePairing(request: SignRequestSummary, signer: String)throws  -> ApprovalPrep  {
     return try  FfiConverterTypeApprovalPrep_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_prepare_authorize_pairing(
@@ -18023,8 +20730,15 @@ public func prepareBinding(capabilityKeyDid: String, ownerDid: String) -> Bindin
  * produced rather than a routing table, so the module is always the one
  * derived from a verified agent key and there is exactly one chain.
  * Submission is the shared [`submit_direct_transaction`].
+ *
+ * Returns the fee alongside the root: `max_refund_hex` is the most the Safe
+ * can pay the relayer for this transaction, in `gas_token` units. It is in
+ * the return value rather than left to the host because it is the term
+ * nothing in the core can bound -- `gas_price` is token units per gas, which
+ * no chain read relates to a wei price -- so the owner is the only party who
+ * can recognise a rate that is wrong, in the moment before the biometric.
  */
-public func prepareDirectAgentAttachment(plan: AgentAttachmentPlan, relayerAddress: String, relayerBaseUrl: String, gas: DirectGasFfi)async throws  -> MultichainPrepareSummary  {
+public func prepareDirectAgentAttachment(plan: AgentAttachmentPlan, relayerAddress: String, relayerBaseUrl: String, gas: DirectGasFfi)async throws  -> AgentAttachmentPreparedFfi  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
@@ -18034,7 +20748,7 @@ public func prepareDirectAgentAttachment(plan: AgentAttachmentPlan, relayerAddre
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
             completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterTypeMultichainPrepareSummary_lift,
+            liftFunc: FfiConverterTypeAgentAttachmentPreparedFfi_lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
@@ -18223,11 +20937,11 @@ public func preparePairingDelegations(delegateDid: String, ownerDeviceDid: Strin
     )
 })
 }
-public func prepareSolanaAddAgent(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, silentKeyHex: String, ceiling: String, period: SolanaPeriod, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaAddAgent(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18237,11 +20951,11 @@ public func prepareSolanaAddAgent(rpcUrl: String, cluster: String, walletAddress
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaAddAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, silentKeyHex: String, ceiling: String, period: SolanaPeriod, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaAddAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18251,11 +20965,11 @@ public func prepareSolanaAddAgentWebauthn(rpcUrl: String, cluster: String, walle
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaAddOwnerWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, newOwnerHex: String, newOwnerMode: SolanaOwnerMode, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaAddOwnerWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, newOwnerHex: String, newOwnerMode: SolanaOwnerMode, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(newOwnerHex),FfiConverterTypeSolanaOwnerMode_lower(newOwnerMode),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(newOwnerHex),FfiConverterTypeSolanaOwnerMode_lower(newOwnerMode),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18265,11 +20979,11 @@ public func prepareSolanaAddOwnerWebauthn(rpcUrl: String, cluster: String, walle
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaCloseAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, rentDestination: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaCloseAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_close_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(rentDestination),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_close_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18279,11 +20993,11 @@ public func prepareSolanaCloseAgentWebauthn(rpcUrl: String, cluster: String, wal
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaEscalateRefill(request: SignRequestSummary, rpcUrl: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> ApprovalPrep  {
+public func prepareSolanaEscalateRefill(request: SignRequestSummary, rpcUrl: String, feeReceiver: String)async throws  -> ApprovalPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_escalate_refill(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_escalate_refill(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18303,11 +21017,11 @@ public func prepareSolanaEscalateRefill(request: SignRequestSummary, rpcUrl: Str
  * [`complete_solana_owner_op_webauthn`], which returns a carrier the owner
  * submits directly.
  */
-public func prepareSolanaEscalateRefillOwnerWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, amount: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaEscalateRefillOwnerWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, amount: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_escalate_refill_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_escalate_refill_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18317,11 +21031,11 @@ public func prepareSolanaEscalateRefillOwnerWebauthn(rpcUrl: String, cluster: St
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaEscalateRefillWebauthn(request: SignRequestSummary, rpcUrl: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaEscalateRefillWebauthn(request: SignRequestSummary, rpcUrl: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_escalate_refill_webauthn(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_escalate_refill_webauthn(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18331,11 +21045,11 @@ public func prepareSolanaEscalateRefillWebauthn(request: SignRequestSummary, rpc
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaInitialize(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], period: SolanaPeriod, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaInitialize(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18345,11 +21059,11 @@ public func prepareSolanaInitialize(rpcUrl: String, cluster: String, walletIndex
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaInitializeWebauthn(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], period: SolanaPeriod, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaInitializeWebauthn(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18366,11 +21080,11 @@ public func prepareSolanaInitializeWebauthn(rpcUrl: String, cluster: String, wal
  * ACCOUNT and must already be registered. Completes via
  * [`complete_solana_owner_op_webauthn`].
  */
-public func prepareSolanaOwnerSweepPocketWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, amount: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaOwnerSweepPocketWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, amount: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_owner_sweep_pocket_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_owner_sweep_pocket_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18380,11 +21094,11 @@ public func prepareSolanaOwnerSweepPocketWebauthn(rpcUrl: String, cluster: Strin
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaRemoveOwnerWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, targetOwnerHex: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaRemoveOwnerWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, targetOwnerHex: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_remove_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(targetOwnerHex),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_remove_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(targetOwnerHex),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18394,11 +21108,11 @@ public func prepareSolanaRemoveOwnerWebauthn(rpcUrl: String, cluster: String, wa
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaRevokeWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaRevokeWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_revoke_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_revoke_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18414,11 +21128,11 @@ public func prepareSolanaRevokeWebauthn(rpcUrl: String, cluster: String, walletA
  * [`prepare_solana_set_limit`], no `agent`/`period` — the admin `set_limit`
  * op binds only the new global ceiling at the guard's control-plane nonce.
  */
-public func prepareSolanaSetGuardLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaSetGuardLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18432,11 +21146,11 @@ public func prepareSolanaSetGuardLimit(rpcUrl: String, cluster: String, walletAd
  * WebAuthn variant of [`prepare_solana_set_guard_limit`]: returns the 32-byte
  * op Merkle ROOT as the WebAuthn challenge.
  */
-public func prepareSolanaSetGuardLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaSetGuardLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18446,11 +21160,11 @@ public func prepareSolanaSetGuardLimitWebauthn(rpcUrl: String, cluster: String, 
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaSetLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, period: SolanaPeriod, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaSetLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18460,11 +21174,11 @@ public func prepareSolanaSetLimit(rpcUrl: String, cluster: String, walletAddress
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaSetLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, period: SolanaPeriod, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaSetLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18474,11 +21188,11 @@ public func prepareSolanaSetLimitWebauthn(rpcUrl: String, cluster: String, walle
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaSetThresholdWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, newThreshold: UInt8, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaSetThresholdWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, newThreshold: UInt8, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_threshold_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterUInt8.lower(newThreshold),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_threshold_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterUInt8.lower(newThreshold),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18496,11 +21210,11 @@ public func prepareSolanaSetThresholdWebauthn(rpcUrl: String, cluster: String, w
  * an ATA derivation input): the on-chain instruction moves lamports, not SPL
  * tokens. Completes via [`complete_solana_owner_op_webauthn`].
  */
-public func prepareSolanaSweepLamportsWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, destination: String, amount: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaSweepLamportsWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, destination: String, amount: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_sweep_lamports_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(destination),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_sweep_lamports_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(destination),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18510,11 +21224,11 @@ public func prepareSolanaSweepLamportsWebauthn(rpcUrl: String, cluster: String, 
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaTransfer(request: SignRequestSummary, rpcUrl: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> ApprovalPrep  {
+public func prepareSolanaTransfer(request: SignRequestSummary, rpcUrl: String, feeReceiver: String)async throws  -> ApprovalPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_transfer(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_transfer(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18524,11 +21238,11 @@ public func prepareSolanaTransfer(request: SignRequestSummary, rpcUrl: String, f
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaTransferWebauthn(request: SignRequestSummary, rpcUrl: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaTransferWebauthn(request: SignRequestSummary, rpcUrl: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_transfer_webauthn(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_transfer_webauthn(FfiConverterTypeSignRequestSummary_lower(request),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18538,11 +21252,11 @@ public func prepareSolanaTransferWebauthn(request: SignRequestSummary, rpcUrl: S
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaWithdrawWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, to: String, amount: String, feeReceiver: String, maxFee: UInt64, actualFee: UInt64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaWithdrawWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, to: String, amount: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_withdraw_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(to),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver),FfiConverterUInt64.lower(maxFee),FfiConverterUInt64.lower(actualFee)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_withdraw_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(to),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18612,19 +21326,41 @@ public func prepareX402Eip3009(request: SignRequestSummary, signer: String)throw
 })
 }
 /**
- * Quote the fee binding for an owner op against a Kora node.
+ * `paygent:principal:<did>:invites` -- a principal's invite mailbox, the
+ * subject wallet-creation and attachment messages route on.
+ *
+ * `did` is PARSED, and the subject is rendered from the parse: a DID read
+ * back from storage with a trailing newline, or one whose method or key body
+ * this tree does not understand, is an error here rather than a subject the
+ * relay can never match -- a message that authenticates, publishes, and
+ * silently never arrives.
+ * The reply builders address themselves through the same parse, so a host
+ * cannot compute a different subject than the one its reply went to.
+ *
+ * # Errors
+ *
+ * [`MobileError`] when `did` is not a DID this tree understands.
+ */
+public func principalInvitesSubject(did: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_principal_invites_subject(
+        FfiConverterString.lower(did),$0
+    )
+})
+}
+/**
+ * Quote the fee binding for owner op `op` against a Kora node.
  *
  * `kora_url` is the node's JSON-RPC endpoint (e.g. `https://kora.paygent.net`);
- * `api_key`, when set, is sent as Kora's `x-api-key`. `fee_usdc` /
- * `max_fee_usdc` are the flat USDC fee schedule the owner binds and signs over;
- * the guard caps both on chain, so a flat schedule can never become an
- * overcharge.
+ * `api_key`, when set, is sent as Kora's `x-api-key`. The node says who pays
+ * and who is paid; the numbers are the core's schedule for `op`, so a host
+ * passes no fee and cannot show one the prepare will not bind.
  */
-public func quoteSolanaOpFee(koraUrl: String, apiKey: String?, feeUsdc: UInt64, maxFeeUsdc: UInt64)async throws  -> SolanaFeeQuote  {
+public func quoteSolanaOpFee(koraUrl: String, apiKey: String?, op: SolanaOwnerOp)async throws  -> SolanaFeeQuote  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_quote_solana_op_fee(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterUInt64.lower(feeUsdc),FfiConverterUInt64.lower(maxFeeUsdc)
+                uniffi_paygent_mobile_core_fn_func_quote_solana_op_fee(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterTypeSolanaOwnerOp_lower(op)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -18788,6 +21524,11 @@ public func retryDirectTransaction(sessionToken: String, freshAssertion: WebAuth
  * verify under the key recorded at pairing is refused as `NotAuthentic`: the
  * sender holds the pairing secret but not the hardware key it was paired
  * with, which is exactly the copied-file attacker this check exists for.
+ *
+ * One whose binding DID verify and which this device then refuses on its
+ * content comes back as [`ReviewedInviteFfi::AttachmentRefused`] rather than
+ * as an error, because an error is unaddressed: nothing downstream then knows
+ * which agent to tell, and its enrollment hangs until the request expires.
  */
 public func reviewAgentAttachment(envelopeJson: String, ownerDid: String, agents: [PairedAgentFfi], nowMs: Int64)throws  -> ReviewedInviteFfi  {
     return try  FfiConverterTypeReviewedInviteFfi_lift(try rustCallWithError(FfiConverterTypeOpenInviteErrorFfi_lift) {
@@ -18844,6 +21585,17 @@ public func sealPushPayload(pushSubkey: Data, plaintext: String)throws  -> Encry
 })
 }
 /**
+ * The SOL price, in USDC base units per SOL, this release prices rent at. For
+ * display beside the fee: a host cannot pass a price of its own anywhere, so
+ * this is the one the charge was computed with.
+ */
+public func solUsdcRateMicros() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_sol_usdc_rate_micros($0
+    )
+})
+}
+/**
  * The chain key a Solana cluster is identified by in a drift report.
  */
 public func solanaChainKey(cluster: String) -> String  {
@@ -18885,6 +21637,19 @@ public func solanaClusterRpcUrl(cluster: String) -> String?  {
 })
 }
 /**
+ * Whether `vault_balance` covers `required_usdc`, with "unknown" refused before
+ * any arithmetic: a host that folded it into zero would open a free op on a
+ * vault it knows nothing about.
+ */
+public func solanaFeeCoverage(vaultBalance: SolanaVaultBalance, requiredUsdc: UInt64) -> SolanaFeeCoverage  {
+    return try!  FfiConverterTypeSolanaFeeCoverage_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_solana_fee_coverage(
+        FfiConverterTypeSolanaVaultBalance_lower(vaultBalance),
+        FfiConverterUInt64.lower(requiredUsdc),$0
+    )
+})
+}
+/**
  * Render a lamports count as a human SOL amount ("1500000000" -> "1.5"),
  * through the same converter every other amount on screen goes through.
  */
@@ -18905,14 +21670,35 @@ public func solanaMaxThreshold() -> UInt32  {
 })
 }
 /**
- * The flat USDC schedule every Kora-fronted owner op quotes and signs.
+ * What `op` costs the wallet: Paygent's flat fee for the op's category plus,
+ * at this release's SOL price, the rent of every account the op creates and
+ * the carrier's network fee -- clamped to the on-chain cap, with the
+ * clamped-off remainder reported. Value and security ops are zero.
  *
- * Not a display value: the owner's signature commits to the ceiling, so a host
- * that writes its own copy is writing what the owner authorizes.
+ * For display. Every `prepare_*` computes the same schedule itself and binds
+ * it, so what this returns is what the owner will be asked to sign
+ * (`SolanaWebAuthnOwnerOpPrep.fees` repeats it) -- except `add_agent`, for
+ * which this is the most it charges: the prepare reads whether the pocket
+ * already exists and charges its rent only when the carrier creates it, so
+ * the prep's `fees` can be lower, never higher.
  */
-public func solanaOwnerOpFees() -> SolanaOwnerOpFees  {
+public func solanaOwnerOpFees(op: SolanaOwnerOp) -> SolanaOwnerOpFees  {
     return try!  FfiConverterTypeSolanaOwnerOpFees_lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_func_solana_owner_op_fees($0
+    uniffi_paygent_mobile_core_fn_func_solana_owner_op_fees(
+        FfiConverterTypeSolanaOwnerOp_lower(op),$0
+    )
+})
+}
+/**
+ * What to tell the owner when a third-party Solana payment has no gas purse to
+ * pay for it, and is therefore refused (RFC-0031 §3a).
+ *
+ * The wording lives in the core so both authorizers explain the same refusal in
+ * the same words, and so it stays attached to the rule that produces it.
+ */
+public func solanaPurseRequiredMessage() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_solana_purse_required_message($0
     )
 })
 }
@@ -18921,8 +21707,8 @@ public func solanaOwnerOpFees() -> SolanaOwnerOpFees  {
  * guard already exists on chain and what its vault holds.
  *
  * `required_usdc` is the fee the vault must cover -- normally
- * [`solana_owner_op_fees`]'s `actual_usdc`, passed rather than read so a
- * caller quoting a different schedule gets the gate that matches its quote.
+ * `solana_owner_op_fees(Initialize).actual_usdc`, passed rather than read so
+ * the gate and the number the host shows come from one value.
  */
 public func solanaSetupReadiness(guardInitialized: Bool, vaultBalance: SolanaVaultBalance, requiredUsdc: UInt64) -> SolanaSetupReadiness  {
     return try!  FfiConverterTypeSolanaSetupReadiness_lift(try! rustCall() {
@@ -18943,6 +21729,22 @@ public func solanaSweepableLamports(currentLamports: UInt64, rentExemptMinimum: 
     uniffi_paygent_mobile_core_fn_func_solana_sweepable_lamports(
         FfiConverterUInt64.lower(currentLamports),
         FfiConverterUInt64.lower(rentExemptMinimum),$0
+    )
+})
+}
+/**
+ * The USDC schedule an owner op that MOVES VALUE quotes and signs: zero
+ * charged, zero authorized (RFC-0047 principle 3 -- Paygent earns nothing when
+ * value moves).
+ *
+ * Shared rather than a zero written into each host, for the same reason as
+ * [`solana_owner_op_fees`]: this is what the owner's signature commits to, and
+ * a host that binds a nonzero ceiling for a free operation has authorized a
+ * charge nobody decided to make.
+ */
+public func solanaValueOpFees() -> SolanaOwnerOpFees  {
+    return try!  FfiConverterTypeSolanaOwnerOpFees_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_solana_value_op_fees($0
     )
 })
 }
@@ -19178,7 +21980,7 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_agent_attachment_challenge() != 38284) {
+    if (uniffi_paygent_mobile_core_checksum_func_agent_attachment_challenge() != 17066) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_agree_fresh_threshold() != 50633) {
@@ -19196,16 +21998,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_amount_to_base_units() != 25729) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_attachment_grant_lifetime_ms() != 63081) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_bind_evm_threshold() != 50931) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_bind_evm_threshold_across() != 29345) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_build_agent_attachment_granted() != 26075) {
+    if (uniffi_paygent_mobile_core_checksum_func_build_agent_attachment_granted() != 63295) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_build_agent_attachment_rejected() != 40538) {
+    if (uniffi_paygent_mobile_core_checksum_func_build_agent_attachment_rejected() != 51704) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_build_agent_disownment() != 50915) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_build_evm_settled_response() != 49555) {
@@ -19346,6 +22154,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_derive_push_subkey() != 34467) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_derive_solana_agent_pocket() != 8852) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_derive_solana_guard_pda() != 38109) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -19433,6 +22244,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_map_evm_reconcile_op() != 27853) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_max_nostr_fleet_pairings() != 4547) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_mint_solana_purse() != 40493) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -19478,7 +22292,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_parse_webauthn_attestation() != 54377) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_plan_agent_attachment() != 49742) {
+    if (uniffi_paygent_mobile_core_checksum_func_plan_agent_attachment() != 13876) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_plan_evm_add_owner() != 60843) {
@@ -19502,13 +22316,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_plan_solana_set_threshold() != 3466) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_agent_disownment() != 40815) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_authorize_pairing() != 55134) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_binding() != 52149) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_direct_agent_attachment() != 62143) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_direct_agent_attachment() != 4456) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_direct_configuration() != 50858) {
@@ -19541,67 +22358,67 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_pairing_delegations() != 41667) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent() != 7840) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent() != 12809) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent_webauthn() != 21433) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent_webauthn() != 51388) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_owner_webauthn() != 36366) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_owner_webauthn() != 9132) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_close_agent_webauthn() != 1476) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_close_agent_webauthn() != 40554) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill() != 36167) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill() != 33476) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill_owner_webauthn() != 23718) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill_owner_webauthn() != 53295) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill_webauthn() != 61071) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill_webauthn() != 8603) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize() != 8064) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize() != 21305) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize_webauthn() != 13188) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize_webauthn() != 15957) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_owner_sweep_pocket_webauthn() != 57734) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_owner_sweep_pocket_webauthn() != 65449) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_remove_owner_webauthn() != 57124) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_remove_owner_webauthn() != 25943) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_revoke_webauthn() != 57259) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_revoke_webauthn() != 6093) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit() != 62675) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit() != 36093) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit_webauthn() != 155) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit_webauthn() != 51334) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit() != 2201) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit() != 11388) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit_webauthn() != 57631) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit_webauthn() != 7999) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_threshold_webauthn() != 49114) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_threshold_webauthn() != 63632) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_sweep_lamports_webauthn() != 30156) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_sweep_lamports_webauthn() != 49587) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_transfer() != 49896) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_transfer() != 23582) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_transfer_webauthn() != 56342) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_transfer_webauthn() != 931) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_withdraw_webauthn() != 9507) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_withdraw_webauthn() != 23196) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_sweep_sidewallet_user_op() != 36385) {
@@ -19613,7 +22430,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_x402_eip3009() != 54252) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_quote_solana_op_fee() != 4361) {
+    if (uniffi_paygent_mobile_core_checksum_func_principal_invites_subject() != 28091) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_quote_solana_op_fee() != 30607) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_enforced_module_guard() != 43105) {
@@ -19637,7 +22457,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_retry_direct_transaction() != 5233) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_review_agent_attachment() != 52165) {
+    if (uniffi_paygent_mobile_core_checksum_func_review_agent_attachment() != 50511) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_sanitize_wallet_label() != 11396) {
@@ -19649,6 +22469,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_seal_push_payload() != 38642) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_sol_usdc_rate_micros() != 16199) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_solana_chain_key() != 42606) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -19658,19 +22481,28 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_solana_cluster_rpc_url() != 6060) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_solana_fee_coverage() != 37953) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_solana_lamports_to_sol_display() != 56289) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_solana_max_threshold() != 42953) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_solana_owner_op_fees() != 59453) {
+    if (uniffi_paygent_mobile_core_checksum_func_solana_owner_op_fees() != 61814) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_solana_setup_readiness() != 32753) {
+    if (uniffi_paygent_mobile_core_checksum_func_solana_purse_required_message() != 35457) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_solana_setup_readiness() != 63398) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_solana_sweepable_lamports() != 20534) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_solana_value_op_fees() != 41526) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_submit_direct_deploy_configuration() != 43793) {
@@ -19715,6 +22547,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_chain_id() != 55267) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_confirm_agent_attachment() != 47372) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_executor_module() != 29403) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -19724,7 +22559,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_guard() != 31272) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_max_base_gas() != 11033) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_module_is_deployed() != 27130) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_required_outer_gas() != 34595) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_required_safe_tx_gas() != 43503) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_wallet_address() != 48894) {
@@ -19758,6 +22602,33 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_agentsessionhost_session_snapshot() != 56759) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_attachmentdecline_delegate_did() != 26873) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_attachmentdecline_request_id() != 3449) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_chain_id() != 29056) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_delegate_did() != 1916) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_executor_module() != 1739) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_granted() != 47799) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_request_id() != 47452) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_wallet_address() != 26822) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_confirmedattachment_wallet_index() != 46573) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_connect_side_wallet() != 5289) {
@@ -19799,6 +22670,54 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_sync() != 51839) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_add_pairing() != 18443) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_connect() != 4767) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_disconnect() != 4917) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_get_outbound_queue_size() != 8136) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_get_state() != 50691) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_on_timer() != 8917) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_on_ws_close() != 26891) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_on_ws_error() != 43388) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_on_ws_message() != 14524) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_on_ws_open() != 64818) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_pairing_count() != 11297) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_pairing_state() != 35290) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_remove_pairing() != 47041) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_send() != 29080) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_set_peer() != 59789) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_transport_did() != 61570) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_connect() != 40728) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -19808,7 +22727,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_get_outbound_queue_size() != 55024) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_get_state() != 62229) {
+    if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_get_state() != 2600) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_on_timer() != 50794) {
@@ -19830,6 +22749,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_set_peer() != 31445) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_standing() != 2006) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_nostrtransport_transport_did() != 2764) {
@@ -19892,10 +22814,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_submitguard_settle() != 28997) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_verifiedattachmentrequest_decline() != 12123) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_verifiedattachmentrequest_summary() != 41055) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_constructor_lightningtreasury_start() != 14597) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_constructor_nostrfleet_new() != 41608) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_constructor_nostrtransport_new() != 50061) {
