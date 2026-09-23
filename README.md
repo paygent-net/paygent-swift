@@ -23,7 +23,7 @@ and two iOS simulator slices only.
 
 In Xcode: **File > Add Package Dependencies...**, paste
 `https://github.com/paygent-net/paygent-swift`, and set the dependency rule to **Up to Next Minor
-Version** from `0.3.0`.
+Version** from `0.4.0`.
 
 From another package:
 
@@ -32,7 +32,7 @@ From another package:
 dependencies: [
     .package(
         url: "https://github.com/paygent-net/paygent-swift.git",
-        .upToNextMinor(from: "0.3.0")
+        .upToNextMinor(from: "0.4.0")
     ),
 ],
 targets: [
@@ -135,9 +135,16 @@ version's section, so a release whose changelog and binding disagree is not cut.
 
 ## Licence
 
-[Mozilla Public License 2.0](LICENSE). MPL is file-level copyleft: it asks that
-changes to *these* files come back, and says nothing about the app you link them
-into. Your app stays yours.
+[Business Source License 1.1](LICENSE), with Paygent's Additional Use Grant.
+In short: use it and ship it unmodified, commercially or not, for free; modify
+it for your own personal use, or to contribute the change back; anything else
+needs a commercial licence; and each version becomes Apache-2.0 four years
+after it is published. [LICENSE-FAQ.md](LICENSE-FAQ.md) answers the common
+questions in plain language; if it and the licence disagree, the licence wins.
+Your app stays yours: linking this package does not put it under any licence.
+
+Releases 0.1.0, 0.2.0 and 0.3.0 were published under the Mozilla Public
+License 2.0 and remain under it.
 
 The binary links third-party code under MIT, BSD-3-Clause, ISC, Apache-2.0,
 MPL-2.0 and CC0; every notice is in
@@ -145,12 +152,8 @@ MPL-2.0 and CC0; every notice is in
 
 ### Getting the source of the binary
 
-The `.xcframework` this package downloads is compiled from Rust source that is
-also under the MPL, and section 3.2 of that licence says anyone who receives the
-binary must be told how to get that source. This is how: **open an issue on this
+The `.xcframework` this package downloads is compiled from
+[paygent-net/rust-common](https://github.com/paygent-net/rust-common). For the
+three MPL-era releases, the section 3.2 offer stands: open an issue on this
 repository naming the version you have, and the Source Form of the MPL-covered
-files that went into it is sent to you at no charge.**
-
-The repository the code is developed in is not public, so it is not that route.
-The offer above is, and it stands for every version this repository has ever
-released.
+files that went into it is sent to you at no charge.

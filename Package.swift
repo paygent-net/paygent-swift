@@ -10,11 +10,23 @@ import PackageDescription
 // the package resolvable by anyone.
 let package = Package(
     name: "PaygentSdk",
-    // iOS only, and deliberately not macOS or macCatalyst: the xcframework
-    // carries an iOS device slice and two iOS simulator slices and nothing
-    // else, so a target on any other platform resolves the manifest and then
-    // fails at link time with no explanation.
-    platforms: [ .iOS(.v16) ],
+    // macOS is arm64 ONLY, and that is a constraint on YOUR target, not just on
+    // ours. The xcframework carries an iOS device slice, two iOS simulator
+    // slices and a macos-arm64 slice; there is no x86_64 macOS slice and there
+    // will not be one, because an Intel Mac without a T2 has no usable Secure
+    // Enclave to hold a key in. Xcode's default macOS ARCHS is universal, so a
+    // macOS target that takes the default links against a slice that has no
+    // x86_64 in it and fails with:
+    //
+    //     Undefined symbols for architecture x86_64: "_paygent_se_available"
+    //
+    // Pin `ARCHS = arm64` on whichever target links this package. In a
+    // universal app that means putting the wallet in its own arm64-only target
+    // -- an embedded helper, XPC service or app extension -- and pinning ARCHS
+    // there; the enclosing app stays universal and never links this package.
+    //
+    // macCatalyst is still absent: no slice is built for it.
+    platforms: [ .iOS(.v16), .macOS(.v13) ],
     products: [
         .library(name: "PaygentSdk", targets: ["PaygentSdk"]),
         .library(name: "PaygentMobileCore", targets: ["PaygentMobileCore"]),
@@ -22,8 +34,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "PaygentMobileCoreFFI",
-            url: "https://github.com/paygent-net/paygent-swift/releases/download/0.3.0/PaygentMobileCoreFFI-0.3.0.xcframework.zip",
-            checksum: "3f172d75dfc035adaf8b78716ae45926afebadc6dbd2abb99a03e28f55f49c1b"
+            url: "https://github.com/paygent-net/paygent-swift/releases/download/0.4.0/PaygentMobileCoreFFI-0.4.0.xcframework.zip",
+            checksum: "948f2c77cc70b4c18ae5530e9ef9b2ec347fedea38014b4f575b6b2cd1d98c93"
         ),
         .target(
             name: "PaygentMobileCore",

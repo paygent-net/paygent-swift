@@ -545,6 +545,23 @@ public struct PolicyIntent {
     public var chainId: UInt64?
     public var wallet: String?
     /**
+     * Who receives the value: the EVM address or Solana account the payment
+     * is addressed to.
+     *
+     * This is NOT the call target. For an ERC-20 payment the transaction's
+     * `to` is the token contract, and the payee is a word inside the
+     * calldata -- which is why the guard's on-chain `allowedTargets` list
+     * does not bound it, and why this field has to be carried separately for
+     * the engine to have a payee at all.
+     *
+     * `None` for commands that pay nobody (`pair_device`, `sign_message`).
+     * On a third-party transfer `None` escalates: a transfer that does not
+     * say who it pays cannot have its payee checked, and an intent the
+     * caller under-filled must not be cheaper to get past than one it
+     * filled in.
+     */
+    public var recipient: String?
+    /**
      * Token contract address (`0x0000...0000` for native ETH). Lower-cased.
      */
     public var token: String?
@@ -573,6 +590,22 @@ public struct PolicyIntent {
     // declare one manually.
     public init(commandName: String, chainId: UInt64?, wallet: String?, 
         /**
+         * Who receives the value: the EVM address or Solana account the payment
+         * is addressed to.
+         *
+         * This is NOT the call target. For an ERC-20 payment the transaction's
+         * `to` is the token contract, and the payee is a word inside the
+         * calldata -- which is why the guard's on-chain `allowedTargets` list
+         * does not bound it, and why this field has to be carried separately for
+         * the engine to have a payee at all.
+         *
+         * `None` for commands that pay nobody (`pair_device`, `sign_message`).
+         * On a third-party transfer `None` escalates: a transfer that does not
+         * say who it pays cannot have its payee checked, and an intent the
+         * caller under-filled must not be cheaper to get past than one it
+         * filled in.
+         */recipient: String?, 
+        /**
          * Token contract address (`0x0000...0000` for native ETH). Lower-cased.
          */token: String?, 
         /**
@@ -595,6 +628,7 @@ public struct PolicyIntent {
         self.commandName = commandName
         self.chainId = chainId
         self.wallet = wallet
+        self.recipient = recipient
         self.token = token
         self.amount = amount
         self.network = network
@@ -618,6 +652,9 @@ extension PolicyIntent: Equatable, Hashable {
         if lhs.wallet != rhs.wallet {
             return false
         }
+        if lhs.recipient != rhs.recipient {
+            return false
+        }
         if lhs.token != rhs.token {
             return false
         }
@@ -637,6 +674,7 @@ extension PolicyIntent: Equatable, Hashable {
         hasher.combine(commandName)
         hasher.combine(chainId)
         hasher.combine(wallet)
+        hasher.combine(recipient)
         hasher.combine(token)
         hasher.combine(amount)
         hasher.combine(network)
@@ -656,6 +694,7 @@ public struct FfiConverterTypePolicyIntent: FfiConverterRustBuffer {
                 commandName: FfiConverterString.read(from: &buf), 
                 chainId: FfiConverterOptionUInt64.read(from: &buf), 
                 wallet: FfiConverterOptionString.read(from: &buf), 
+                recipient: FfiConverterOptionString.read(from: &buf), 
                 token: FfiConverterOptionString.read(from: &buf), 
                 amount: FfiConverterOptionTypeIntentAmount.read(from: &buf), 
                 network: FfiConverterOptionString.read(from: &buf), 
@@ -667,6 +706,7 @@ public struct FfiConverterTypePolicyIntent: FfiConverterRustBuffer {
         FfiConverterString.write(value.commandName, into: &buf)
         FfiConverterOptionUInt64.write(value.chainId, into: &buf)
         FfiConverterOptionString.write(value.wallet, into: &buf)
+        FfiConverterOptionString.write(value.recipient, into: &buf)
         FfiConverterOptionString.write(value.token, into: &buf)
         FfiConverterOptionTypeIntentAmount.write(value.amount, into: &buf)
         FfiConverterOptionString.write(value.network, into: &buf)

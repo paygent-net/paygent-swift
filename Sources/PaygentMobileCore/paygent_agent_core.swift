@@ -730,6 +730,208 @@ public func FfiConverterTypeAgentMandate_lower(_ value: AgentMandate) -> RustBuf
 
 
 /**
+ * What a host asks to be attached on, without naming the asker.
+ *
+ * The same fields as [`AttachmentRequestDraft`] minus `delegate_did`, and
+ * owned rather than borrowed so one definition serves the phone and the
+ * browser. The identity is absent on purpose: it is the DID the signer's key
+ * derives, so [`request_attachment`] fills it in from the key itself rather
+ * than letting a host name one. A host that could name it could only get it
+ * wrong.
+ *
+ * The mandate's three fields sit here flat rather than as a
+ * [`Mandate`], because that type is a wire shape in
+ * `paygent-protocol-schemas` and carries no binding derives.
+ */
+public struct AttachmentRequestInput {
+    /**
+     * The owner passkey `W` whose mailbox the request goes to. Signed into
+     * the binding and NOT carried on the wire, so the request verifies for
+     * this owner and no other.
+     */
+    public var ownerDid: String
+    /**
+     * The one chain to be attached on.
+     */
+    public var chainId: UInt64
+    /**
+     * The token the two ceilings below are denominated in.
+     */
+    public var token: String
+    /**
+     * Per-transaction ceiling, minimal `0x` hex. Never `0x0`:
+     * `SafeModuleGuard` reads a zero side as no ceiling at all.
+     */
+    public var maxPerTxHex: String
+    /**
+     * Daily cap, same form and same rule.
+     */
+    public var dailyMaxHex: String
+    /**
+     * Display-only label. Signed like every other field: it carries no
+     * authority, but it is what the owner tells agents apart by.
+     */
+    public var label: String?
+    /**
+     * Correlation id for the owner's answer.
+     */
+    public var requestId: String
+    /**
+     * Unix milliseconds, supplied by the caller: this op reads no clock.
+     */
+    public var issuedAtMs: Int64
+    /**
+     * Unix milliseconds after which the owner must refuse the request.
+     */
+    public var expiresAtMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The owner passkey `W` whose mailbox the request goes to. Signed into
+         * the binding and NOT carried on the wire, so the request verifies for
+         * this owner and no other.
+         */ownerDid: String, 
+        /**
+         * The one chain to be attached on.
+         */chainId: UInt64, 
+        /**
+         * The token the two ceilings below are denominated in.
+         */token: String, 
+        /**
+         * Per-transaction ceiling, minimal `0x` hex. Never `0x0`:
+         * `SafeModuleGuard` reads a zero side as no ceiling at all.
+         */maxPerTxHex: String, 
+        /**
+         * Daily cap, same form and same rule.
+         */dailyMaxHex: String, 
+        /**
+         * Display-only label. Signed like every other field: it carries no
+         * authority, but it is what the owner tells agents apart by.
+         */label: String?, 
+        /**
+         * Correlation id for the owner's answer.
+         */requestId: String, 
+        /**
+         * Unix milliseconds, supplied by the caller: this op reads no clock.
+         */issuedAtMs: Int64, 
+        /**
+         * Unix milliseconds after which the owner must refuse the request.
+         */expiresAtMs: Int64) {
+        self.ownerDid = ownerDid
+        self.chainId = chainId
+        self.token = token
+        self.maxPerTxHex = maxPerTxHex
+        self.dailyMaxHex = dailyMaxHex
+        self.label = label
+        self.requestId = requestId
+        self.issuedAtMs = issuedAtMs
+        self.expiresAtMs = expiresAtMs
+    }
+}
+
+#if compiler(>=6)
+extension AttachmentRequestInput: Sendable {}
+#endif
+
+
+extension AttachmentRequestInput: Equatable, Hashable {
+    public static func ==(lhs: AttachmentRequestInput, rhs: AttachmentRequestInput) -> Bool {
+        if lhs.ownerDid != rhs.ownerDid {
+            return false
+        }
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+            return false
+        }
+        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+            return false
+        }
+        if lhs.label != rhs.label {
+            return false
+        }
+        if lhs.requestId != rhs.requestId {
+            return false
+        }
+        if lhs.issuedAtMs != rhs.issuedAtMs {
+            return false
+        }
+        if lhs.expiresAtMs != rhs.expiresAtMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ownerDid)
+        hasher.combine(chainId)
+        hasher.combine(token)
+        hasher.combine(maxPerTxHex)
+        hasher.combine(dailyMaxHex)
+        hasher.combine(label)
+        hasher.combine(requestId)
+        hasher.combine(issuedAtMs)
+        hasher.combine(expiresAtMs)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentRequestInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentRequestInput {
+        return
+            try AttachmentRequestInput(
+                ownerDid: FfiConverterString.read(from: &buf), 
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                token: FfiConverterString.read(from: &buf), 
+                maxPerTxHex: FfiConverterString.read(from: &buf), 
+                dailyMaxHex: FfiConverterString.read(from: &buf), 
+                label: FfiConverterOptionString.read(from: &buf), 
+                requestId: FfiConverterString.read(from: &buf), 
+                issuedAtMs: FfiConverterInt64.read(from: &buf), 
+                expiresAtMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AttachmentRequestInput, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.ownerDid, into: &buf)
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.token, into: &buf)
+        FfiConverterString.write(value.maxPerTxHex, into: &buf)
+        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterOptionString.write(value.label, into: &buf)
+        FfiConverterString.write(value.requestId, into: &buf)
+        FfiConverterInt64.write(value.issuedAtMs, into: &buf)
+        FfiConverterInt64.write(value.expiresAtMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentRequestInput_lift(_ buf: RustBuffer) throws -> AttachmentRequestInput {
+    return try FfiConverterTypeAttachmentRequestInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentRequestInput_lower(_ value: AttachmentRequestInput) -> RustBuffer {
+    return FfiConverterTypeAttachmentRequestInput.lower(value)
+}
+
+
+/**
  * Per-chain deployment projection. Mirrors the wallet's
  * `wallet/src/main/services/SessionService.ts:ChainDeployment`.
  */
@@ -1231,6 +1433,16 @@ public func FfiConverterTypeOwnerSummary_lower(_ value: OwnerSummary) -> RustBuf
  * checked request the loop runs on -- so a URL that does not parse, a method
  * no transport could send identically on every platform, or a body that is
  * not base64 is refused before anything is sent.
+ *
+ * `deny_unknown_fields` for the reason `AgentConfig` carries it: these field
+ * names cross the browser boundary spelled exactly as Rust spells them, while
+ * the constructor's config is camelCase, so a caller writing idiomatic
+ * JavaScript reaches for `maxAmount` and gets a key this struct does not
+ * know. Without this, serde drops it and fills `max_amount` with `None` --
+ * and `None` here does not mean "no opinion", it means NO CEILING. The
+ * caller believes it capped the payment and the loop pays whatever the
+ * server asks. A refused call is the only safe reading of a key we cannot
+ * interpret.
  */
 public struct PayCall {
     /**
@@ -1270,8 +1482,41 @@ public struct PayCall {
     public var maxSats: UInt64?
     /**
      * The token contract the caller prefers, when the server offers several.
+     * A preference on its own: when no offered demand pays in it, the
+     * negotiation falls back to one that does. Naming `idempotency_key` turns
+     * it into a constraint instead, and the fallback becomes a refusal --
+     * each token contract keeps its own exactly-once record, so a retry paid
+     * in another token is a second record that also settles.
      */
     public var token: String?
+    /**
+     * The caller's own name for this logical payment, reused verbatim on
+     * every retry of it. On the x402 EIP-3009 rails it fixes the
+     * authorization nonce, so a retry after a crash is an authorization the
+     * token contract has already spent rather than a second spendable one.
+     *
+     * Those are the only rails that can carry it, and which rail answers is
+     * read off the server's own 402 after the call was made. A demand that
+     * lands anywhere else -- L402, MPP, the ERC-4337 UserOp scheme, Solana
+     * `exact` -- is REFUSED while this is set, having signed and sent
+     * nothing, rather than paid with the name dropped.
+     *
+     * `None` means the caller is not naming the payment, which is what every
+     * call did before this field existed: each attempt draws a fresh nonce
+     * and is independently spendable. Unlike `max_amount`, the absent case
+     * is the historical behaviour rather than a dropped ceiling, so the field
+     * defaults instead of being required -- and a MISSPELLED key is still
+     * refused outright by `deny_unknown_fields` above, which is the mistake
+     * worth catching here.
+     *
+     * The three bindings each need their own word for "may be left out":
+     * `serde(default)` for JSON, `uniffi(default = None)` for Swift and
+     * Kotlin, and `tsify(optional)` for TypeScript -- without the last one
+     * tsify emits `idempotency_key: string | undefined`, which TypeScript
+     * treats as a REQUIRED property, and every existing object literal
+     * stops compiling.
+     */
+    public var idempotencyKey: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -1306,7 +1551,39 @@ public struct PayCall {
          */maxSats: UInt64?, 
         /**
          * The token contract the caller prefers, when the server offers several.
-         */token: String?) {
+         * A preference on its own: when no offered demand pays in it, the
+         * negotiation falls back to one that does. Naming `idempotency_key` turns
+         * it into a constraint instead, and the fallback becomes a refusal --
+         * each token contract keeps its own exactly-once record, so a retry paid
+         * in another token is a second record that also settles.
+         */token: String?, 
+        /**
+         * The caller's own name for this logical payment, reused verbatim on
+         * every retry of it. On the x402 EIP-3009 rails it fixes the
+         * authorization nonce, so a retry after a crash is an authorization the
+         * token contract has already spent rather than a second spendable one.
+         *
+         * Those are the only rails that can carry it, and which rail answers is
+         * read off the server's own 402 after the call was made. A demand that
+         * lands anywhere else -- L402, MPP, the ERC-4337 UserOp scheme, Solana
+         * `exact` -- is REFUSED while this is set, having signed and sent
+         * nothing, rather than paid with the name dropped.
+         *
+         * `None` means the caller is not naming the payment, which is what every
+         * call did before this field existed: each attempt draws a fresh nonce
+         * and is independently spendable. Unlike `max_amount`, the absent case
+         * is the historical behaviour rather than a dropped ceiling, so the field
+         * defaults instead of being required -- and a MISSPELLED key is still
+         * refused outright by `deny_unknown_fields` above, which is the mistake
+         * worth catching here.
+         *
+         * The three bindings each need their own word for "may be left out":
+         * `serde(default)` for JSON, `uniffi(default = None)` for Swift and
+         * Kotlin, and `tsify(optional)` for TypeScript -- without the last one
+         * tsify emits `idempotency_key: string | undefined`, which TypeScript
+         * treats as a REQUIRED property, and every existing object literal
+         * stops compiling.
+         */idempotencyKey: String? = nil) {
         self.method = method
         self.url = url
         self.headers = headers
@@ -1315,6 +1592,7 @@ public struct PayCall {
         self.maxAmount = maxAmount
         self.maxSats = maxSats
         self.token = token
+        self.idempotencyKey = idempotencyKey
     }
 }
 
@@ -1349,6 +1627,9 @@ extension PayCall: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
+        if lhs.idempotencyKey != rhs.idempotencyKey {
+            return false
+        }
         return true
     }
 
@@ -1361,6 +1642,7 @@ extension PayCall: Equatable, Hashable {
         hasher.combine(maxAmount)
         hasher.combine(maxSats)
         hasher.combine(token)
+        hasher.combine(idempotencyKey)
     }
 }
 
@@ -1380,7 +1662,8 @@ public struct FfiConverterTypePayCall: FfiConverterRustBuffer {
                 wallet: FfiConverterOptionString.read(from: &buf), 
                 maxAmount: FfiConverterOptionString.read(from: &buf), 
                 maxSats: FfiConverterOptionUInt64.read(from: &buf), 
-                token: FfiConverterOptionString.read(from: &buf)
+                token: FfiConverterOptionString.read(from: &buf), 
+                idempotencyKey: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -1393,6 +1676,7 @@ public struct FfiConverterTypePayCall: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.maxAmount, into: &buf)
         FfiConverterOptionUInt64.write(value.maxSats, into: &buf)
         FfiConverterOptionString.write(value.token, into: &buf)
+        FfiConverterOptionString.write(value.idempotencyKey, into: &buf)
     }
 }
 
@@ -1590,6 +1874,258 @@ public func FfiConverterTypePaySettlement_lift(_ buf: RustBuffer) throws -> PayS
 #endif
 public func FfiConverterTypePaySettlement_lower(_ value: PaySettlement) -> RustBuffer {
     return FfiConverterTypePaySettlement.lower(value)
+}
+
+
+/**
+ * One candidate payer's record for one idempotency key.
+ */
+public struct PaymentKeyPayer {
+    /**
+     * The address this row asked about: the EIP-3009 `from` a payment under
+     * this key would carry if this address were the payer. The wallet's own
+     * address on the plain rail, the executor module contract's on the
+     * module-as-payer rail.
+     */
+    public var payer: String
+    /**
+     * The EIP-3009 authorization nonce this key derives for this payer,
+     * `0x`-prefixed. The value a payment from this payer under this key
+     * carries, so it can be matched against a transaction seen on chain.
+     */
+    public var authorizationNonce: String
+    /**
+     * `true` when the token contract records that `(payer, nonce)` as
+     * consumed at the latest block the queried node served. See the module
+     * docs: consumed is narrower than paid, and `false` is not a verdict.
+     */
+    public var consumed: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The address this row asked about: the EIP-3009 `from` a payment under
+         * this key would carry if this address were the payer. The wallet's own
+         * address on the plain rail, the executor module contract's on the
+         * module-as-payer rail.
+         */payer: String, 
+        /**
+         * The EIP-3009 authorization nonce this key derives for this payer,
+         * `0x`-prefixed. The value a payment from this payer under this key
+         * carries, so it can be matched against a transaction seen on chain.
+         */authorizationNonce: String, 
+        /**
+         * `true` when the token contract records that `(payer, nonce)` as
+         * consumed at the latest block the queried node served. See the module
+         * docs: consumed is narrower than paid, and `false` is not a verdict.
+         */consumed: Bool) {
+        self.payer = payer
+        self.authorizationNonce = authorizationNonce
+        self.consumed = consumed
+    }
+}
+
+#if compiler(>=6)
+extension PaymentKeyPayer: Sendable {}
+#endif
+
+
+extension PaymentKeyPayer: Equatable, Hashable {
+    public static func ==(lhs: PaymentKeyPayer, rhs: PaymentKeyPayer) -> Bool {
+        if lhs.payer != rhs.payer {
+            return false
+        }
+        if lhs.authorizationNonce != rhs.authorizationNonce {
+            return false
+        }
+        if lhs.consumed != rhs.consumed {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(payer)
+        hasher.combine(authorizationNonce)
+        hasher.combine(consumed)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePaymentKeyPayer: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PaymentKeyPayer {
+        return
+            try PaymentKeyPayer(
+                payer: FfiConverterString.read(from: &buf), 
+                authorizationNonce: FfiConverterString.read(from: &buf), 
+                consumed: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PaymentKeyPayer, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.payer, into: &buf)
+        FfiConverterString.write(value.authorizationNonce, into: &buf)
+        FfiConverterBool.write(value.consumed, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentKeyPayer_lift(_ buf: RustBuffer) throws -> PaymentKeyPayer {
+    return try FfiConverterTypePaymentKeyPayer.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentKeyPayer_lower(_ value: PaymentKeyPayer) -> RustBuffer {
+    return FfiConverterTypePaymentKeyPayer.lower(value)
+}
+
+
+/**
+ * What one token contract knows about one idempotency key.
+ */
+public struct PaymentKeyStatus {
+    /**
+     * The key asked about, echoed back so a caller holding several can tell
+     * the answers apart.
+     */
+    public var idempotencyKey: String
+    public var chainId: UInt64
+    /**
+     * The token contract asked. The record is per-token, so this is part of
+     * the answer rather than context.
+     */
+    public var token: String
+    /**
+     * One row per address that could have been the payment's EIP-3009
+     * `from`, in the order they were asked.
+     */
+    public var payers: [PaymentKeyPayer]
+    /**
+     * `true` when any row in `payers` is consumed.
+     *
+     * This is the field a caller forks on, and it is deliberately not called
+     * `settled`: it says the authorization under this key was spent by
+     * something on this token and chain, not that a particular payment
+     * settled, and `false` says only that no row was recorded at the latest
+     * block the queried node served. The module docs spell out both edges.
+     */
+    public var consumed: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The key asked about, echoed back so a caller holding several can tell
+         * the answers apart.
+         */idempotencyKey: String, chainId: UInt64, 
+        /**
+         * The token contract asked. The record is per-token, so this is part of
+         * the answer rather than context.
+         */token: String, 
+        /**
+         * One row per address that could have been the payment's EIP-3009
+         * `from`, in the order they were asked.
+         */payers: [PaymentKeyPayer], 
+        /**
+         * `true` when any row in `payers` is consumed.
+         *
+         * This is the field a caller forks on, and it is deliberately not called
+         * `settled`: it says the authorization under this key was spent by
+         * something on this token and chain, not that a particular payment
+         * settled, and `false` says only that no row was recorded at the latest
+         * block the queried node served. The module docs spell out both edges.
+         */consumed: Bool) {
+        self.idempotencyKey = idempotencyKey
+        self.chainId = chainId
+        self.token = token
+        self.payers = payers
+        self.consumed = consumed
+    }
+}
+
+#if compiler(>=6)
+extension PaymentKeyStatus: Sendable {}
+#endif
+
+
+extension PaymentKeyStatus: Equatable, Hashable {
+    public static func ==(lhs: PaymentKeyStatus, rhs: PaymentKeyStatus) -> Bool {
+        if lhs.idempotencyKey != rhs.idempotencyKey {
+            return false
+        }
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        if lhs.payers != rhs.payers {
+            return false
+        }
+        if lhs.consumed != rhs.consumed {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(idempotencyKey)
+        hasher.combine(chainId)
+        hasher.combine(token)
+        hasher.combine(payers)
+        hasher.combine(consumed)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePaymentKeyStatus: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PaymentKeyStatus {
+        return
+            try PaymentKeyStatus(
+                idempotencyKey: FfiConverterString.read(from: &buf), 
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                token: FfiConverterString.read(from: &buf), 
+                payers: FfiConverterSequenceTypePaymentKeyPayer.read(from: &buf), 
+                consumed: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PaymentKeyStatus, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.idempotencyKey, into: &buf)
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.token, into: &buf)
+        FfiConverterSequenceTypePaymentKeyPayer.write(value.payers, into: &buf)
+        FfiConverterBool.write(value.consumed, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentKeyStatus_lift(_ buf: RustBuffer) throws -> PaymentKeyStatus {
+    return try FfiConverterTypePaymentKeyStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentKeyStatus_lower(_ value: PaymentKeyStatus) -> RustBuffer {
+    return FfiConverterTypePaymentKeyStatus.lower(value)
 }
 
 
@@ -1808,7 +2344,19 @@ public struct SolanaPocketInfo {
      */
     public var silentKeyHex: String?
     /**
-     * Per-agent remaining allowance for the current period (smallest units).
+     * The EFFECTIVE silent capacity for the current period (smallest units):
+     * `min(per-agent period-adjusted remaining, guard-global period-adjusted
+     * remaining)`, NOT the per-agent remaining alone.
+     *
+     * Both caps bind on chain -- the guard's `refill` requires the amount to
+     * be within each -- so reporting only the agent's remaining over-reports
+     * (a 2 USDC agent allowance under a guard-global remaining of 0 can fund
+     * nothing), and a caller that spends up to this number must find the
+     * refill will allow it. Implementors of this trait MUST honour that: this
+     * is the number the policy engine's Solana gates compare a spend against,
+     * so a host that puts the agent remaining here alone makes the engine
+     * approve silent spends the guard will reject.
+     *
      * `None` until the agent is registered on-chain (no `Agent` account yet;
      * `add_agent` is a mobile-admin operation).
      */
@@ -1863,7 +2411,19 @@ public struct SolanaPocketInfo {
          * hardware signer (test doubles).
          */silentKeyHex: String?, 
         /**
-         * Per-agent remaining allowance for the current period (smallest units).
+         * The EFFECTIVE silent capacity for the current period (smallest units):
+         * `min(per-agent period-adjusted remaining, guard-global period-adjusted
+         * remaining)`, NOT the per-agent remaining alone.
+         *
+         * Both caps bind on chain -- the guard's `refill` requires the amount to
+         * be within each -- so reporting only the agent's remaining over-reports
+         * (a 2 USDC agent allowance under a guard-global remaining of 0 can fund
+         * nothing), and a caller that spends up to this number must find the
+         * refill will allow it. Implementors of this trait MUST honour that: this
+         * is the number the policy engine's Solana gates compare a spend against,
+         * so a host that puts the agent remaining here alone makes the engine
+         * approve silent spends the guard will reject.
+         *
          * `None` until the agent is registered on-chain (no `Agent` account yet;
          * `add_agent` is a mobile-admin operation).
          */available: UInt64?, 
@@ -2621,8 +3181,29 @@ public struct X402EscalationRequest {
      * EIP-712 domain `version` from the 402 `extra` (e.g. `"2"`).
      */
     public var eip712Version: String
-    public var resourceUrl: String?
-    public var resourceDescription: String?
+    /**
+     * What the resource server said it is selling, and where. Both come off
+     * the 402 the agent was following, so both are words somebody else wrote:
+     * [`UntrustedText`] is what stops a host rendering them beside the amount
+     * as if the wallet had derived them.
+     */
+    public var resourceUrl: UntrustedText?
+    public var resourceDescription: UntrustedText?
+    /**
+     * The web origin of the top-level document the payment was demanded from,
+     * as the HOST REPORTS it -- not `resource_url` above, which the page
+     * supplied, and not the wallet's own API endpoint, which says which of the
+     * daemon's doors the agent knocked on.
+     *
+     * Nothing binds it to that host: it is carried unsigned through the same
+     * daemon as everything else here, so it ranks with the untrusted strings
+     * above rather than above them. What the type buys is that the claim
+     * cannot carry a path, a credential or a second host.
+     *
+     * `None` when there is no such document: a CLI or a headless agent has no
+     * address bar, and a made-up origin would be worse than none.
+     */
+    public var webOrigin: WebOrigin?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -2646,7 +3227,27 @@ public struct X402EscalationRequest {
          */eip712Name: String, 
         /**
          * EIP-712 domain `version` from the 402 `extra` (e.g. `"2"`).
-         */eip712Version: String, resourceUrl: String?, resourceDescription: String?) {
+         */eip712Version: String, 
+        /**
+         * What the resource server said it is selling, and where. Both come off
+         * the 402 the agent was following, so both are words somebody else wrote:
+         * [`UntrustedText`] is what stops a host rendering them beside the amount
+         * as if the wallet had derived them.
+         */resourceUrl: UntrustedText?, resourceDescription: UntrustedText?, 
+        /**
+         * The web origin of the top-level document the payment was demanded from,
+         * as the HOST REPORTS it -- not `resource_url` above, which the page
+         * supplied, and not the wallet's own API endpoint, which says which of the
+         * daemon's doors the agent knocked on.
+         *
+         * Nothing binds it to that host: it is carried unsigned through the same
+         * daemon as everything else here, so it ranks with the untrusted strings
+         * above rather than above them. What the type buys is that the claim
+         * cannot carry a path, a credential or a second host.
+         *
+         * `None` when there is no such document: a CLI or a headless agent has no
+         * address bar, and a made-up origin would be worse than none.
+         */webOrigin: WebOrigin?) {
         self.chainId = chainId
         self.network = network
         self.safeAddress = safeAddress
@@ -2658,6 +3259,7 @@ public struct X402EscalationRequest {
         self.eip712Version = eip712Version
         self.resourceUrl = resourceUrl
         self.resourceDescription = resourceDescription
+        self.webOrigin = webOrigin
     }
 }
 
@@ -2701,6 +3303,9 @@ extension X402EscalationRequest: Equatable, Hashable {
         if lhs.resourceDescription != rhs.resourceDescription {
             return false
         }
+        if lhs.webOrigin != rhs.webOrigin {
+            return false
+        }
         return true
     }
 
@@ -2716,6 +3321,7 @@ extension X402EscalationRequest: Equatable, Hashable {
         hasher.combine(eip712Version)
         hasher.combine(resourceUrl)
         hasher.combine(resourceDescription)
+        hasher.combine(webOrigin)
     }
 }
 
@@ -2737,8 +3343,9 @@ public struct FfiConverterTypeX402EscalationRequest: FfiConverterRustBuffer {
                 maxTimeoutSeconds: FfiConverterUInt64.read(from: &buf), 
                 eip712Name: FfiConverterString.read(from: &buf), 
                 eip712Version: FfiConverterString.read(from: &buf), 
-                resourceUrl: FfiConverterOptionString.read(from: &buf), 
-                resourceDescription: FfiConverterOptionString.read(from: &buf)
+                resourceUrl: FfiConverterOptionTypeUntrustedText.read(from: &buf), 
+                resourceDescription: FfiConverterOptionTypeUntrustedText.read(from: &buf), 
+                webOrigin: FfiConverterOptionTypeWebOrigin.read(from: &buf)
         )
     }
 
@@ -2752,8 +3359,9 @@ public struct FfiConverterTypeX402EscalationRequest: FfiConverterRustBuffer {
         FfiConverterUInt64.write(value.maxTimeoutSeconds, into: &buf)
         FfiConverterString.write(value.eip712Name, into: &buf)
         FfiConverterString.write(value.eip712Version, into: &buf)
-        FfiConverterOptionString.write(value.resourceUrl, into: &buf)
-        FfiConverterOptionString.write(value.resourceDescription, into: &buf)
+        FfiConverterOptionTypeUntrustedText.write(value.resourceUrl, into: &buf)
+        FfiConverterOptionTypeUntrustedText.write(value.resourceDescription, into: &buf)
+        FfiConverterOptionTypeWebOrigin.write(value.webOrigin, into: &buf)
     }
 }
 
@@ -2921,6 +3529,204 @@ public func FfiConverterTypeHardwareKind_lower(_ value: HardwareKind) -> RustBuf
 
 
 extension HardwareKind: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Which [`PayError`] this is, with the payload dropped.
+ *
+ * A [`PayError`] carries whole HTTP responses and settlement
+ * credentials, so it cannot cross a language binding as itself. This
+ * can: it is the variant name and nothing else, which is exactly what
+ * a Swift or TypeScript caller needs in order to branch. A binding
+ * pairs it with the error's rendered message rather than replacing
+ * the message with it -- the credential inside
+ * [`PayError::SettlementUnknown`] exists only in that text.
+ *
+ * The name is not the useful part on its own. [`Self::settlement`]
+ * is: it answers the one question a caller has to get right before it
+ * retries.
+ *
+ * Each variant here names the [`PayError`] variant of the same name
+ * and carries a one-line summary of it. [`PayError`]'s own
+ * documentation is the full account.
+ *
+ * Those summaries reach a phone host but not a browser one. UniFFI
+ * copies each variant's doc comment onto the Swift `case` and onto
+ * the Kotlin enum constant; `tsify` emits this type as a one-line
+ * string-literal union of the wire spellings and carries only the
+ * comment above it, so the per-variant text does not cross to
+ * TypeScript. The `deny` below is what keeps a variant from being
+ * declared without a summary in the first place.
+ */
+
+public enum PayErrorKind {
+    
+    /**
+     * The request never completed -- connection refused, DNS failure,
+     * timeout, a malformed response -- so nothing that could cost money was
+     * sent.
+     */
+    case transport
+    /**
+     * A signed payment had already been sent when the round trip failed, so
+     * whether the server settled it was never learned.
+     */
+    case settlementUnknown
+    /**
+     * This host is not set up to pay on the rail the server demanded: no
+     * payer wired for it, or an unsupported network.
+     */
+    case configuration
+    /**
+     * The rail is wired, but the account it pays from does not exist yet --
+     * no wallet in the session, or no side wallet under it. Provisioning
+     * that account is what unblocks it.
+     */
+    case unprovisioned
+    /**
+     * The signer refused or failed before anything was sent.
+     */
+    case signer
+    /**
+     * A round trip that carried no payment came back with a settlement
+     * receipt, so money moved that this attempt cannot account for. The
+     * receipt naming that payment is in the error's message.
+     */
+    case unattributedSettlement
+    /**
+     * The x402 payer could not produce a payment. It signs without sending,
+     * so nothing was paid.
+     */
+    case x402Silent
+    /**
+     * The Lightning pocket did not report settling the invoice. Paying it is
+     * how the pocket obtains the credential, so a payer that gave up on its
+     * own deadline cannot promise the in-flight HTLC did not settle after it
+     * stopped waiting.
+     */
+    case lightningSilent
+    /**
+     * The caller's own request refused the charge before anything was sent:
+     * the call could not be built at all, or the demand asked more than the
+     * ceiling the caller named.
+     */
+    case request
+    /**
+     * The server demanded payment in a protocol no rail here recognised, so
+     * there was nothing to pay.
+     */
+    case unreadableDemand
+}
+
+
+#if compiler(>=6)
+extension PayErrorKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePayErrorKind: FfiConverterRustBuffer {
+    typealias SwiftType = PayErrorKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PayErrorKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .transport
+        
+        case 2: return .settlementUnknown
+        
+        case 3: return .configuration
+        
+        case 4: return .unprovisioned
+        
+        case 5: return .signer
+        
+        case 6: return .unattributedSettlement
+        
+        case 7: return .x402Silent
+        
+        case 8: return .lightningSilent
+        
+        case 9: return .request
+        
+        case 10: return .unreadableDemand
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PayErrorKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .transport:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .settlementUnknown:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .configuration:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .unprovisioned:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .signer:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .unattributedSettlement:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .x402Silent:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .lightningSilent:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .request:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .unreadableDemand:
+            writeInt(&buf, Int32(10))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePayErrorKind_lift(_ buf: RustBuffer) throws -> PayErrorKind {
+    return try FfiConverterTypePayErrorKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePayErrorKind_lower(_ value: PayErrorKind) -> RustBuffer {
+    return FfiConverterTypePayErrorKind.lower(value)
+}
+
+
+extension PayErrorKind: Equatable, Hashable {}
 
 
 
@@ -3475,6 +4281,54 @@ fileprivate struct FfiConverterOptionTypePaySettlement: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeUntrustedText: FfiConverterRustBuffer {
+    typealias SwiftType = UntrustedText?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeUntrustedText.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeUntrustedText.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeWebOrigin: FfiConverterRustBuffer {
+    typealias SwiftType = WebOrigin?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeWebOrigin.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeWebOrigin.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypePeriod: FfiConverterRustBuffer {
     typealias SwiftType = Period?
 
@@ -3565,6 +4419,31 @@ fileprivate struct FfiConverterSequenceTypeOwnerSummary: FfiConverterRustBuffer 
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeOwnerSummary.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePaymentKeyPayer: FfiConverterRustBuffer {
+    typealias SwiftType = [PaymentKeyPayer]
+
+    public static func write(_ value: [PaymentKeyPayer], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePaymentKeyPayer.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PaymentKeyPayer] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PaymentKeyPayer]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePaymentKeyPayer.read(from: &buf))
         }
         return seq
     }
@@ -3725,6 +4604,7 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.contractVersionMismatch
     }
 
+    uniffiEnsurePaygentUntrustedInitialized()
     return InitializationResult.ok
 }()
 
