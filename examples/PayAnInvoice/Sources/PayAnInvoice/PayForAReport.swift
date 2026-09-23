@@ -139,32 +139,17 @@ public enum Example {
                 maxTimeoutSeconds: 60,
                 eip712Name: demand.eip712Name,
                 eip712Version: demand.eip712Version,
-                resourceUrl: fromTheServer(resourceUrl),
-                resourceDescription: fromTheServer(shownToTheOwner),
+                // Both of these are the SERVER's words, so they go through the
+                // sanitiser rather than being wrapped by hand: what the owner
+                // reads is what `parse` produced, not what this app claimed.
+                resourceUrl: Untrusted.parse(resourceUrl),
+                resourceDescription: Untrusted.parse(shownToTheOwner),
                 // No document demanded this payment: there is no address bar
                 // behind an app paying for a report. An invented origin would
                 // be worse than none, because nothing signs this field and a
                 // screen would show it as where the demand came from.
                 webOrigin: nil
             )
-        )
-    }
-
-    /// Wrap a string the SERVER wrote for the crossing into the core.
-    ///
-    /// Only `raw` has to be right. Every step after this one rebuilds the
-    /// record from `raw` alone, so the four other fields go onto the wire and
-    /// are thrown away on arrival: text an app hands in has not been through
-    /// the sanitiser, and an app could put anything in a field that claims it
-    /// has. Filling them in is a formality the record's shape requires, not a
-    /// claim this app is making about the text.
-    private static func fromTheServer(_ text: String) -> UntrustedText {
-        UntrustedText(
-            raw: text,
-            display: text,
-            hiddenRemoved: false,
-            whitespaceNormalised: false,
-            truncated: false
         )
     }
 

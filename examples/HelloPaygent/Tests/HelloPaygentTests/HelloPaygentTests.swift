@@ -26,6 +26,27 @@ final class HelloPaygentTests: XCTestCase {
         XCTAssertThrowsError(try Amount.toBaseUnits(input: "1.0000001", decimals: 6))
     }
 
+    /// Text a seller wrote is sanitised by the core, not by the app.
+    ///
+    /// U+202E is a right-to-left override: it makes the characters after it
+    /// render in reverse, so a stored "tnahcrem" reads as "merchant" on the
+    /// owner's approval card. The core removes it and says it did.
+    func testTextSomebodyElseWroteIsSanitisedAcrossTheBoundary() {
+        let text = Untrusted.parse("pay \u{202E}tnahcrem")
+        XCTAssertEqual(text.display, "pay tnahcrem")
+        XCTAssertTrue(text.hiddenRemoved)
+    }
+
+    /// A resource URL is not an origin, and is refused rather than trimmed to
+    /// one: trimming would let a URL that reads as one host resolve to another.
+    func testAUrlWithAPathIsNotAnOrigin() {
+        XCTAssertThrowsError(try Untrusted.webOrigin("https://api.example.com/v1/report"))
+        XCTAssertEqual(
+            try Untrusted.webOrigin("https://api.example.com:443").host,
+            "api.example.com"
+        )
+    }
+
     /// The constructor refuses a configuration it cannot use, rather than
     /// building a client that fails later.
     ///

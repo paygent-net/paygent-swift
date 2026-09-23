@@ -10,6 +10,37 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.5.0
+
+### Asking for a different allowance, and hearing it changed
+
+Two operations join the agent tier:
+
+| operation | what it does |
+|---|---|
+| `agent.request_allowance` | sign an `agent.allowance-request` ("wants $X a day") with this device's hardware key, for the host to seal into the owner's invite mailbox |
+| `agent.apply_mandate_changed` | act on the owner's `agent.mandate-changed` notice by forgetting the cached limit it names, so the next payment reads the new limit from the chain |
+
+`agent.request_allowance` takes an `AllowanceRequestInput` record and returns the request body as
+JSON, for the same reason `agent.request_attachment` does: those bytes are what
+the hardware signature covers. It refuses a host with no hardware-backed key,
+a zero ceiling, and a lifetime outside the bounds the owner's device applies.
+
+### Constructors for the untrusted records
+
+`UntrustedText` and `WebOrigin` arrived in 0.4.0 with no way to build them but
+the generated field-by-field initializer, which checks nothing. This release
+adds the constructors that do:
+
+| call | behaviour |
+|---|---|
+| `Untrusted.parse(_:)` | computes `display` and the three flags from the text itself; never fails |
+| `Untrusted.parseOptional(_:)` | the same, and `nil` for text that sanitises to nothing |
+| `Untrusted.webOrigin(_:)` | a strict origin, and it **throws rather than trimming**: a resource URL is not an origin |
+
+Use them. The initializer is still reachable and still forwards whatever it is
+given, so a `display` an app fills in itself is the string the owner reads.
+
 ## 0.4.0
 
 Five changes that have nothing to do with each other: an agent can ask to be
@@ -86,6 +117,17 @@ arriving text contained such characters),
 field to drop straight into a label without first choosing between `raw` and
 `display`, which is the point: an owner approving a payment should never see a
 string an injected model chose rendered as if the wallet had derived it.
+
+**In 0.4.0 you must fill this record in by hand, and that is a sharp edge.**
+Four of the five fields are a rendering of `raw`, and the generated
+field-by-field initializer will take whatever is put in them -- there is no
+check, because the record crosses the boundary field by field rather than
+through a decoder. The value you hand in is the value that is forwarded: an
+`X402EscalationRequest` is serialised as it stands and passed to your
+`AgentEscalationHost`, so a `display` an app filled in itself is the string the
+owner ends up reading. The constructors that compute these fields for you
+arrived in **0.5.0**, not here; see "Constructors for the untrusted records"
+under that version.
 
 **Do not put a warning badge behind `hiddenRemoved`.** It fires on honest text.
 The strip set covers the whole `Default_Ignorable_Code_Point` set, and part of
@@ -187,13 +229,29 @@ writes the intent but does not control the code that reads it, so it cannot
 skip the escalation. The security boundary is still the on-chain mandate; this
 is a gate inside the binary that the mandate does not cover.
 
-And what it does not change here, measured rather than assumed: this binding
-wires no self-funded-gas reader, and that gate runs first and escalates on a
-host that has none, so every third-party EVM transfer through this package
-already reached the owner and still does. The payee reader is wired here so
-the engine can answer the question at all, but until this binding also wires
-a self-funded-gas reader the reader is never consulted and no decision on this
-package turns on it.
+And what it does not change here, measured rather than assumed: every
+third-party EVM transfer through this package already reached the owner and
+still does. A separate gate runs ahead of the payee check and asks whether the
+payment can pay for its own gas -- the fee the chain charges to move the money
+-- and this package has no way to answer that, so it escalates before the
+payee is ever considered. The payee reader is wired here so the engine can
+answer the payee question at all; nothing on this package turns on it yet.
+
+Wiring a gas reader into this binding would not change that, which is worth
+stating because it is the obvious thing to reach for. The rail that answers
+the gas question is the executor module paying its own fee out of a USDC float
+it holds, and that rail is compiled into the core only under a feature this
+package does not turn on. With it off the one reader that exists answers
+"cannot tell" on every call, which is the same escalation a host with no
+reader gets, and the submit path agrees rather than merely coinciding: under
+that same switch it refuses to send a v3-module transfer at all, so a silent
+verdict would have nothing to execute it. Turning the rail on for a phone is a
+decision about where that float may be spent, not a missing line of wiring.
+
+What this binding does wire, so the one omission is not read as three: the
+x402 payment rail reader and the payee-history reader are both attached. Only
+the gas reader is left out, and only because on this package it would have
+nothing to read.
 
 The two new operations change nothing existing. `agent.authorize` does: its
 `PolicyIntent` gains `recipient`, so a host that builds one by hand needs the

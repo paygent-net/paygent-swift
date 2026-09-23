@@ -422,6 +422,22 @@ fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterInt8: FfiConverterPrimitive {
+    typealias FfiType = Int8
+    typealias SwiftType = Int8
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int8 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int8, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
     typealias FfiType = UInt16
     typealias SwiftType = UInt16
@@ -447,6 +463,22 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
     }
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
+    typealias FfiType = Int32
+    typealias SwiftType = Int32
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int32 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int32, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -610,6 +642,13 @@ public protocol AgentAttachmentPlanProtocol: AnyObject, Sendable {
     func executorModule()  -> String
     
     /**
+     * The limit the guard already holds for this agent's module in the
+     * granted token, read before signing so the owner sees what the
+     * transaction replaces. `None` when it holds none.
+     */
+    func existingMandate()  -> MandateFfi?
+    
+    /**
      * The mandate the owner is granting.
      */
     func granted()  -> MandateFfi
@@ -763,6 +802,18 @@ open func confirmAgentAttachment()async throws  -> AttachmentOutcomeFfi  {
 open func executorModule() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_paygent_mobile_core_fn_method_agentattachmentplan_executor_module(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The limit the guard already holds for this agent's module in the
+     * granted token, read before signing so the owner sees what the
+     * transaction replaces. `None` when it holds none.
+     */
+open func existingMandate() -> MandateFfi?  {
+    return try!  FfiConverterOptionTypeMandateFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentattachmentplan_existing_mandate(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -3633,6 +3684,14 @@ public func FfiConverterTypeNostrFleet_lower(_ value: NostrFleet) -> UnsafeMutab
 public protocol PaygentAgentProtocol: AnyObject, Sendable {
     
     /**
+     * Act on the owner's decrypted `agent.mandate-changed` notice: forget
+     * the cached limit for that wallet and chain, so the next spend reads the
+     * new one from the guard. Throws, forgetting nothing, for a body that is
+     * not a notice.
+     */
+    func agentApplyMandateChanged(noticeJson: String) async throws 
+    
+    /**
      * Whether an intent may be executed silently or has to reach the owner
      * (RFC-0014).
      *
@@ -3782,6 +3841,14 @@ public protocol PaygentAgentProtocol: AnyObject, Sendable {
      * it, which is the same reason the transfer amount is hex.
      */
     func agentRefillSolanaPocket(network: String, mint: String, amount: String) async throws  -> SolanaPocketReceipt
+    
+    /**
+     * Ask the owner for a different allowance, signed by this device's
+     * hardware key. Returns the `agent.allowance-request` body as JSON, the
+     * exact bytes the signature covers, for the host to seal into the
+     * owner's invite mailbox.
+     */
+    func agentRequestAllowance(input: AllowanceRequestInput) async throws  -> String
     
     /**
      * Ask an owner to attach this agent to a wallet (RFC-0065 S5).
@@ -3969,6 +4036,29 @@ public convenience init(configJson: String, host: AgentHost, session: AgentSessi
 
     
 
+    
+    /**
+     * Act on the owner's decrypted `agent.mandate-changed` notice: forget
+     * the cached limit for that wallet and chain, so the next spend reads the
+     * new one from the guard. Throws, forgetting nothing, for a body that is
+     * not a notice.
+     */
+open func agentApplyMandateChanged(noticeJson: String)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_paygentagent_agent_apply_mandate_changed(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(noticeJson)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_void,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_void,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
     
     /**
      * Whether an intent may be executed silently or has to reach the owner
@@ -4274,6 +4364,29 @@ open func agentRefillSolanaPocket(network: String, mint: String, amount: String)
             completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterTypeSolanaPocketReceipt_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * Ask the owner for a different allowance, signed by this device's
+     * hardware key. Returns the `agent.allowance-request` body as JSON, the
+     * exact bytes the signature covers, for the host to seal into the
+     * owner's invite mailbox.
+     */
+open func agentRequestAllowance(input: AllowanceRequestInput)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_paygentagent_agent_request_allowance(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeAllowanceRequestInput_lower(input)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
@@ -5619,6 +5732,632 @@ public func FfiConverterTypeAgentDisownmentPlanFfi_lower(_ value: AgentDisownmen
 
 
 /**
+ * One agent's executor module on one chain.
+ */
+public struct AgentExecutorModuleFfi {
+    public var chainId: UInt64
+    public var executorModule: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(chainId: UInt64, executorModule: String) {
+        self.chainId = chainId
+        self.executorModule = executorModule
+    }
+}
+
+#if compiler(>=6)
+extension AgentExecutorModuleFfi: Sendable {}
+#endif
+
+
+extension AgentExecutorModuleFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentExecutorModuleFfi, rhs: AgentExecutorModuleFfi) -> Bool {
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.executorModule != rhs.executorModule {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(chainId)
+        hasher.combine(executorModule)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentExecutorModuleFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentExecutorModuleFfi {
+        return
+            try AgentExecutorModuleFfi(
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                executorModule: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentExecutorModuleFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.executorModule, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentExecutorModuleFfi_lift(_ buf: RustBuffer) throws -> AgentExecutorModuleFfi {
+    return try FfiConverterTypeAgentExecutorModuleFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentExecutorModuleFfi_lower(_ value: AgentExecutorModuleFfi) -> RustBuffer {
+    return FfiConverterTypeAgentExecutorModuleFfi.lower(value)
+}
+
+
+/**
+ * One agent's allowance of one token, read from the guard.
+ */
+public struct AgentLimitFfi {
+    public var module: String
+    public var limit: SpendingLimitFfi
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(module: String, limit: SpendingLimitFfi) {
+        self.module = module
+        self.limit = limit
+    }
+}
+
+#if compiler(>=6)
+extension AgentLimitFfi: Sendable {}
+#endif
+
+
+extension AgentLimitFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentLimitFfi, rhs: AgentLimitFfi) -> Bool {
+        if lhs.module != rhs.module {
+            return false
+        }
+        if lhs.limit != rhs.limit {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(module)
+        hasher.combine(limit)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentLimitFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentLimitFfi {
+        return
+            try AgentLimitFfi(
+                module: FfiConverterString.read(from: &buf), 
+                limit: FfiConverterTypeSpendingLimitFfi.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentLimitFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.module, into: &buf)
+        FfiConverterTypeSpendingLimitFfi.write(value.limit, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentLimitFfi_lift(_ buf: RustBuffer) throws -> AgentLimitFfi {
+    return try FfiConverterTypeAgentLimitFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentLimitFfi_lower(_ value: AgentLimitFfi) -> RustBuffer {
+    return FfiConverterTypeAgentLimitFfi.lower(value)
+}
+
+
+/**
+ * A heartbeat as the owner's screen shows it.
+ */
+public struct AgentPresenceFfi {
+    /**
+     * The reported version, sanitized for display.
+     */
+    public var clientVersion: String
+    /**
+     * Unix milliseconds of the agent's last activity, as the agent reported.
+     */
+    public var lastSeenMs: Int64
+    public var needsUpdate: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The reported version, sanitized for display.
+         */clientVersion: String, 
+        /**
+         * Unix milliseconds of the agent's last activity, as the agent reported.
+         */lastSeenMs: Int64, needsUpdate: Bool) {
+        self.clientVersion = clientVersion
+        self.lastSeenMs = lastSeenMs
+        self.needsUpdate = needsUpdate
+    }
+}
+
+#if compiler(>=6)
+extension AgentPresenceFfi: Sendable {}
+#endif
+
+
+extension AgentPresenceFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentPresenceFfi, rhs: AgentPresenceFfi) -> Bool {
+        if lhs.clientVersion != rhs.clientVersion {
+            return false
+        }
+        if lhs.lastSeenMs != rhs.lastSeenMs {
+            return false
+        }
+        if lhs.needsUpdate != rhs.needsUpdate {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(clientVersion)
+        hasher.combine(lastSeenMs)
+        hasher.combine(needsUpdate)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentPresenceFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentPresenceFfi {
+        return
+            try AgentPresenceFfi(
+                clientVersion: FfiConverterString.read(from: &buf), 
+                lastSeenMs: FfiConverterInt64.read(from: &buf), 
+                needsUpdate: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentPresenceFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.clientVersion, into: &buf)
+        FfiConverterInt64.write(value.lastSeenMs, into: &buf)
+        FfiConverterBool.write(value.needsUpdate, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentPresenceFfi_lift(_ buf: RustBuffer) throws -> AgentPresenceFfi {
+    return try FfiConverterTypeAgentPresenceFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentPresenceFfi_lower(_ value: AgentPresenceFfi) -> RustBuffer {
+    return FfiConverterTypeAgentPresenceFfi.lower(value)
+}
+
+
+/**
+ * What this device knows about one attached agent. Persist one per
+ * `delegate_did`; fold updates in with [`merge_agent_records`].
+ */
+public struct AgentRecordFfi {
+    public var delegateDid: String
+    public var name: String?
+    public var host: String?
+    /**
+     * `"macos"` | `"linux"` | `"windows"` | `"other"`.
+     */
+    public var platform: String?
+    public var solanaAgentOwner: String?
+    public var executorModules: [AgentExecutorModuleFfi]
+    public var sideWalletIndex: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(delegateDid: String, name: String?, host: String?, 
+        /**
+         * `"macos"` | `"linux"` | `"windows"` | `"other"`.
+         */platform: String?, solanaAgentOwner: String?, executorModules: [AgentExecutorModuleFfi], sideWalletIndex: UInt32) {
+        self.delegateDid = delegateDid
+        self.name = name
+        self.host = host
+        self.platform = platform
+        self.solanaAgentOwner = solanaAgentOwner
+        self.executorModules = executorModules
+        self.sideWalletIndex = sideWalletIndex
+    }
+}
+
+#if compiler(>=6)
+extension AgentRecordFfi: Sendable {}
+#endif
+
+
+extension AgentRecordFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentRecordFfi, rhs: AgentRecordFfi) -> Bool {
+        if lhs.delegateDid != rhs.delegateDid {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.host != rhs.host {
+            return false
+        }
+        if lhs.platform != rhs.platform {
+            return false
+        }
+        if lhs.solanaAgentOwner != rhs.solanaAgentOwner {
+            return false
+        }
+        if lhs.executorModules != rhs.executorModules {
+            return false
+        }
+        if lhs.sideWalletIndex != rhs.sideWalletIndex {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(delegateDid)
+        hasher.combine(name)
+        hasher.combine(host)
+        hasher.combine(platform)
+        hasher.combine(solanaAgentOwner)
+        hasher.combine(executorModules)
+        hasher.combine(sideWalletIndex)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRecordFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRecordFfi {
+        return
+            try AgentRecordFfi(
+                delegateDid: FfiConverterString.read(from: &buf), 
+                name: FfiConverterOptionString.read(from: &buf), 
+                host: FfiConverterOptionString.read(from: &buf), 
+                platform: FfiConverterOptionString.read(from: &buf), 
+                solanaAgentOwner: FfiConverterOptionString.read(from: &buf), 
+                executorModules: FfiConverterSequenceTypeAgentExecutorModuleFfi.read(from: &buf), 
+                sideWalletIndex: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRecordFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.delegateDid, into: &buf)
+        FfiConverterOptionString.write(value.name, into: &buf)
+        FfiConverterOptionString.write(value.host, into: &buf)
+        FfiConverterOptionString.write(value.platform, into: &buf)
+        FfiConverterOptionString.write(value.solanaAgentOwner, into: &buf)
+        FfiConverterSequenceTypeAgentExecutorModuleFfi.write(value.executorModules, into: &buf)
+        FfiConverterUInt32.write(value.sideWalletIndex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRecordFfi_lift(_ buf: RustBuffer) throws -> AgentRecordFfi {
+    return try FfiConverterTypeAgentRecordFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRecordFfi_lower(_ value: AgentRecordFfi) -> RustBuffer {
+    return FfiConverterTypeAgentRecordFfi.lower(value)
+}
+
+
+/**
+ * Everything known about one agent removal: `completed_steps` of
+ * `total_steps`, and which chains to retry or re-prepare.
+ */
+public struct AgentRemovalRecordFfi {
+    public var delegateDid: String
+    public var evmChains: [ChainRemovalStepFfi]
+    public var solanaClose: RemovalStepStateFfi
+    public var relayRevoke: RemovalStepStateFfi
+    public var completedSteps: UInt32
+    public var totalSteps: UInt32
+    public var retryChainIds: [UInt64]
+    public var reprepareChainIds: [UInt64]
+    public var complete: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(delegateDid: String, evmChains: [ChainRemovalStepFfi], solanaClose: RemovalStepStateFfi, relayRevoke: RemovalStepStateFfi, completedSteps: UInt32, totalSteps: UInt32, retryChainIds: [UInt64], reprepareChainIds: [UInt64], complete: Bool) {
+        self.delegateDid = delegateDid
+        self.evmChains = evmChains
+        self.solanaClose = solanaClose
+        self.relayRevoke = relayRevoke
+        self.completedSteps = completedSteps
+        self.totalSteps = totalSteps
+        self.retryChainIds = retryChainIds
+        self.reprepareChainIds = reprepareChainIds
+        self.complete = complete
+    }
+}
+
+#if compiler(>=6)
+extension AgentRemovalRecordFfi: Sendable {}
+#endif
+
+
+extension AgentRemovalRecordFfi: Equatable, Hashable {
+    public static func ==(lhs: AgentRemovalRecordFfi, rhs: AgentRemovalRecordFfi) -> Bool {
+        if lhs.delegateDid != rhs.delegateDid {
+            return false
+        }
+        if lhs.evmChains != rhs.evmChains {
+            return false
+        }
+        if lhs.solanaClose != rhs.solanaClose {
+            return false
+        }
+        if lhs.relayRevoke != rhs.relayRevoke {
+            return false
+        }
+        if lhs.completedSteps != rhs.completedSteps {
+            return false
+        }
+        if lhs.totalSteps != rhs.totalSteps {
+            return false
+        }
+        if lhs.retryChainIds != rhs.retryChainIds {
+            return false
+        }
+        if lhs.reprepareChainIds != rhs.reprepareChainIds {
+            return false
+        }
+        if lhs.complete != rhs.complete {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(delegateDid)
+        hasher.combine(evmChains)
+        hasher.combine(solanaClose)
+        hasher.combine(relayRevoke)
+        hasher.combine(completedSteps)
+        hasher.combine(totalSteps)
+        hasher.combine(retryChainIds)
+        hasher.combine(reprepareChainIds)
+        hasher.combine(complete)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRemovalRecordFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRemovalRecordFfi {
+        return
+            try AgentRemovalRecordFfi(
+                delegateDid: FfiConverterString.read(from: &buf), 
+                evmChains: FfiConverterSequenceTypeChainRemovalStepFfi.read(from: &buf), 
+                solanaClose: FfiConverterTypeRemovalStepStateFfi.read(from: &buf), 
+                relayRevoke: FfiConverterTypeRemovalStepStateFfi.read(from: &buf), 
+                completedSteps: FfiConverterUInt32.read(from: &buf), 
+                totalSteps: FfiConverterUInt32.read(from: &buf), 
+                retryChainIds: FfiConverterSequenceUInt64.read(from: &buf), 
+                reprepareChainIds: FfiConverterSequenceUInt64.read(from: &buf), 
+                complete: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRemovalRecordFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.delegateDid, into: &buf)
+        FfiConverterSequenceTypeChainRemovalStepFfi.write(value.evmChains, into: &buf)
+        FfiConverterTypeRemovalStepStateFfi.write(value.solanaClose, into: &buf)
+        FfiConverterTypeRemovalStepStateFfi.write(value.relayRevoke, into: &buf)
+        FfiConverterUInt32.write(value.completedSteps, into: &buf)
+        FfiConverterUInt32.write(value.totalSteps, into: &buf)
+        FfiConverterSequenceUInt64.write(value.retryChainIds, into: &buf)
+        FfiConverterSequenceUInt64.write(value.reprepareChainIds, into: &buf)
+        FfiConverterBool.write(value.complete, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRemovalRecordFfi_lift(_ buf: RustBuffer) throws -> AgentRemovalRecordFfi {
+    return try FfiConverterTypeAgentRemovalRecordFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRemovalRecordFfi_lower(_ value: AgentRemovalRecordFfi) -> RustBuffer {
+    return FfiConverterTypeAgentRemovalRecordFfi.lower(value)
+}
+
+
+/**
+ * What an attached agent asked for, ready to render ("wants $X a day").
+ * The amounts are the token's base units as `0x` hex; the host formats them
+ * with the token's decimals.
+ */
+public struct AllowanceRequestSummaryFfi {
+    public var requestId: String
+    public var delegateDid: String
+    public var chainId: UInt64
+    public var walletAddress: String
+    public var token: String
+    public var maxPerTxHex: String
+    public var dailyMaxHex: String
+    /**
+     * The agent's reason, already sanitized for display.
+     */
+    public var reason: String?
+    public var expiresAtMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(requestId: String, delegateDid: String, chainId: UInt64, walletAddress: String, token: String, maxPerTxHex: String, dailyMaxHex: String, 
+        /**
+         * The agent's reason, already sanitized for display.
+         */reason: String?, expiresAtMs: Int64) {
+        self.requestId = requestId
+        self.delegateDid = delegateDid
+        self.chainId = chainId
+        self.walletAddress = walletAddress
+        self.token = token
+        self.maxPerTxHex = maxPerTxHex
+        self.dailyMaxHex = dailyMaxHex
+        self.reason = reason
+        self.expiresAtMs = expiresAtMs
+    }
+}
+
+#if compiler(>=6)
+extension AllowanceRequestSummaryFfi: Sendable {}
+#endif
+
+
+extension AllowanceRequestSummaryFfi: Equatable, Hashable {
+    public static func ==(lhs: AllowanceRequestSummaryFfi, rhs: AllowanceRequestSummaryFfi) -> Bool {
+        if lhs.requestId != rhs.requestId {
+            return false
+        }
+        if lhs.delegateDid != rhs.delegateDid {
+            return false
+        }
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.walletAddress != rhs.walletAddress {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+            return false
+        }
+        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+            return false
+        }
+        if lhs.reason != rhs.reason {
+            return false
+        }
+        if lhs.expiresAtMs != rhs.expiresAtMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(requestId)
+        hasher.combine(delegateDid)
+        hasher.combine(chainId)
+        hasher.combine(walletAddress)
+        hasher.combine(token)
+        hasher.combine(maxPerTxHex)
+        hasher.combine(dailyMaxHex)
+        hasher.combine(reason)
+        hasher.combine(expiresAtMs)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAllowanceRequestSummaryFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AllowanceRequestSummaryFfi {
+        return
+            try AllowanceRequestSummaryFfi(
+                requestId: FfiConverterString.read(from: &buf), 
+                delegateDid: FfiConverterString.read(from: &buf), 
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                walletAddress: FfiConverterString.read(from: &buf), 
+                token: FfiConverterString.read(from: &buf), 
+                maxPerTxHex: FfiConverterString.read(from: &buf), 
+                dailyMaxHex: FfiConverterString.read(from: &buf), 
+                reason: FfiConverterOptionString.read(from: &buf), 
+                expiresAtMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AllowanceRequestSummaryFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.requestId, into: &buf)
+        FfiConverterString.write(value.delegateDid, into: &buf)
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.walletAddress, into: &buf)
+        FfiConverterString.write(value.token, into: &buf)
+        FfiConverterString.write(value.maxPerTxHex, into: &buf)
+        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterOptionString.write(value.reason, into: &buf)
+        FfiConverterInt64.write(value.expiresAtMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceRequestSummaryFfi_lift(_ buf: RustBuffer) throws -> AllowanceRequestSummaryFfi {
+    return try FfiConverterTypeAllowanceRequestSummaryFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceRequestSummaryFfi_lower(_ value: AllowanceRequestSummaryFfi) -> RustBuffer {
+    return FfiConverterTypeAllowanceRequestSummaryFfi.lower(value)
+}
+
+
+/**
  * Two-step approval handle. `hash_to_sign` is the bytes the WebAuthn
  * authenticator must sign; `session_token` is opaque state the runtime
  * carries between `prepare_*` and `complete_approval`.
@@ -5856,6 +6595,11 @@ public struct AttachmentGrantedFfi {
      * scoped to.
      */
     public var delegateDid: String
+    /**
+     * What this attachment adds to the stored record of the agent: fold it in
+     * with `merge_agent_records` and persist the result.
+     */
+    public var agentRecord: AgentRecordFfi
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -5894,13 +6638,18 @@ public struct AttachmentGrantedFfi {
         /**
          * The agent this answer is for -- the second coordinate `body_key` is
          * scoped to.
-         */delegateDid: String) {
+         */delegateDid: String, 
+        /**
+         * What this attachment adds to the stored record of the agent: fold it in
+         * with `merge_agent_records` and persist the result.
+         */agentRecord: AgentRecordFfi) {
         self.invitesSubject = invitesSubject
         self.inviteKey = inviteKey
         self.messageJson = messageJson
         self.ownerDelegation = ownerDelegation
         self.bodyKey = bodyKey
         self.delegateDid = delegateDid
+        self.agentRecord = agentRecord
     }
 }
 
@@ -5929,6 +6678,9 @@ extension AttachmentGrantedFfi: Equatable, Hashable {
         if lhs.delegateDid != rhs.delegateDid {
             return false
         }
+        if lhs.agentRecord != rhs.agentRecord {
+            return false
+        }
         return true
     }
 
@@ -5939,6 +6691,7 @@ extension AttachmentGrantedFfi: Equatable, Hashable {
         hasher.combine(ownerDelegation)
         hasher.combine(bodyKey)
         hasher.combine(delegateDid)
+        hasher.combine(agentRecord)
     }
 }
 
@@ -5956,7 +6709,8 @@ public struct FfiConverterTypeAttachmentGrantedFfi: FfiConverterRustBuffer {
                 messageJson: FfiConverterString.read(from: &buf), 
                 ownerDelegation: FfiConverterString.read(from: &buf), 
                 bodyKey: FfiConverterData.read(from: &buf), 
-                delegateDid: FfiConverterString.read(from: &buf)
+                delegateDid: FfiConverterString.read(from: &buf), 
+                agentRecord: FfiConverterTypeAgentRecordFfi.read(from: &buf)
         )
     }
 
@@ -5967,6 +6721,7 @@ public struct FfiConverterTypeAttachmentGrantedFfi: FfiConverterRustBuffer {
         FfiConverterString.write(value.ownerDelegation, into: &buf)
         FfiConverterData.write(value.bodyKey, into: &buf)
         FfiConverterString.write(value.delegateDid, into: &buf)
+        FfiConverterTypeAgentRecordFfi.write(value.agentRecord, into: &buf)
     }
 }
 
@@ -5983,6 +6738,79 @@ public func FfiConverterTypeAttachmentGrantedFfi_lift(_ buf: RustBuffer) throws 
 #endif
 public func FfiConverterTypeAttachmentGrantedFfi_lower(_ value: AttachmentGrantedFfi) -> RustBuffer {
     return FfiConverterTypeAttachmentGrantedFfi.lower(value)
+}
+
+
+/**
+ * "Step `step` of `total`".
+ */
+public struct AttachmentProgressFfi {
+    public var step: UInt32
+    public var total: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(step: UInt32, total: UInt32) {
+        self.step = step
+        self.total = total
+    }
+}
+
+#if compiler(>=6)
+extension AttachmentProgressFfi: Sendable {}
+#endif
+
+
+extension AttachmentProgressFfi: Equatable, Hashable {
+    public static func ==(lhs: AttachmentProgressFfi, rhs: AttachmentProgressFfi) -> Bool {
+        if lhs.step != rhs.step {
+            return false
+        }
+        if lhs.total != rhs.total {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(step)
+        hasher.combine(total)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentProgressFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentProgressFfi {
+        return
+            try AttachmentProgressFfi(
+                step: FfiConverterUInt32.read(from: &buf), 
+                total: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AttachmentProgressFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.step, into: &buf)
+        FfiConverterUInt32.write(value.total, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentProgressFfi_lift(_ buf: RustBuffer) throws -> AttachmentProgressFfi {
+    return try FfiConverterTypeAttachmentProgressFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentProgressFfi_lower(_ value: AttachmentProgressFfi) -> RustBuffer {
+    return FfiConverterTypeAttachmentProgressFfi.lower(value)
 }
 
 
@@ -6676,6 +7504,87 @@ public func FfiConverterTypeChainOwnerStateFfi_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeChainOwnerStateFfi_lower(_ value: ChainOwnerStateFfi) -> RustBuffer {
     return FfiConverterTypeChainOwnerStateFfi.lower(value)
+}
+
+
+/**
+ * The removal transaction on one EVM chain.
+ */
+public struct ChainRemovalStepFfi {
+    public var chainId: UInt64
+    public var state: RemovalStepStateFfi
+    public var retryable: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(chainId: UInt64, state: RemovalStepStateFfi, retryable: Bool) {
+        self.chainId = chainId
+        self.state = state
+        self.retryable = retryable
+    }
+}
+
+#if compiler(>=6)
+extension ChainRemovalStepFfi: Sendable {}
+#endif
+
+
+extension ChainRemovalStepFfi: Equatable, Hashable {
+    public static func ==(lhs: ChainRemovalStepFfi, rhs: ChainRemovalStepFfi) -> Bool {
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.state != rhs.state {
+            return false
+        }
+        if lhs.retryable != rhs.retryable {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(chainId)
+        hasher.combine(state)
+        hasher.combine(retryable)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeChainRemovalStepFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainRemovalStepFfi {
+        return
+            try ChainRemovalStepFfi(
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                state: FfiConverterTypeRemovalStepStateFfi.read(from: &buf), 
+                retryable: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ChainRemovalStepFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterTypeRemovalStepStateFfi.write(value.state, into: &buf)
+        FfiConverterBool.write(value.retryable, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeChainRemovalStepFfi_lift(_ buf: RustBuffer) throws -> ChainRemovalStepFfi {
+    return try FfiConverterTypeChainRemovalStepFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeChainRemovalStepFfi_lower(_ value: ChainRemovalStepFfi) -> RustBuffer {
+    return FfiConverterTypeChainRemovalStepFfi.lower(value)
 }
 
 
@@ -10375,6 +11284,11 @@ public struct PairingQr {
      */
     public var clientPlatform: ClientPlatform?
     /**
+     * The machine's hostname the daemon reported, sanitized. Draw it with
+     * `display`, as the computer a request came from.
+     */
+    public var clientHostName: UntrustedText?
+    /**
      * The daemon's durable identity `D` (`did:key`), when the QR carries one.
      * The phone mints the daemon's invite-mailbox token from it during
      * `pair/complete`. `None` means an agent that predates wallet creation by
@@ -10396,6 +11310,10 @@ public struct PairingQr {
          * `None` on a QR from a daemon that predates the field.
          */clientPlatform: ClientPlatform?, 
         /**
+         * The machine's hostname the daemon reported, sanitized. Draw it with
+         * `display`, as the computer a request came from.
+         */clientHostName: UntrustedText?, 
+        /**
          * The daemon's durable identity `D` (`did:key`), when the QR carries one.
          * The phone mints the daemon's invite-mailbox token from it during
          * `pair/complete`. `None` means an agent that predates wallet creation by
@@ -10415,6 +11333,7 @@ public struct PairingQr {
         self.chainFamily = chainFamily
         self.agentName = agentName
         self.clientPlatform = clientPlatform
+        self.clientHostName = clientHostName
         self.delegateDid = delegateDid
         self.transportDid = transportDid
     }
@@ -10454,6 +11373,9 @@ extension PairingQr: Equatable, Hashable {
         if lhs.clientPlatform != rhs.clientPlatform {
             return false
         }
+        if lhs.clientHostName != rhs.clientHostName {
+            return false
+        }
         if lhs.delegateDid != rhs.delegateDid {
             return false
         }
@@ -10473,6 +11395,7 @@ extension PairingQr: Equatable, Hashable {
         hasher.combine(chainFamily)
         hasher.combine(agentName)
         hasher.combine(clientPlatform)
+        hasher.combine(clientHostName)
         hasher.combine(delegateDid)
         hasher.combine(transportDid)
     }
@@ -10496,6 +11419,7 @@ public struct FfiConverterTypePairingQr: FfiConverterRustBuffer {
                 chainFamily: FfiConverterTypeChainFamily.read(from: &buf), 
                 agentName: FfiConverterOptionString.read(from: &buf), 
                 clientPlatform: FfiConverterOptionTypeClientPlatform.read(from: &buf), 
+                clientHostName: FfiConverterOptionTypeUntrustedText.read(from: &buf), 
                 delegateDid: FfiConverterOptionString.read(from: &buf), 
                 transportDid: FfiConverterOptionString.read(from: &buf)
         )
@@ -10511,6 +11435,7 @@ public struct FfiConverterTypePairingQr: FfiConverterRustBuffer {
         FfiConverterTypeChainFamily.write(value.chainFamily, into: &buf)
         FfiConverterOptionString.write(value.agentName, into: &buf)
         FfiConverterOptionTypeClientPlatform.write(value.clientPlatform, into: &buf)
+        FfiConverterOptionTypeUntrustedText.write(value.clientHostName, into: &buf)
         FfiConverterOptionString.write(value.delegateDid, into: &buf)
         FfiConverterOptionString.write(value.transportDid, into: &buf)
     }
@@ -15079,6 +16004,79 @@ extension AgentHostError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * The non-EVM jobs of a removal.
+ */
+
+public enum AgentRemovalSideStepFfi {
+    
+    case solanaClose
+    case relayRevoke
+}
+
+
+#if compiler(>=6)
+extension AgentRemovalSideStepFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRemovalSideStepFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRemovalSideStepFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRemovalSideStepFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .solanaClose
+        
+        case 2: return .relayRevoke
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentRemovalSideStepFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .solanaClose:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .relayRevoke:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRemovalSideStepFfi_lift(_ buf: RustBuffer) throws -> AgentRemovalSideStepFfi {
+    return try FfiConverterTypeAgentRemovalSideStepFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRemovalSideStepFfi_lower(_ value: AgentRemovalSideStepFfi) -> RustBuffer {
+    return FfiConverterTypeAgentRemovalSideStepFfi.lower(value)
+}
+
+
+extension AgentRemovalSideStepFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * What backs the key the host signs digests with.
  *
  * This is the ONLY thing on this binding that can put the client on the local
@@ -15266,6 +16264,193 @@ public func FfiConverterTypeAttachmentOutcomeFfi_lift(_ buf: RustBuffer) throws 
 public func FfiConverterTypeAttachmentOutcomeFfi_lower(_ value: AttachmentOutcomeFfi) -> RustBuffer {
     return FfiConverterTypeAttachmentOutcomeFfi.lower(value)
 }
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Which way an attachment goes, from the plan.
+ */
+
+public enum AttachmentPathFfi {
+    
+    /**
+     * A transaction enables the module and writes the limit.
+     */
+    case attach
+    /**
+     * The chain already holds the attachment; only access is signed.
+     */
+    case grantOnly
+}
+
+
+#if compiler(>=6)
+extension AttachmentPathFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentPathFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AttachmentPathFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentPathFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .attach
+        
+        case 2: return .grantOnly
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AttachmentPathFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .attach:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .grantOnly:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentPathFfi_lift(_ buf: RustBuffer) throws -> AttachmentPathFfi {
+    return try FfiConverterTypeAttachmentPathFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentPathFfi_lower(_ value: AttachmentPathFfi) -> RustBuffer {
+    return FfiConverterTypeAttachmentPathFfi.lower(value)
+}
+
+
+extension AttachmentPathFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Where an attachment is.
+ */
+
+public enum AttachmentStepFfi {
+    
+    case planning
+    case quoting
+    case awaitingFunding
+    case awaitingSignature
+    case submitting
+    case confirming
+    case granting
+}
+
+
+#if compiler(>=6)
+extension AttachmentStepFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentStepFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AttachmentStepFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentStepFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .planning
+        
+        case 2: return .quoting
+        
+        case 3: return .awaitingFunding
+        
+        case 4: return .awaitingSignature
+        
+        case 5: return .submitting
+        
+        case 6: return .confirming
+        
+        case 7: return .granting
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AttachmentStepFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .planning:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .quoting:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .awaitingFunding:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .awaitingSignature:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .submitting:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .confirming:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .granting:
+            writeInt(&buf, Int32(7))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentStepFfi_lift(_ buf: RustBuffer) throws -> AttachmentStepFfi {
+    return try FfiConverterTypeAttachmentStepFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentStepFfi_lower(_ value: AttachmentStepFfi) -> RustBuffer {
+    return FfiConverterTypeAttachmentStepFfi.lower(value)
+}
+
+
+extension AttachmentStepFfi: Equatable, Hashable {}
 
 
 
@@ -17589,6 +18774,172 @@ extension RelativeTimestamp: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * The result of the Solana close or the relay revoke, reported by the host.
+ */
+
+public enum RemovalOutcomeFfi {
+    
+    case done
+    case failed(reason: String
+    )
+}
+
+
+#if compiler(>=6)
+extension RemovalOutcomeFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRemovalOutcomeFfi: FfiConverterRustBuffer {
+    typealias SwiftType = RemovalOutcomeFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RemovalOutcomeFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .done
+        
+        case 2: return .failed(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RemovalOutcomeFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .done:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .failed(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemovalOutcomeFfi_lift(_ buf: RustBuffer) throws -> RemovalOutcomeFfi {
+    return try FfiConverterTypeRemovalOutcomeFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemovalOutcomeFfi_lower(_ value: RemovalOutcomeFfi) -> RustBuffer {
+    return FfiConverterTypeRemovalOutcomeFfi.lower(value)
+}
+
+
+extension RemovalOutcomeFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Where one removal job stands.
+ */
+
+public enum RemovalStepStateFfi {
+    
+    case notNeeded
+    case pending
+    case done
+    case failed(reason: String
+    )
+}
+
+
+#if compiler(>=6)
+extension RemovalStepStateFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRemovalStepStateFfi: FfiConverterRustBuffer {
+    typealias SwiftType = RemovalStepStateFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RemovalStepStateFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .notNeeded
+        
+        case 2: return .pending
+        
+        case 3: return .done
+        
+        case 4: return .failed(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RemovalStepStateFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .notNeeded:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .pending:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .done:
+            writeInt(&buf, Int32(3))
+        
+        
+        case let .failed(reason):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemovalStepStateFfi_lift(_ buf: RustBuffer) throws -> RemovalStepStateFfi {
+    return try FfiConverterTypeRemovalStepStateFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemovalStepStateFfi_lower(_ value: RemovalStepStateFfi) -> RustBuffer {
+    return FfiConverterTypeRemovalStepStateFfi.lower(value)
+}
+
+
+extension RemovalStepStateFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Whatever an agent published to this device's invite mailbox: a
  * wallet-creation request, a verified attachment request, or an authentic
  * attachment request this device will not act on.
@@ -17623,6 +18974,13 @@ public enum ReviewedInviteFfi {
          * Why, for this device's log and screen. Never on the wire.
          */detail: String
     )
+    /**
+     * An `agent.allowance-request` whose hardware binding verified: the agent
+     * asks the owner for a new mandate. Approving it is an ordinary limit
+     * change the owner signs; nothing here moves money.
+     */
+    case allowance(request: AllowanceRequestSummaryFfi
+    )
 }
 
 
@@ -17649,6 +19007,9 @@ public struct FfiConverterTypeReviewedInviteFfi: FfiConverterRustBuffer {
         case 3: return .attachmentRefused(decline: try FfiConverterTypeAttachmentDecline.read(from: &buf), detail: try FfiConverterString.read(from: &buf)
         )
         
+        case 4: return .allowance(request: try FfiConverterTypeAllowanceRequestSummaryFfi.read(from: &buf)
+        )
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -17671,6 +19032,11 @@ public struct FfiConverterTypeReviewedInviteFfi: FfiConverterRustBuffer {
             writeInt(&buf, Int32(3))
             FfiConverterTypeAttachmentDecline.write(decline, into: &buf)
             FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .allowance(request):
+            writeInt(&buf, Int32(4))
+            FfiConverterTypeAllowanceRequestSummaryFfi.write(request, into: &buf)
             
         }
     }
@@ -19671,6 +21037,30 @@ fileprivate struct FfiConverterOptionTypeSolanaPocketReceipt: FfiConverterRustBu
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeAgentRecordFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRecordFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeAgentRecordFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeAgentRecordFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeEnvelopeHeaderFfi: FfiConverterRustBuffer {
     typealias SwiftType = EnvelopeHeaderFfi?
 
@@ -19759,6 +21149,30 @@ fileprivate struct FfiConverterOptionTypeLightningChannelFfi: FfiConverterRustBu
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeLightningChannelFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeMandateFfi: FfiConverterRustBuffer {
+    typealias SwiftType = MandateFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMandateFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMandateFfi.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -20109,6 +21523,56 @@ fileprivate struct FfiConverterSequenceTypeTransactionSummary: FfiConverterRustB
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeAgentExecutorModuleFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [AgentExecutorModuleFfi]
+
+    public static func write(_ value: [AgentExecutorModuleFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAgentExecutorModuleFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AgentExecutorModuleFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AgentExecutorModuleFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAgentExecutorModuleFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAgentLimitFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [AgentLimitFfi]
+
+    public static func write(_ value: [AgentLimitFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAgentLimitFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AgentLimitFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AgentLimitFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAgentLimitFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeChainConfigFfi: FfiConverterRustBuffer {
     typealias SwiftType = [ChainConfigFfi]
 
@@ -20151,6 +21615,31 @@ fileprivate struct FfiConverterSequenceTypeChainOwnerStateFfi: FfiConverterRustB
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeChainOwnerStateFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeChainRemovalStepFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [ChainRemovalStepFfi]
+
+    public static func write(_ value: [ChainRemovalStepFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeChainRemovalStepFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ChainRemovalStepFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ChainRemovalStepFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeChainRemovalStepFfi.read(from: &buf))
         }
         return seq
     }
@@ -20786,6 +22275,32 @@ fileprivate struct FfiConverterDictionaryUInt64TypeSpendingLimitInputFfi: FfiCon
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterDictionaryUInt64SequenceString: FfiConverterRustBuffer {
+    public static func write(_ value: [UInt64: [String]], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterUInt64.write(key, into: &buf)
+            FfiConverterSequenceString.write(value, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [UInt64: [String]] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [UInt64: [String]]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0..<len {
+            let key = try FfiConverterUInt64.read(from: &buf)
+            let value = try FfiConverterSequenceString.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterDictionaryStringUInt32: FfiConverterRustBuffer {
     public static func write(_ value: [String: UInt32], into buf: inout [UInt8]) {
         let len = Int32(value.count)
@@ -21007,6 +22522,29 @@ public func addressTopic(address: String)throws  -> String  {
 })
 }
 /**
+ * Fold the statuses of a submit or retry into the record.
+ */
+public func advanceAgentRemovalEvm(record: AgentRemovalRecordFfi, statuses: [PerChainStatusFfi]) -> AgentRemovalRecordFfi  {
+    return try!  FfiConverterTypeAgentRemovalRecordFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_advance_agent_removal_evm(
+        FfiConverterTypeAgentRemovalRecordFfi_lower(record),
+        FfiConverterSequenceTypePerChainStatusFfi.lower(statuses),$0
+    )
+})
+}
+/**
+ * Record the outcome of the Solana close or the relay revoke.
+ */
+public func advanceAgentRemovalStep(record: AgentRemovalRecordFfi, step: AgentRemovalSideStepFfi, outcome: RemovalOutcomeFfi) -> AgentRemovalRecordFfi  {
+    return try!  FfiConverterTypeAgentRemovalRecordFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_advance_agent_removal_step(
+        FfiConverterTypeAgentRemovalRecordFfi_lower(record),
+        FfiConverterTypeAgentRemovalSideStepFfi_lower(step),
+        FfiConverterTypeRemovalOutcomeFfi_lower(outcome),$0
+    )
+})
+}
+/**
  * Phase 1 of the relay grant: what the owner's passkey signs to let the agent
  * named by `attachment` reach the wallet's relay subjects until
  * `expires_at_ms`, and to keep THIS device's own access to them.
@@ -21054,6 +22592,89 @@ public func agentDisplayName(agentName: String?, deviceId: String, desktopP256Pu
         FfiConverterOptionString.lower(agentName),
         FfiConverterString.lower(deviceId),
         FfiConverterString.lower(desktopP256PubkeyHex),$0
+    )
+})
+}
+/**
+ * Whether an agent reporting `version` is older than `min`. A version that
+ * is not plain `MAJOR.MINOR.PATCH` needs an update. Throws when `min` does
+ * not parse.
+ */
+public func agentNeedsUpdate(version: String, min: String)throws  -> Bool  {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_agent_needs_update(
+        FfiConverterString.lower(version),
+        FfiConverterString.lower(min),$0
+    )
+})
+}
+/**
+ * The agent's executor module on `chain_id`, if it is attached there.
+ */
+public func agentRecordExecutorModule(record: AgentRecordFfi, chainId: UInt64) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_agent_record_executor_module(
+        FfiConverterTypeAgentRecordFfi_lower(record),
+        FfiConverterUInt64.lower(chainId),$0
+    )
+})
+}
+/**
+ * The agent's Solana pocket for `mint_b58`; `None` when it was never added on
+ * Solana.
+ */
+public func agentRecordSolanaPocket(record: AgentRecordFfi, mintB58: String)throws  -> String?  {
+    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_agent_record_solana_pocket(
+        FfiConverterTypeAgentRecordFfi_lower(record),
+        FfiConverterString.lower(mintB58),$0
+    )
+})
+}
+/**
+ * Fill in what the pairing QR said about the agent, sanitized.
+ */
+public func agentRecordWithPairing(record: AgentRecordFfi, name: String?, host: String?, platform: ClientPlatform?) -> AgentRecordFfi  {
+    return try!  FfiConverterTypeAgentRecordFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_agent_record_with_pairing(
+        FfiConverterTypeAgentRecordFfi_lower(record),
+        FfiConverterOptionString.lower(name),
+        FfiConverterOptionString.lower(host),
+        FfiConverterOptionTypeClientPlatform.lower(platform),$0
+    )
+})
+}
+/**
+ * Record the derivation index of the agent's EVM side wallet.
+ */
+public func agentRecordWithSideWalletIndex(record: AgentRecordFfi, index: UInt32) -> AgentRecordFfi  {
+    return try!  FfiConverterTypeAgentRecordFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_agent_record_with_side_wallet_index(
+        FfiConverterTypeAgentRecordFfi_lower(record),
+        FfiConverterUInt32.lower(index),$0
+    )
+})
+}
+/**
+ * Record the Solana key the agent's pocket is derived from.
+ */
+public func agentRecordWithSolanaOwner(record: AgentRecordFfi, agentOwnerB58: String)throws  -> AgentRecordFfi  {
+    return try  FfiConverterTypeAgentRecordFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_agent_record_with_solana_owner(
+        FfiConverterTypeAgentRecordFfi_lower(record),
+        FfiConverterString.lower(agentOwnerB58),$0
+    )
+})
+}
+/**
+ * The heartbeat an agent sends, as JSON. `last_seen_ms` is the caller's
+ * clock.
+ */
+public func agentStatusMessage(clientVersion: String, lastSeenMs: Int64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_agent_status_message(
+        FfiConverterString.lower(clientVersion),
+        FfiConverterInt64.lower(lastSeenMs),$0
     )
 })
 }
@@ -21124,6 +22745,18 @@ public func amountAcceptsPartial(input: String, decimals: UInt32) -> Bool  {
 })
 }
 /**
+ * Compare two base-units amounts numerically: -1 when `a` is smaller, 0 when
+ * equal, 1 when larger. A malformed amount is an error.
+ */
+public func amountCompareBaseUnits(a: String, b: String)throws  -> Int8  {
+    return try  FfiConverterInt8.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_amount_compare_base_units(
+        FfiConverterString.lower(a),
+        FfiConverterString.lower(b),$0
+    )
+})
+}
+/**
  * Convert a base-units integer string ("1000000") into the `0x`-prefixed hex
  * U256 ("0xf4240") that EVM call data and `parse_u256_hex` expect.
  *
@@ -21156,6 +22789,78 @@ public func amountFromBaseUnits(raw: String, decimals: UInt32, maxFractionDigits
 })
 }
 /**
+ * Base units as a decimal amount truncated to at most `max_fraction_digits`
+ * fraction digits. Malformed input is an error.
+ */
+public func amountFromBaseUnitsTruncated(raw: String, decimals: UInt32, maxFractionDigits: UInt32)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_amount_from_base_units_truncated(
+        FfiConverterString.lower(raw),
+        FfiConverterUInt32.lower(decimals),
+        FfiConverterUInt32.lower(maxFractionDigits),$0
+    )
+})
+}
+/**
+ * [`amount_with_symbol`] with an all-zero fraction dropped, as the amount
+ * reads inside a sentence: `"25.00"` USDC is `"$25"`.
+ */
+public func amountInSentence(amount: String, symbol: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_amount_in_sentence(
+        FfiConverterString.lower(amount),
+        FfiConverterString.lower(symbol),$0
+    )
+})
+}
+/**
+ * True when `value` is a non-empty run of ASCII digits and nothing else.
+ */
+public func amountIsBaseUnits(value: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_amount_is_base_units(
+        FfiConverterString.lower(value),$0
+    )
+})
+}
+/**
+ * True when `value` is a base-units string that denotes zero. A malformed
+ * value is not zero.
+ */
+public func amountIsZeroBaseUnits(value: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_amount_is_zero_base_units(
+        FfiConverterString.lower(value),$0
+    )
+})
+}
+/**
+ * `a` minus `b` in base units. A result below zero is an error, never a
+ * floored `"0"`.
+ */
+public func amountSubtractBaseUnits(a: String, b: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_amount_subtract_base_units(
+        FfiConverterString.lower(a),
+        FfiConverterString.lower(b),$0
+    )
+})
+}
+/**
+ * Add up base-units amounts exactly: the activity filter's "Total shown".
+ *
+ * An empty list is `"0"`. A value that is not a whole base-10 number is
+ * refused rather than skipped, and a total past 128 bits is refused rather
+ * than wrapped, so a total never silently leaves a row out.
+ */
+public func amountSumBaseUnits(values: [String])throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_amount_sum_base_units(
+        FfiConverterSequenceString.lower(values),$0
+    )
+})
+}
+/**
  * Convert a human decimal amount ("1.5") into its base-units integer string
  * ("1500000"), given the token's decimal places.
  *
@@ -21171,6 +22876,31 @@ public func amountToBaseUnits(input: String, decimals: UInt32)throws  -> String 
 })
 }
 /**
+ * A token balance as a screen shows it, or an em dash when `raw` cannot be
+ * read. Never an error.
+ */
+public func amountTokenBalanceText(raw: String, decimals: UInt32, displayDecimals: UInt32) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_amount_token_balance_text(
+        FfiConverterString.lower(raw),
+        FfiConverterUInt32.lower(decimals),
+        FfiConverterUInt32.lower(displayDecimals),$0
+    )
+})
+}
+/**
+ * An already-formatted amount with its token: `"$25.00"` for USDC,
+ * `"0.0012 ETH"` otherwise, the amount alone for an empty symbol.
+ */
+public func amountWithSymbol(amount: String, symbol: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_amount_with_symbol(
+        FfiConverterString.lower(amount),
+        FfiConverterString.lower(symbol),$0
+    )
+})
+}
+/**
  * The longest an attachment's relay grant may stand, in milliseconds.
  *
  * The ceiling [`agent_attachment_challenge`] and
@@ -21181,6 +22911,19 @@ public func amountToBaseUnits(input: String, decimals: UInt32)throws  -> String 
 public func attachmentGrantLifetimeMs() -> Int64  {
     return try!  FfiConverterInt64.lift(try! rustCall() {
     uniffi_paygent_mobile_core_fn_func_attachment_grant_lifetime_ms($0
+    )
+})
+}
+/**
+ * The step number of `step` on `path`, the same count the browser shows.
+ * Funding shares the pricing step's number. Throws for a transaction step
+ * on the path that has no transaction.
+ */
+public func attachmentProgress(path: AttachmentPathFfi, step: AttachmentStepFfi)throws  -> AttachmentProgressFfi  {
+    return try  FfiConverterTypeAttachmentProgressFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_attachment_progress(
+        FfiConverterTypeAttachmentPathFfi_lower(path),
+        FfiConverterTypeAttachmentStepFfi_lower(step),$0
     )
 })
 }
@@ -21640,6 +23383,23 @@ public func clientPlatformDisplayName(platform: ClientPlatform) -> String?  {
     return try!  FfiConverterOptionString.lift(try! rustCall() {
     uniffi_paygent_mobile_core_fn_func_client_platform_display_name(
         FfiConverterTypeClientPlatform_lower(platform),$0
+    )
+})
+}
+/**
+ * `epoch_ms` as a wall-clock time of day in the zone `utc_offset_minutes`
+ * east of UTC: `"14:05"`, or `"2:05 PM"` when `twelve_hour` is set (the
+ * user's locale decides which; the host passes it).
+ *
+ * The zone is an argument so the answer depends only on the inputs. Read the
+ * offset for this instant from the platform's own time zone and pass it in.
+ */
+public func clockTime(epochMs: Int64, utcOffsetMinutes: Int32, twelveHour: Bool) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_clock_time(
+        FfiConverterInt64.lower(epochMs),
+        FfiConverterInt32.lower(utcOffsetMinutes),
+        FfiConverterBool.lower(twelveHour),$0
     )
 })
 }
@@ -22316,6 +24076,40 @@ public func evmTargetsFromReport(knownOwners: [OwnerIdentityFfi], chains: [Chain
 })
 }
 /**
+ * A satoshi count grouped in threes: `250000` is `"250,000"`.
+ */
+public func formatSats(sats: Int64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_format_sats(
+        FfiConverterInt64.lower(sats),$0
+    )
+})
+}
+/**
+ * USDC base units as dollars with cents: `"1240500000"` is `"$1,240.50"`.
+ * No currency conversion: one USDC reads as one dollar.
+ *
+ * `max_fraction_digits` defaults to 2; extra digits are truncated.
+ */
+public func formatUsd(baseUnits: String, maxFractionDigits: UInt32?)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_format_usd(
+        FfiConverterString.lower(baseUnits),
+        FfiConverterOptionUInt32.lower(maxFractionDigits),$0
+    )
+})
+}
+/**
+ * [`format_usd`] with whole dollars left bare: `"$50"`, `"$50.25"`.
+ */
+public func formatUsdCompact(baseUnits: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_format_usd_compact(
+        FfiConverterString.lower(baseUnits),$0
+    )
+})
+}
+/**
  * Generate a new device key (Ed25519). Call once per authorizer install;
  * persist the returned `private_key` securely.
  */
@@ -22626,6 +24420,16 @@ public func issueWriteToken(publisherDid: String, expiresAt: UInt64, prfSecretB6
 })
 }
 /**
+ * How long something lasts: `"Lasts 30 days"`.
+ */
+public func lastsPhrase(durationSeconds: UInt64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_lasts_phrase(
+        FfiConverterUInt64.lower(durationSeconds),$0
+    )
+})
+}
+/**
  * The pre-hardening `SafeModuleGuardFactory` address (`LEGACY_GUARD_FACTORY`).
  * A wallet deployed before the repoint to [`guard_factory_address`] has its
  * guard at the address this factory computes, not the hardened one. Pass
@@ -22637,6 +24441,36 @@ public func legacyGuardFactoryAddress() -> String  {
     uniffi_paygent_mobile_core_fn_func_legacy_guard_factory_address($0
     )
 })
+}
+/**
+ * The phrase after an allowance's amount: `"a day"`, `"a week"`,
+ * `"every 30 days"`; `"in total"` for a limit that never resets.
+ */
+public func limitPeriodPhrase(periodSeconds: UInt64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_limit_period_phrase(
+        FfiConverterUInt64.lower(periodSeconds),$0
+    )
+})
+}
+/**
+ * Every listed agent's allowance of `token`, one entry per distinct executor
+ * module, in the order given. Throws when any read fails, rather than
+ * dropping that agent.
+ */
+public func listAgentLimitsEvm(rpcUrl: String, chainId: UInt64, `guard`: String, modules: [String], token: String)async throws  -> [AgentLimitFfi]  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_list_agent_limits_evm(FfiConverterString.lower(rpcUrl),FfiConverterUInt64.lower(chainId),FfiConverterString.lower(`guard`),FfiConverterSequenceString.lower(modules),FfiConverterString.lower(token)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeAgentLimitFfi.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
 }
 public func listSolanaAgentLimits(rpcUrl: String, walletAddress: String, mintAddress: String)async throws  -> SolanaGuardLimitsFfi  {
     return
@@ -22651,6 +24485,23 @@ public func listSolanaAgentLimits(rpcUrl: String, walletAddress: String, mintAdd
             liftFunc: FfiConverterTypeSolanaGuardLimitsFfi_lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
+}
+/**
+ * The `agent.mandate-changed` notice to send an agent right after its limit
+ * on `(wallet, module, token)` changed on chain, as JSON. The agent then
+ * re-reads its limit instead of waiting out its cache.
+ */
+public func mandateChangedMessage(chainId: UInt64, wallet: String, module: String, token: String, requestId: String?, issuedAtMs: Int64)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_mandate_changed_message(
+        FfiConverterUInt64.lower(chainId),
+        FfiConverterString.lower(wallet),
+        FfiConverterString.lower(module),
+        FfiConverterString.lower(token),
+        FfiConverterOptionString.lower(requestId),
+        FfiConverterInt64.lower(issuedAtMs),$0
+    )
+})
 }
 /**
  * Map one planned op to the EVM owner-op that applies it. `current_threshold`
@@ -22678,6 +24529,18 @@ public func mapEvmReconcileOp(op: ReconcileOpFfi, currentThreshold: UInt32)throw
 public func maxNostrFleetPairings() -> UInt32  {
     return try!  FfiConverterUInt32.lift(try! rustCall() {
     uniffi_paygent_mobile_core_fn_func_max_nostr_fleet_pairings($0
+    )
+})
+}
+/**
+ * Fold `update` into the stored record of the same agent. Refuses records of
+ * two different agents.
+ */
+public func mergeAgentRecords(stored: AgentRecordFfi?, update: AgentRecordFfi)throws  -> AgentRecordFfi  {
+    return try  FfiConverterTypeAgentRecordFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_merge_agent_records(
+        FfiConverterOptionTypeAgentRecordFfi.lower(stored),
+        FfiConverterTypeAgentRecordFfi_lower(update),$0
     )
 })
 }
@@ -22732,6 +24595,16 @@ public func openPushPayload(pushSubkey: Data, envelope: EncryptedEnvelopeFfi)thr
     uniffi_paygent_mobile_core_fn_func_open_push_payload(
         FfiConverterData.lower(pushSubkey),
         FfiConverterTypeEncryptedEnvelopeFfi_lower(envelope),$0
+    )
+})
+}
+/**
+ * The whole sats in a millisat amount, rounded down.
+ */
+public func outboundSats(msat: UInt64) -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_outbound_sats(
+        FfiConverterUInt64.lower(msat),$0
     )
 })
 }
@@ -22826,6 +24699,18 @@ public func pairingWalletSubjects(delegationJson: String)throws  -> [String]  {
     return try  FfiConverterSequenceString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_pairing_wallet_subjects(
         FfiConverterString.lower(delegationJson),$0
+    )
+})
+}
+/**
+ * Read a decrypted `agent.status` heartbeat and judge it against
+ * `min_version`.
+ */
+public func parseAgentStatus(json: String, minVersion: String)throws  -> AgentPresenceFfi  {
+    return try  FfiConverterTypeAgentPresenceFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_parse_agent_status(
+        FfiConverterString.lower(json),
+        FfiConverterString.lower(minVersion),$0
     )
 })
 }
@@ -23122,6 +25007,25 @@ public func prepareDirectAgentAttachment(plan: AgentAttachmentPlan, relayerAddre
             completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterTypeAgentAttachmentPreparedFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Prepare the EVM half of removing an agent on every chain it is attached
+ * on: `removeSpendingLimit` and `setAllowedTarget(.., false)` per token, one
+ * passkey signature. Submit with `submit_direct_transaction`.
+ */
+public func prepareDirectAgentRemoval(chainConfigs: [ChainConfigFfi], agent: AgentRecordFfi, perChainTokens: [UInt64: [String]], perChainGas: [UInt64: DirectGasFfi], relayerAddress: String, relayerBaseUrl: String)async throws  -> MultichainPrepareSummary  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_direct_agent_removal(FfiConverterSequenceTypeChainConfigFfi.lower(chainConfigs),FfiConverterTypeAgentRecordFfi_lower(agent),FfiConverterDictionaryUInt64SequenceString.lower(perChainTokens),FfiConverterDictionaryUInt64TypeDirectGasFfi.lower(perChainGas),FfiConverterString.lower(relayerAddress),FfiConverterString.lower(relayerBaseUrl)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeMultichainPrepareSummary_lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
@@ -24251,6 +26155,16 @@ public func spentFraction(spent: String, ceiling: String) -> Double  {
 })
 }
 /**
+ * A fresh removal record for `agent`, every job pending.
+ */
+public func startAgentRemoval(agent: AgentRecordFfi) -> AgentRemovalRecordFfi  {
+    return try!  FfiConverterTypeAgentRemovalRecordFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_start_agent_removal(
+        FfiConverterTypeAgentRecordFfi_lower(agent),$0
+    )
+})
+}
+/**
  * The link to open for this network, or `None` when Stripe does not sell USDC
  * onto it.
  *
@@ -24435,6 +26349,34 @@ public func unfinishedChainIds(rows: [ChainRowFfi]) -> [Int64]  {
 })
 }
 /**
+ * Sanitise text somebody other than the wallet supplied -- a merchant's
+ * description, a resource URL off a `402` -- into the form an approval screen
+ * may render.
+ *
+ * Total: every input produces a value, because refusing to show a description
+ * is not an option when the payment still has to be decided. What changed is
+ * reported by the flags on the result, not by an error.
+ */
+public func untrustedTextParse(raw: String) -> UntrustedText  {
+    return try!  FfiConverterTypeUntrustedText_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_untrusted_text_parse(
+        FfiConverterString.lower(raw),$0
+    )
+})
+}
+/**
+ * The same, for a field that may be absent. Text that sanitises to nothing --
+ * absent, empty, or only whitespace -- is absent, so a screen never reserves
+ * space for a blank description.
+ */
+public func untrustedTextParseOptional(raw: String?) -> UntrustedText?  {
+    return try!  FfiConverterOptionTypeUntrustedText.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_untrusted_text_parse_optional(
+        FfiConverterOptionString.lower(raw),$0
+    )
+})
+}
+/**
  * Verify a stored `W -> R` binding and report the identities it actually
  * attests.
  *
@@ -24559,6 +26501,30 @@ public func walletLabelInitials(name: String) -> String  {
     )
 })
 }
+/**
+ * Read the scheme, host and port out of a URL-shaped string.
+ *
+ * This is the origin a client CLAIMS served the payment demand. Nothing signs
+ * it; what the type buys is that the value on screen is a whole origin or it
+ * is nothing.
+ *
+ * # Errors
+ *
+ * [`MobileError::InvalidInput`] when the input is not a URL, does not speak
+ * `http` or `https`, names no host, carries a user or password, or carries
+ * anything past the authority -- a path, a query or a fragment. A resource URL
+ * is therefore refused rather than trimmed to its origin, and the detail says
+ * which of those it was: silently dropping the tail of
+ * `https://bank.example@evil.test` would turn an attacker's origin into the
+ * bank's, so the caller has to choose what to pass rather than be guessed at.
+ */
+public func webOriginParse(input: String)throws  -> WebOrigin  {
+    return try  FfiConverterTypeWebOrigin_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_web_origin_parse(
+        FfiConverterString.lower(input),$0
+    )
+})
+}
 
 private enum InitializationResult {
     case ok
@@ -24578,10 +26544,37 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_address_topic() != 17484) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_advance_agent_removal_evm() != 58409) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_advance_agent_removal_step() != 12432) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_agent_attachment_challenge() != 17066) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_agent_display_name() != 30514) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_needs_update() != 27636) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_record_executor_module() != 14940) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_record_solana_pocket() != 53173) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_record_with_pairing() != 21789) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_record_with_side_wallet_index() != 28678) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_record_with_solana_owner() != 5895) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_agent_status_message() != 33212) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_agree_fresh_threshold() != 50633) {
@@ -24596,16 +26589,46 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_amount_accepts_partial() != 22983) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_compare_base_units() != 6061) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_amount_decimal_to_u256_hex() != 11864) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_amount_from_base_units() != 47313) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_from_base_units_truncated() != 252) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_in_sentence() != 1857) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_is_base_units() != 15030) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_is_zero_base_units() != 9726) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_subtract_base_units() != 29208) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_sum_base_units() != 44888) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_amount_to_base_units() != 25729) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_token_balance_text() != 17481) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_amount_with_symbol() != 49966) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_attachment_grant_lifetime_ms() != 63081) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_attachment_progress() != 49116) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_bind_evm_threshold() != 50931) {
@@ -24690,6 +26713,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_client_platform_display_name() != 65234) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_clock_time() != 44248) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_complete_approval() != 50745) {
@@ -24830,6 +26856,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_evm_targets_from_report() != 34351) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_format_sats() != 10348) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_format_usd() != 2810) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_format_usd_compact() != 32807) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_generate_capability_key() != 35255) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -24893,16 +26928,31 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_issue_write_token() != 46619) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_lasts_phrase() != 61896) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_legacy_guard_factory_address() != 16996) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_limit_period_phrase() != 58345) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_list_agent_limits_evm() != 60781) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_list_solana_agent_limits() != 19345) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_mandate_changed_message() != 5197) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_map_evm_reconcile_op() != 27853) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_max_nostr_fleet_pairings() != 4547) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_merge_agent_records() != 55949) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_mint_solana_purse() != 40493) {
@@ -24912,6 +26962,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_open_push_payload() != 28810) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_outbound_sats() != 27149) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_p256_did_key() != 4838) {
@@ -24930,6 +26983,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_pairing_wallet_subjects() != 4114) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_parse_agent_status() != 28476) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_parse_chain_key() != 5511) {
@@ -24993,6 +27049,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_direct_agent_attachment() != 4456) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_direct_agent_removal() != 42686) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_direct_configuration() != 50858) {
@@ -25202,6 +27261,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_spent_fraction() != 65232) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_start_agent_removal() != 8202) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_stripe_onramp_link() != 28708) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -25238,6 +27300,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_unfinished_chain_ids() != 33868) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_untrusted_text_parse() != 1351) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_untrusted_text_parse_optional() != 24161) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_verify_binding_attestation() != 16948) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -25262,6 +27330,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_wallet_label_initials() != 31280) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_web_origin_parse() != 6897) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_chain_id() != 55267) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -25269,6 +27340,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_executor_module() != 29403) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_existing_mandate() != 34231) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_agentattachmentplan_granted() != 40694) {
@@ -25436,6 +27510,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_nostrfleet_transport_did() != 61570) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_apply_mandate_changed() != 33076) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_authorize() != 3841) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -25467,6 +27544,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_refill_solana_pocket() != 32688) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_allowance() != 34916) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_attachment() != 47577) {
@@ -25547,9 +27627,9 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentHost()
     uniffiCallbackInitAgentPocketHost()
     uniffiCallbackInitAgentSessionHost()
+    uniffiEnsurePaygentUntrustedInitialized()
     uniffiEnsurePaygentAgentCoreInitialized()
     uniffiEnsurePaygentPolicyInitialized()
-    uniffiEnsurePaygentUntrustedInitialized()
     return InitializationResult.ok
 }()
 

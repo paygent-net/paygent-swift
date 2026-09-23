@@ -730,11 +730,209 @@ public func FfiConverterTypeAgentMandate_lower(_ value: AgentMandate) -> RustBuf
 
 
 /**
+ * What an attached agent asks for. The asker's identity is absent on
+ * purpose: it is read off the signing key.
+ */
+public struct AllowanceRequestInput {
+    /**
+     * The owner passkey DID the request goes to. Signed, not carried.
+     */
+    public var ownerDid: String
+    /**
+     * The chain the allowance is for.
+     */
+    public var chainId: UInt64
+    /**
+     * The treasury this agent draws from on that chain.
+     */
+    public var walletAddress: String
+    /**
+     * The token the ceilings are denominated in.
+     */
+    public var token: String
+    /**
+     * Per-transaction ceiling, `0x` hex base units, never zero.
+     */
+    public var maxPerTxHex: String
+    /**
+     * Daily cap, `0x` hex base units, never zero.
+     */
+    public var dailyMaxHex: String
+    /**
+     * Why the agent asks, shown to the owner as someone else's words.
+     */
+    public var reason: String?
+    /**
+     * Correlation id; the owner's `agent.mandate-changed` echoes it.
+     */
+    public var requestId: String
+    /**
+     * Unix milliseconds, supplied by the caller: this op reads no clock.
+     */
+    public var issuedAtMs: Int64
+    /**
+     * Unix milliseconds after which the owner must refuse the request.
+     */
+    public var expiresAtMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The owner passkey DID the request goes to. Signed, not carried.
+         */ownerDid: String, 
+        /**
+         * The chain the allowance is for.
+         */chainId: UInt64, 
+        /**
+         * The treasury this agent draws from on that chain.
+         */walletAddress: String, 
+        /**
+         * The token the ceilings are denominated in.
+         */token: String, 
+        /**
+         * Per-transaction ceiling, `0x` hex base units, never zero.
+         */maxPerTxHex: String, 
+        /**
+         * Daily cap, `0x` hex base units, never zero.
+         */dailyMaxHex: String, 
+        /**
+         * Why the agent asks, shown to the owner as someone else's words.
+         */reason: String?, 
+        /**
+         * Correlation id; the owner's `agent.mandate-changed` echoes it.
+         */requestId: String, 
+        /**
+         * Unix milliseconds, supplied by the caller: this op reads no clock.
+         */issuedAtMs: Int64, 
+        /**
+         * Unix milliseconds after which the owner must refuse the request.
+         */expiresAtMs: Int64) {
+        self.ownerDid = ownerDid
+        self.chainId = chainId
+        self.walletAddress = walletAddress
+        self.token = token
+        self.maxPerTxHex = maxPerTxHex
+        self.dailyMaxHex = dailyMaxHex
+        self.reason = reason
+        self.requestId = requestId
+        self.issuedAtMs = issuedAtMs
+        self.expiresAtMs = expiresAtMs
+    }
+}
+
+#if compiler(>=6)
+extension AllowanceRequestInput: Sendable {}
+#endif
+
+
+extension AllowanceRequestInput: Equatable, Hashable {
+    public static func ==(lhs: AllowanceRequestInput, rhs: AllowanceRequestInput) -> Bool {
+        if lhs.ownerDid != rhs.ownerDid {
+            return false
+        }
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.walletAddress != rhs.walletAddress {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+            return false
+        }
+        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+            return false
+        }
+        if lhs.reason != rhs.reason {
+            return false
+        }
+        if lhs.requestId != rhs.requestId {
+            return false
+        }
+        if lhs.issuedAtMs != rhs.issuedAtMs {
+            return false
+        }
+        if lhs.expiresAtMs != rhs.expiresAtMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ownerDid)
+        hasher.combine(chainId)
+        hasher.combine(walletAddress)
+        hasher.combine(token)
+        hasher.combine(maxPerTxHex)
+        hasher.combine(dailyMaxHex)
+        hasher.combine(reason)
+        hasher.combine(requestId)
+        hasher.combine(issuedAtMs)
+        hasher.combine(expiresAtMs)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAllowanceRequestInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AllowanceRequestInput {
+        return
+            try AllowanceRequestInput(
+                ownerDid: FfiConverterString.read(from: &buf), 
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                walletAddress: FfiConverterString.read(from: &buf), 
+                token: FfiConverterString.read(from: &buf), 
+                maxPerTxHex: FfiConverterString.read(from: &buf), 
+                dailyMaxHex: FfiConverterString.read(from: &buf), 
+                reason: FfiConverterOptionString.read(from: &buf), 
+                requestId: FfiConverterString.read(from: &buf), 
+                issuedAtMs: FfiConverterInt64.read(from: &buf), 
+                expiresAtMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AllowanceRequestInput, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.ownerDid, into: &buf)
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.walletAddress, into: &buf)
+        FfiConverterString.write(value.token, into: &buf)
+        FfiConverterString.write(value.maxPerTxHex, into: &buf)
+        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterOptionString.write(value.reason, into: &buf)
+        FfiConverterString.write(value.requestId, into: &buf)
+        FfiConverterInt64.write(value.issuedAtMs, into: &buf)
+        FfiConverterInt64.write(value.expiresAtMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceRequestInput_lift(_ buf: RustBuffer) throws -> AllowanceRequestInput {
+    return try FfiConverterTypeAllowanceRequestInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceRequestInput_lower(_ value: AllowanceRequestInput) -> RustBuffer {
+    return FfiConverterTypeAllowanceRequestInput.lower(value)
+}
+
+
+/**
  * What a host asks to be attached on, without naming the asker.
  *
  * The same fields as [`AttachmentRequestDraft`] minus `delegate_did`, and
- * owned rather than borrowed so one definition serves the phone and the
- * browser. The identity is absent on purpose: it is the DID the signer's key
+ * owned rather than borrowed so it can cross a binding boundary. The
+ * identity is absent on purpose: it is the DID the signer's key
  * derives, so [`request_attachment`] fills it in from the key itself rather
  * than letting a host name one. A host that could name it could only get it
  * wrong.
@@ -742,6 +940,15 @@ public func FfiConverterTypeAgentMandate_lower(_ value: AgentMandate) -> RustBuf
  * The mandate's three fields sit here flat rather than as a
  * [`Mandate`], because that type is a wire shape in
  * `paygent-protocol-schemas` and carries no binding derives.
+ *
+ * Bound for the phone and not for the browser, deliberately. Asking to be
+ * attached is signed by the key that IS the asker's identity, and
+ * [`check_before_the_key_is_read`] refuses anything that is not
+ * [`SigningCapability::Hardware`]. A browser page has no such key -- its
+ * signer reports `RelayOnly` and refuses to sign at all -- so a web binding
+ * taking this type could only ever throw
+ * [`AgentAttachmentError::NoHardwareKey`]. The browser binds the answering
+ * half instead, which verifies rather than signs.
  */
 public struct AttachmentRequestInput {
     /**

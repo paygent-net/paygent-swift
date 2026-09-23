@@ -113,6 +113,21 @@ public typealias Period = PaygentMobileCore.Period
 public typealias X402EscalationRequest = PaygentMobileCore.X402EscalationRequest
 public typealias Eip3009Authorization = PaygentMobileCore.Eip3009Authorization
 
+/// Words somebody other than the wallet wrote -- a merchant's description, a
+/// resource URL off a `402`. Two fields on ``X402EscalationRequest`` carry
+/// this rather than a `String`, so the owner's approval screen can tell a
+/// sentence the seller supplied from a value the wallet worked out.
+///
+/// Build one with ``Untrusted/parse(_:)``, never with the generated
+/// field-by-field initializer: the derived fields are a rendering of `raw`,
+/// and filling them in by hand is how a screen comes to show text that was
+/// never sanitised.
+public typealias UntrustedText = PaygentMobileCore.UntrustedText
+
+/// The scheme, host and port a client claims served the payment demand.
+/// Nothing signs it. Build one with ``Untrusted/webOrigin(_:)``.
+public typealias WebOrigin = PaygentMobileCore.WebOrigin
+
 /// The identifier a submitted transaction is tracked by. Upstream this is a
 /// named wrapper over a string, and the binding carries it as a plain `String`,
 /// so this alias is a name for the return value rather than a distinct type.
@@ -174,5 +189,51 @@ public enum Amount {
     /// in 256 bits, is refused rather than coerced.
     public static func decimalToU256Hex(decimal: String) throws -> String {
         try PaygentMobileCore.amountDecimalToU256Hex(decimal: decimal)
+    }
+}
+
+// MARK: - Text somebody else wrote
+
+/// The constructors for ``UntrustedText`` and ``WebOrigin``, forwarded by hand
+/// for the same reason as ``Amount``: a `typealias` names a type and cannot
+/// name a function, and a namespace keeps a file that imports both modules
+/// from seeing two candidates for one name.
+///
+/// Reach for these rather than the generated initializers. Both types carry
+/// fields derived from what was supplied -- the sanitised form of the text, and
+/// the parts of the origin -- and the generated initializer will take whatever
+/// is put in them. The escalation request is forwarded as it stands, so a
+/// `display` an app invents is the string the owner is shown.
+public enum Untrusted {
+    /// Sanitise text somebody else supplied into the form an approval screen
+    /// may render: characters that show as nothing or reverse their neighbours
+    /// removed, runs of whitespace collapsed, and the result capped at 200
+    /// characters so it cannot scroll the amount off the card.
+    ///
+    /// Never fails. Every input produces a value, because the payment still has
+    /// to be decided; what had to change is reported by the flags on the
+    /// result. Those flags are not a warning badge -- read ``UntrustedText``
+    /// before wiring one to a screen.
+    public static func parse(_ raw: String) -> UntrustedText {
+        PaygentMobileCore.untrustedTextParse(raw: raw)
+    }
+
+    /// The same, for a field that may be absent. Text that sanitises to nothing
+    /// -- absent, empty, or only whitespace -- comes back `nil`, so a screen
+    /// never reserves space for a blank description.
+    public static func parseOptional(_ raw: String?) -> UntrustedText? {
+        PaygentMobileCore.untrustedTextParseOptional(raw: raw)
+    }
+
+    /// Read a whole origin -- scheme, host, port -- out of a URL-shaped string.
+    ///
+    /// Throws when the input is not a URL, does not speak `http` or `https`,
+    /// names no host, carries a user or password, or carries anything past the
+    /// host: a path, a query or a fragment. So a resource URL is refused rather
+    /// than quietly trimmed. That is deliberate: `https://bank.example@evil.test`
+    /// reads as the bank and resolves to the attacker, and trimming it would put
+    /// the attacker's origin on screen under the bank's name.
+    public static func webOrigin(_ input: String) throws -> WebOrigin {
+        try PaygentMobileCore.webOriginParse(input: input)
     }
 }

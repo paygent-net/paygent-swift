@@ -73,6 +73,12 @@ to the owner. It fails towards asking a human, never towards spending.
 - ``X402EscalationRequest``
 - ``Eip3009Authorization``
 
+### Text somebody else wrote
+
+- ``UntrustedText``
+- ``WebOrigin``
+- ``Untrusted``
+
 ### The spend decision
 
 - ``PolicyIntent``
