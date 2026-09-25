@@ -34,8 +34,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "PaygentMobileCoreFFI",
-            url: "https://github.com/paygent-net/paygent-swift/releases/download/0.5.0/PaygentMobileCoreFFI-0.5.0.xcframework.zip",
-            checksum: "1f2e3d257d0a94e452702b7991aeace24b77dd1026a41d40585d74c62d9e6656"
+            url: "https://github.com/paygent-net/paygent-swift/releases/download/0.7.0/PaygentMobileCoreFFI-0.7.0.xcframework.zip",
+            checksum: "be068d963c286dd218ab7e2c423b8a1625b253bf6ebab8bd66b363b09e6eec89"
         ),
         .target(
             name: "PaygentMobileCore",

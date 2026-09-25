@@ -575,12 +575,13 @@ public struct AgentMandate {
      */
     public var token: String
     /**
-     * Per-transaction ceiling, in the token's smallest unit. Zero when the
-     * guard holds no limit for this module and token.
+     * Per-transaction ceiling, in the token's smallest unit. Zero means the
+     * module may spend nothing: the owner set it to zero, or the guard holds
+     * no limit for this module and token at all.
      */
     public var maxPerTx: U256
     /**
-     * Daily cap, same unit. Zero when unconfigured.
+     * Daily cap, same unit. Zero means zero, as for `max_per_tx`.
      */
     public var dailyMax: U256
     /**
@@ -608,11 +609,12 @@ public struct AgentMandate {
          * The token the limit below is denominated in.
          */token: String, 
         /**
-         * Per-transaction ceiling, in the token's smallest unit. Zero when the
-         * guard holds no limit for this module and token.
+         * Per-transaction ceiling, in the token's smallest unit. Zero means the
+         * module may spend nothing: the owner set it to zero, or the guard holds
+         * no limit for this module and token at all.
          */maxPerTx: U256, 
         /**
-         * Daily cap, same unit. Zero when unconfigured.
+         * Daily cap, same unit. Zero means zero, as for `max_per_tx`.
          */dailyMax: U256, 
         /**
          * Spent so far today, same unit.
@@ -726,6 +728,613 @@ public func FfiConverterTypeAgentMandate_lift(_ buf: RustBuffer) throws -> Agent
 #endif
 public func FfiConverterTypeAgentMandate_lower(_ value: AgentMandate) -> RustBuffer {
     return FfiConverterTypeAgentMandate.lower(value)
+}
+
+
+/**
+ * One on-chain cap that bounds what the agent may draw, in token base units.
+ */
+public struct AgentRefillCap {
+    public var ceiling: UInt64
+    /**
+     * What the chain last recorded as left in the current window.
+     */
+    public var remaining: UInt64
+    public var window: AgentRefillWindow
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(ceiling: UInt64, 
+        /**
+         * What the chain last recorded as left in the current window.
+         */remaining: UInt64, window: AgentRefillWindow) {
+        self.ceiling = ceiling
+        self.remaining = remaining
+        self.window = window
+    }
+}
+
+#if compiler(>=6)
+extension AgentRefillCap: Sendable {}
+#endif
+
+
+extension AgentRefillCap: Equatable, Hashable {
+    public static func ==(lhs: AgentRefillCap, rhs: AgentRefillCap) -> Bool {
+        if lhs.ceiling != rhs.ceiling {
+            return false
+        }
+        if lhs.remaining != rhs.remaining {
+            return false
+        }
+        if lhs.window != rhs.window {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ceiling)
+        hasher.combine(remaining)
+        hasher.combine(window)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillCap: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillCap {
+        return
+            try AgentRefillCap(
+                ceiling: FfiConverterUInt64.read(from: &buf), 
+                remaining: FfiConverterUInt64.read(from: &buf), 
+                window: FfiConverterTypeAgentRefillWindow.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRefillCap, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.ceiling, into: &buf)
+        FfiConverterUInt64.write(value.remaining, into: &buf)
+        FfiConverterTypeAgentRefillWindow.write(value.window, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillCap_lift(_ buf: RustBuffer) throws -> AgentRefillCap {
+    return try FfiConverterTypeAgentRefillCap.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillCap_lower(_ value: AgentRefillCap) -> RustBuffer {
+    return FfiConverterTypeAgentRefillCap.lower(value)
+}
+
+
+/**
+ * The two refill facts an authorizer shows for an agent.
+ */
+public struct AgentRefillFacts {
+    public var lastRefill: AgentRefillRecord?
+    public var nextRefill: AgentNextRefill
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(lastRefill: AgentRefillRecord?, nextRefill: AgentNextRefill) {
+        self.lastRefill = lastRefill
+        self.nextRefill = nextRefill
+    }
+}
+
+#if compiler(>=6)
+extension AgentRefillFacts: Sendable {}
+#endif
+
+
+extension AgentRefillFacts: Equatable, Hashable {
+    public static func ==(lhs: AgentRefillFacts, rhs: AgentRefillFacts) -> Bool {
+        if lhs.lastRefill != rhs.lastRefill {
+            return false
+        }
+        if lhs.nextRefill != rhs.nextRefill {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(lastRefill)
+        hasher.combine(nextRefill)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillFacts: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillFacts {
+        return
+            try AgentRefillFacts(
+                lastRefill: FfiConverterOptionTypeAgentRefillRecord.read(from: &buf), 
+                nextRefill: FfiConverterTypeAgentNextRefill.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRefillFacts, into buf: inout [UInt8]) {
+        FfiConverterOptionTypeAgentRefillRecord.write(value.lastRefill, into: &buf)
+        FfiConverterTypeAgentNextRefill.write(value.nextRefill, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillFacts_lift(_ buf: RustBuffer) throws -> AgentRefillFacts {
+    return try FfiConverterTypeAgentRefillFacts.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillFacts_lower(_ value: AgentRefillFacts) -> RustBuffer {
+    return FfiConverterTypeAgentRefillFacts.lower(value)
+}
+
+
+/**
+ * What the facts are computed from.
+ */
+public struct AgentRefillFactsInput {
+    public var rail: AgentRefillRail
+    public var ready: UInt64
+    public var keep: UInt64
+    public var caps: [AgentRefillCap]
+    public var feeReserve: UInt64
+    public var refills: [AgentRefillRecord]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(rail: AgentRefillRail, ready: UInt64, keep: UInt64, caps: [AgentRefillCap], feeReserve: UInt64, refills: [AgentRefillRecord]) {
+        self.rail = rail
+        self.ready = ready
+        self.keep = keep
+        self.caps = caps
+        self.feeReserve = feeReserve
+        self.refills = refills
+    }
+}
+
+#if compiler(>=6)
+extension AgentRefillFactsInput: Sendable {}
+#endif
+
+
+extension AgentRefillFactsInput: Equatable, Hashable {
+    public static func ==(lhs: AgentRefillFactsInput, rhs: AgentRefillFactsInput) -> Bool {
+        if lhs.rail != rhs.rail {
+            return false
+        }
+        if lhs.ready != rhs.ready {
+            return false
+        }
+        if lhs.keep != rhs.keep {
+            return false
+        }
+        if lhs.caps != rhs.caps {
+            return false
+        }
+        if lhs.feeReserve != rhs.feeReserve {
+            return false
+        }
+        if lhs.refills != rhs.refills {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(rail)
+        hasher.combine(ready)
+        hasher.combine(keep)
+        hasher.combine(caps)
+        hasher.combine(feeReserve)
+        hasher.combine(refills)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillFactsInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillFactsInput {
+        return
+            try AgentRefillFactsInput(
+                rail: FfiConverterTypeAgentRefillRail.read(from: &buf), 
+                ready: FfiConverterUInt64.read(from: &buf), 
+                keep: FfiConverterUInt64.read(from: &buf), 
+                caps: FfiConverterSequenceTypeAgentRefillCap.read(from: &buf), 
+                feeReserve: FfiConverterUInt64.read(from: &buf), 
+                refills: FfiConverterSequenceTypeAgentRefillRecord.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRefillFactsInput, into buf: inout [UInt8]) {
+        FfiConverterTypeAgentRefillRail.write(value.rail, into: &buf)
+        FfiConverterUInt64.write(value.ready, into: &buf)
+        FfiConverterUInt64.write(value.keep, into: &buf)
+        FfiConverterSequenceTypeAgentRefillCap.write(value.caps, into: &buf)
+        FfiConverterUInt64.write(value.feeReserve, into: &buf)
+        FfiConverterSequenceTypeAgentRefillRecord.write(value.refills, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillFactsInput_lift(_ buf: RustBuffer) throws -> AgentRefillFactsInput {
+    return try FfiConverterTypeAgentRefillFactsInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillFactsInput_lower(_ value: AgentRefillFactsInput) -> RustBuffer {
+    return FfiConverterTypeAgentRefillFactsInput.lower(value)
+}
+
+
+/**
+ * A treasury balance on another network, for suggesting where an owner move
+ * could come from.
+ */
+public struct AgentRefillNetworkFunds {
+    public var network: String
+    public var treasury: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(network: String, treasury: UInt64) {
+        self.network = network
+        self.treasury = treasury
+    }
+}
+
+#if compiler(>=6)
+extension AgentRefillNetworkFunds: Sendable {}
+#endif
+
+
+extension AgentRefillNetworkFunds: Equatable, Hashable {
+    public static func ==(lhs: AgentRefillNetworkFunds, rhs: AgentRefillNetworkFunds) -> Bool {
+        if lhs.network != rhs.network {
+            return false
+        }
+        if lhs.treasury != rhs.treasury {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(network)
+        hasher.combine(treasury)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillNetworkFunds: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillNetworkFunds {
+        return
+            try AgentRefillNetworkFunds(
+                network: FfiConverterString.read(from: &buf), 
+                treasury: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRefillNetworkFunds, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.network, into: &buf)
+        FfiConverterUInt64.write(value.treasury, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillNetworkFunds_lift(_ buf: RustBuffer) throws -> AgentRefillNetworkFunds {
+    return try FfiConverterTypeAgentRefillNetworkFunds.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillNetworkFunds_lower(_ value: AgentRefillNetworkFunds) -> RustBuffer {
+    return FfiConverterTypeAgentRefillNetworkFunds.lower(value)
+}
+
+
+/**
+ * Everything the refill decision depends on, except the clock.
+ */
+public struct AgentRefillPlanInput {
+    public var rail: AgentRefillRail
+    /**
+     * The network the money is needed on (CAIP-2).
+     */
+    public var network: String
+    /**
+     * What the agent can spend on `network` right now: the pocket balance, or
+     * for a rail that spends the treasury directly, the treasury balance.
+     */
+    public var ready: UInt64
+    /**
+     * The treasury balance on `network` a draw would come from. `None` when
+     * it was not read; the chain then has the last word.
+     */
+    public var treasury: UInt64?
+    /**
+     * Every on-chain cap a draw must fit inside. Empty means the agent has no
+     * allowance on this network yet.
+     */
+    public var caps: [AgentRefillCap]
+    /**
+     * The ready-money policy: how much the owner wants kept ready. A refill,
+     * once one is needed anyway, tops up to this.
+     */
+    public var keep: UInt64
+    /**
+     * What the pending operation needs.
+     */
+    public var need: UInt64
+    /**
+     * The most a draw's carrier may charge against the same caps and
+     * treasury (the relayer's fee ceiling).
+     */
+    public var feeReserve: UInt64
+    /**
+     * Treasury balances on other networks.
+     */
+    public var elsewhere: [AgentRefillNetworkFunds]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(rail: AgentRefillRail, 
+        /**
+         * The network the money is needed on (CAIP-2).
+         */network: String, 
+        /**
+         * What the agent can spend on `network` right now: the pocket balance, or
+         * for a rail that spends the treasury directly, the treasury balance.
+         */ready: UInt64, 
+        /**
+         * The treasury balance on `network` a draw would come from. `None` when
+         * it was not read; the chain then has the last word.
+         */treasury: UInt64?, 
+        /**
+         * Every on-chain cap a draw must fit inside. Empty means the agent has no
+         * allowance on this network yet.
+         */caps: [AgentRefillCap], 
+        /**
+         * The ready-money policy: how much the owner wants kept ready. A refill,
+         * once one is needed anyway, tops up to this.
+         */keep: UInt64, 
+        /**
+         * What the pending operation needs.
+         */need: UInt64, 
+        /**
+         * The most a draw's carrier may charge against the same caps and
+         * treasury (the relayer's fee ceiling).
+         */feeReserve: UInt64, 
+        /**
+         * Treasury balances on other networks.
+         */elsewhere: [AgentRefillNetworkFunds]) {
+        self.rail = rail
+        self.network = network
+        self.ready = ready
+        self.treasury = treasury
+        self.caps = caps
+        self.keep = keep
+        self.need = need
+        self.feeReserve = feeReserve
+        self.elsewhere = elsewhere
+    }
+}
+
+#if compiler(>=6)
+extension AgentRefillPlanInput: Sendable {}
+#endif
+
+
+extension AgentRefillPlanInput: Equatable, Hashable {
+    public static func ==(lhs: AgentRefillPlanInput, rhs: AgentRefillPlanInput) -> Bool {
+        if lhs.rail != rhs.rail {
+            return false
+        }
+        if lhs.network != rhs.network {
+            return false
+        }
+        if lhs.ready != rhs.ready {
+            return false
+        }
+        if lhs.treasury != rhs.treasury {
+            return false
+        }
+        if lhs.caps != rhs.caps {
+            return false
+        }
+        if lhs.keep != rhs.keep {
+            return false
+        }
+        if lhs.need != rhs.need {
+            return false
+        }
+        if lhs.feeReserve != rhs.feeReserve {
+            return false
+        }
+        if lhs.elsewhere != rhs.elsewhere {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(rail)
+        hasher.combine(network)
+        hasher.combine(ready)
+        hasher.combine(treasury)
+        hasher.combine(caps)
+        hasher.combine(keep)
+        hasher.combine(need)
+        hasher.combine(feeReserve)
+        hasher.combine(elsewhere)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillPlanInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillPlanInput {
+        return
+            try AgentRefillPlanInput(
+                rail: FfiConverterTypeAgentRefillRail.read(from: &buf), 
+                network: FfiConverterString.read(from: &buf), 
+                ready: FfiConverterUInt64.read(from: &buf), 
+                treasury: FfiConverterOptionUInt64.read(from: &buf), 
+                caps: FfiConverterSequenceTypeAgentRefillCap.read(from: &buf), 
+                keep: FfiConverterUInt64.read(from: &buf), 
+                need: FfiConverterUInt64.read(from: &buf), 
+                feeReserve: FfiConverterUInt64.read(from: &buf), 
+                elsewhere: FfiConverterSequenceTypeAgentRefillNetworkFunds.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRefillPlanInput, into buf: inout [UInt8]) {
+        FfiConverterTypeAgentRefillRail.write(value.rail, into: &buf)
+        FfiConverterString.write(value.network, into: &buf)
+        FfiConverterUInt64.write(value.ready, into: &buf)
+        FfiConverterOptionUInt64.write(value.treasury, into: &buf)
+        FfiConverterSequenceTypeAgentRefillCap.write(value.caps, into: &buf)
+        FfiConverterUInt64.write(value.keep, into: &buf)
+        FfiConverterUInt64.write(value.need, into: &buf)
+        FfiConverterUInt64.write(value.feeReserve, into: &buf)
+        FfiConverterSequenceTypeAgentRefillNetworkFunds.write(value.elsewhere, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillPlanInput_lift(_ buf: RustBuffer) throws -> AgentRefillPlanInput {
+    return try FfiConverterTypeAgentRefillPlanInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillPlanInput_lower(_ value: AgentRefillPlanInput) -> RustBuffer {
+    return FfiConverterTypeAgentRefillPlanInput.lower(value)
+}
+
+
+/**
+ * One refill that happened.
+ */
+public struct AgentRefillRecord {
+    public var atMs: Int64
+    public var amount: UInt64
+    public var network: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(atMs: Int64, amount: UInt64, network: String) {
+        self.atMs = atMs
+        self.amount = amount
+        self.network = network
+    }
+}
+
+#if compiler(>=6)
+extension AgentRefillRecord: Sendable {}
+#endif
+
+
+extension AgentRefillRecord: Equatable, Hashable {
+    public static func ==(lhs: AgentRefillRecord, rhs: AgentRefillRecord) -> Bool {
+        if lhs.atMs != rhs.atMs {
+            return false
+        }
+        if lhs.amount != rhs.amount {
+            return false
+        }
+        if lhs.network != rhs.network {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(atMs)
+        hasher.combine(amount)
+        hasher.combine(network)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillRecord: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillRecord {
+        return
+            try AgentRefillRecord(
+                atMs: FfiConverterInt64.read(from: &buf), 
+                amount: FfiConverterUInt64.read(from: &buf), 
+                network: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AgentRefillRecord, into buf: inout [UInt8]) {
+        FfiConverterInt64.write(value.atMs, into: &buf)
+        FfiConverterUInt64.write(value.amount, into: &buf)
+        FfiConverterString.write(value.network, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillRecord_lift(_ buf: RustBuffer) throws -> AgentRefillRecord {
+    return try FfiConverterTypeAgentRefillRecord.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillRecord_lower(_ value: AgentRefillRecord) -> RustBuffer {
+    return FfiConverterTypeAgentRefillRecord.lower(value)
 }
 
 
@@ -966,8 +1575,8 @@ public struct AttachmentRequestInput {
      */
     public var token: String
     /**
-     * Per-transaction ceiling, minimal `0x` hex. Never `0x0`:
-     * `SafeModuleGuard` reads a zero side as no ceiling at all.
+     * Per-transaction ceiling, minimal `0x` hex. Never `0x0`: a zero side
+     * would let the agent spend nothing.
      */
     public var maxPerTxHex: String
     /**
@@ -1007,8 +1616,8 @@ public struct AttachmentRequestInput {
          * The token the two ceilings below are denominated in.
          */token: String, 
         /**
-         * Per-transaction ceiling, minimal `0x` hex. Never `0x0`:
-         * `SafeModuleGuard` reads a zero side as no ceiling at all.
+         * Per-transaction ceiling, minimal `0x` hex. Never `0x0`: a zero side
+         * would let the agent spend nothing.
          */maxPerTxHex: String, 
         /**
          * Daily cap, same form and same rule.
@@ -3590,6 +4199,530 @@ public func FfiConverterTypeX402EscalationRequest_lower(_ value: X402EscalationR
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Whether the agent's next refill can happen, as an authorizer shows it.
+ */
+
+public enum AgentNextRefill {
+    
+    /**
+     * This rail has no ready money to refill.
+     */
+    case notApplicable
+    /**
+     * Every refill on this rail is the owner's to approve.
+     */
+    case ownerApproves
+    /**
+     * The agent has no allowance on this network yet.
+     */
+    case notEnrolled
+    /**
+     * The agent may draw up to `up_to` itself.
+     */
+    case available(upTo: UInt64
+    )
+    /**
+     * The limit is too spent to restore the keep target.
+     */
+    case blocked(wanted: UInt64, available: UInt64, unblocksAtMs: Int64?
+    )
+}
+
+
+#if compiler(>=6)
+extension AgentNextRefill: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentNextRefill: FfiConverterRustBuffer {
+    typealias SwiftType = AgentNextRefill
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentNextRefill {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .notApplicable
+        
+        case 2: return .ownerApproves
+        
+        case 3: return .notEnrolled
+        
+        case 4: return .available(upTo: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 5: return .blocked(wanted: try FfiConverterUInt64.read(from: &buf), available: try FfiConverterUInt64.read(from: &buf), unblocksAtMs: try FfiConverterOptionInt64.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentNextRefill, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .notApplicable:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .ownerApproves:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .notEnrolled:
+            writeInt(&buf, Int32(3))
+        
+        
+        case let .available(upTo):
+            writeInt(&buf, Int32(4))
+            FfiConverterUInt64.write(upTo, into: &buf)
+            
+        
+        case let .blocked(wanted,available,unblocksAtMs):
+            writeInt(&buf, Int32(5))
+            FfiConverterUInt64.write(wanted, into: &buf)
+            FfiConverterUInt64.write(available, into: &buf)
+            FfiConverterOptionInt64.write(unblocksAtMs, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentNextRefill_lift(_ buf: RustBuffer) throws -> AgentNextRefill {
+    return try FfiConverterTypeAgentNextRefill.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentNextRefill_lower(_ value: AgentNextRefill) -> RustBuffer {
+    return FfiConverterTypeAgentNextRefill.lower(value)
+}
+
+
+extension AgentNextRefill: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why the agent cannot cover the need itself.
+ */
+
+public enum AgentRefillBlock {
+    
+    /**
+     * The draw is larger than what the spending limit has left.
+     */
+    case overAllowance
+    /**
+     * The agent has no allowance on this network.
+     */
+    case notEnrolled
+    /**
+     * The treasury itself does not hold enough.
+     */
+    case treasuryShort
+    /**
+     * This rail has no agent-drawn refill: the owner approves every one.
+     */
+    case ownerTreasuryOnly
+    /**
+     * The money is on another network, and moving it there is an owner action.
+     */
+    case ownerMoveAcrossNetworks
+}
+
+
+#if compiler(>=6)
+extension AgentRefillBlock: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillBlock: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRefillBlock
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillBlock {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .overAllowance
+        
+        case 2: return .notEnrolled
+        
+        case 3: return .treasuryShort
+        
+        case 4: return .ownerTreasuryOnly
+        
+        case 5: return .ownerMoveAcrossNetworks
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentRefillBlock, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .overAllowance:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .notEnrolled:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .treasuryShort:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .ownerTreasuryOnly:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .ownerMoveAcrossNetworks:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillBlock_lift(_ buf: RustBuffer) throws -> AgentRefillBlock {
+    return try FfiConverterTypeAgentRefillBlock.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillBlock_lower(_ value: AgentRefillBlock) -> RustBuffer {
+    return FfiConverterTypeAgentRefillBlock.lower(value)
+}
+
+
+extension AgentRefillBlock: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * What the decision found.
+ */
+
+public enum AgentRefillPlan {
+    
+    /**
+     * The ready money covers the need and the keep target.
+     */
+    case ready
+    /**
+     * The need is covered but the ready money is under the keep target.
+     * Nothing is drawn now: the next refill that is needed anyway tops up.
+     */
+    case held(belowKeepBy: UInt64
+    )
+    /**
+     * Draw `amount` from the treasury on `from_network`, within the limit.
+     */
+    case refill(amount: UInt64, fromNetwork: String
+    )
+    /**
+     * The agent cannot cover the need; the owner has to approve.
+     */
+    case escalate(reason: AgentRefillBlock, 
+        /**
+         * What is missing for the pending operation.
+         */shortfall: UInt64, 
+        /**
+         * What the agent could still draw itself.
+         */available: UInt64, 
+        /**
+         * When the limit gives back enough to cover it (unix ms); `None` when
+         * waiting will not help.
+         */unblocksAtMs: Int64?, 
+        /**
+         * A network whose treasury could cover an owner move.
+         */suggestedSource: String?
+    )
+}
+
+
+#if compiler(>=6)
+extension AgentRefillPlan: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillPlan: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRefillPlan
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillPlan {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .ready
+        
+        case 2: return .held(belowKeepBy: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 3: return .refill(amount: try FfiConverterUInt64.read(from: &buf), fromNetwork: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 4: return .escalate(reason: try FfiConverterTypeAgentRefillBlock.read(from: &buf), shortfall: try FfiConverterUInt64.read(from: &buf), available: try FfiConverterUInt64.read(from: &buf), unblocksAtMs: try FfiConverterOptionInt64.read(from: &buf), suggestedSource: try FfiConverterOptionString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentRefillPlan, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .ready:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .held(belowKeepBy):
+            writeInt(&buf, Int32(2))
+            FfiConverterUInt64.write(belowKeepBy, into: &buf)
+            
+        
+        case let .refill(amount,fromNetwork):
+            writeInt(&buf, Int32(3))
+            FfiConverterUInt64.write(amount, into: &buf)
+            FfiConverterString.write(fromNetwork, into: &buf)
+            
+        
+        case let .escalate(reason,shortfall,available,unblocksAtMs,suggestedSource):
+            writeInt(&buf, Int32(4))
+            FfiConverterTypeAgentRefillBlock.write(reason, into: &buf)
+            FfiConverterUInt64.write(shortfall, into: &buf)
+            FfiConverterUInt64.write(available, into: &buf)
+            FfiConverterOptionInt64.write(unblocksAtMs, into: &buf)
+            FfiConverterOptionString.write(suggestedSource, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillPlan_lift(_ buf: RustBuffer) throws -> AgentRefillPlan {
+    return try FfiConverterTypeAgentRefillPlan.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillPlan_lower(_ value: AgentRefillPlan) -> RustBuffer {
+    return FfiConverterTypeAgentRefillPlan.lower(value)
+}
+
+
+extension AgentRefillPlan: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Which kind of ready-money account the agent holds on a network.
+ */
+
+public enum AgentRefillRail {
+    
+    case evmSafe
+    case solanaPocket
+    case lightningPocket
+    case tempoAccount
+}
+
+
+#if compiler(>=6)
+extension AgentRefillRail: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillRail: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRefillRail
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillRail {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .evmSafe
+        
+        case 2: return .solanaPocket
+        
+        case 3: return .lightningPocket
+        
+        case 4: return .tempoAccount
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentRefillRail, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .evmSafe:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .solanaPocket:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .lightningPocket:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .tempoAccount:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillRail_lift(_ buf: RustBuffer) throws -> AgentRefillRail {
+    return try FfiConverterTypeAgentRefillRail.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillRail_lower(_ value: AgentRefillRail) -> RustBuffer {
+    return FfiConverterTypeAgentRefillRail.lower(value)
+}
+
+
+extension AgentRefillRail: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * When an on-chain cap gives its full ceiling back.
+ */
+
+public enum AgentRefillWindow {
+    
+    /**
+     * Never: what is spent is gone until the owner grants more.
+     */
+    case oneTime
+    /**
+     * Once `period_s` seconds have passed since `last_reset_s` (unix
+     * seconds), the full ceiling is available again.
+     */
+    case rolling(periodS: Int64, lastResetS: Int64
+    )
+}
+
+
+#if compiler(>=6)
+extension AgentRefillWindow: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentRefillWindow: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRefillWindow
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillWindow {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .oneTime
+        
+        case 2: return .rolling(periodS: try FfiConverterInt64.read(from: &buf), lastResetS: try FfiConverterInt64.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentRefillWindow, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .oneTime:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .rolling(periodS,lastResetS):
+            writeInt(&buf, Int32(2))
+            FfiConverterInt64.write(periodS, into: &buf)
+            FfiConverterInt64.write(lastResetS, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillWindow_lift(_ buf: RustBuffer) throws -> AgentRefillWindow {
+    return try FfiConverterTypeAgentRefillWindow.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentRefillWindow_lower(_ value: AgentRefillWindow) -> RustBuffer {
+    return FfiConverterTypeAgentRefillWindow.lower(value)
+}
+
+
+extension AgentRefillWindow: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Minimum authorization level required to execute a command. The
  * PolicyEngine may escalate beyond this floor based on surface, on-chain
  * limits, or signing capability.
@@ -4464,6 +5597,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeAgentRefillRecord: FfiConverterRustBuffer {
+    typealias SwiftType = AgentRefillRecord?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeAgentRefillRecord.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeAgentRefillRecord.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypePaySettlement: FfiConverterRustBuffer {
     typealias SwiftType = PaySettlement?
 
@@ -4578,6 +5735,81 @@ fileprivate struct FfiConverterOptionTypeSigningCapability: FfiConverterRustBuff
         case 1: return try FfiConverterTypeSigningCapability.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAgentRefillCap: FfiConverterRustBuffer {
+    typealias SwiftType = [AgentRefillCap]
+
+    public static func write(_ value: [AgentRefillCap], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAgentRefillCap.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AgentRefillCap] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AgentRefillCap]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAgentRefillCap.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAgentRefillNetworkFunds: FfiConverterRustBuffer {
+    typealias SwiftType = [AgentRefillNetworkFunds]
+
+    public static func write(_ value: [AgentRefillNetworkFunds], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAgentRefillNetworkFunds.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AgentRefillNetworkFunds] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AgentRefillNetworkFunds]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAgentRefillNetworkFunds.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAgentRefillRecord: FfiConverterRustBuffer {
+    typealias SwiftType = [AgentRefillRecord]
+
+    public static func write(_ value: [AgentRefillRecord], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAgentRefillRecord.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AgentRefillRecord] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AgentRefillRecord]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAgentRefillRecord.read(from: &buf))
+        }
+        return seq
     }
 }
 

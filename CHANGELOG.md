@@ -10,6 +10,46 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.7.0
+
+### Submitting a UserOp with no Paygent server
+
+The constructor's config gains `chainBundler`, an ERC-4337 bundler URL per
+chain id, beside `chainRpc`. A chain named there has its UserOps posted to that
+bundler verbatim instead of through `rpcBase`, so an agent configured with
+`chainRpc` and `chainBundler` alone reads the chain and submits with no Paygent
+server reachable. Without `paymasterUrl` the op pays its own gas, with limits
+from the bundler's `eth_estimateUserOperationGas`. The sponsoring relayer is
+still reached through `rpcBase` only. No operation moved.
+
+### Also first published here: the 0.6.0 changes
+
+`agent.verify_allowance_declined` and `owner.build_allowance_declined`, with
+the `ReviewedInviteFfi.allowance` case change, are described under 0.6.0
+below. That version was never published, so 0.7.0 is the first package that
+carries them.
+
+## 0.6.0 (never published)
+
+The `swift-v0.6.0` tag was cut from a tree that still declared 0.5.0, so the
+publish job refused it and no 0.6.0 package exists. Its changes, below, first
+ship in 0.7.0, and their operations are recorded there as `since = "0.7.0"`.
+
+### Hearing that the owner said no
+
+`agent.request_allowance` could be answered yes (an `agent.mandate-changed`)
+but not no, so a declined request looked exactly like one nobody had read yet.
+One operation joins each tier:
+
+| operation | what it does |
+|---|---|
+| `agent.verify_allowance_declined` | read the owner's `agent.allowance-declined` and accept it only from the paired owner device, for the request and chain this agent is waiting on, and only while fresh; returns an `AllowanceDeclinedFfi` record |
+| `owner.build_allowance_declined` | build the sealed `agent.allowance-declined` for an `AllowanceDecline`, which only a verified allowance request hands out |
+
+The `ReviewedInviteFfi.allowance` case now carries that `decline` beside
+`request`, so a Swift `switch` that binds the case positionally must bind the
+second value.
+
 ## 0.5.0
 
 ### Asking for a different allowance, and hearing it changed

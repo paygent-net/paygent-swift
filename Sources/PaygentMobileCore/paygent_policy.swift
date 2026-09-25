@@ -459,13 +459,25 @@ public struct PolicyDecision {
     public var action: PolicyAction
     public var signingPath: SigningPath?
     public var reason: String?
+    /**
+     * Why the owner is being asked, as a value a screen can branch on.
+     * Present exactly when `action` is `Authorize` for a stated reason;
+     * `reason` stays the log-friendly sentence.
+     */
+    public var escalation: EscalationReason?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(action: PolicyAction, signingPath: SigningPath?, reason: String?) {
+    public init(action: PolicyAction, signingPath: SigningPath?, reason: String?, 
+        /**
+         * Why the owner is being asked, as a value a screen can branch on.
+         * Present exactly when `action` is `Authorize` for a stated reason;
+         * `reason` stays the log-friendly sentence.
+         */escalation: EscalationReason?) {
         self.action = action
         self.signingPath = signingPath
         self.reason = reason
+        self.escalation = escalation
     }
 }
 
@@ -485,6 +497,9 @@ extension PolicyDecision: Equatable, Hashable {
         if lhs.reason != rhs.reason {
             return false
         }
+        if lhs.escalation != rhs.escalation {
+            return false
+        }
         return true
     }
 
@@ -492,6 +507,7 @@ extension PolicyDecision: Equatable, Hashable {
         hasher.combine(action)
         hasher.combine(signingPath)
         hasher.combine(reason)
+        hasher.combine(escalation)
     }
 }
 
@@ -506,7 +522,8 @@ public struct FfiConverterTypePolicyDecision: FfiConverterRustBuffer {
             try PolicyDecision(
                 action: FfiConverterTypePolicyAction.read(from: &buf), 
                 signingPath: FfiConverterOptionTypeSigningPath.read(from: &buf), 
-                reason: FfiConverterOptionString.read(from: &buf)
+                reason: FfiConverterOptionString.read(from: &buf), 
+                escalation: FfiConverterOptionTypeEscalationReason.read(from: &buf)
         )
     }
 
@@ -514,6 +531,7 @@ public struct FfiConverterTypePolicyDecision: FfiConverterRustBuffer {
         FfiConverterTypePolicyAction.write(value.action, into: &buf)
         FfiConverterOptionTypeSigningPath.write(value.signingPath, into: &buf)
         FfiConverterOptionString.write(value.reason, into: &buf)
+        FfiConverterOptionTypeEscalationReason.write(value.escalation, into: &buf)
     }
 }
 
@@ -728,6 +746,108 @@ public func FfiConverterTypePolicyIntent_lift(_ buf: RustBuffer) throws -> Polic
 public func FfiConverterTypePolicyIntent_lower(_ value: PolicyIntent) -> RustBuffer {
     return FfiConverterTypePolicyIntent.lower(value)
 }
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum EscalationReason {
+    
+    case overPerTx(amount: String, maxPerTx: String
+    )
+    case overDaily(amount: String, remaining: String
+    )
+    case noLimit
+    case thirdPartyPayee
+    case other(detail: String
+    )
+}
+
+
+#if compiler(>=6)
+extension EscalationReason: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeEscalationReason: FfiConverterRustBuffer {
+    typealias SwiftType = EscalationReason
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EscalationReason {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .overPerTx(amount: try FfiConverterString.read(from: &buf), maxPerTx: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .overDaily(amount: try FfiConverterString.read(from: &buf), remaining: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 3: return .noLimit
+        
+        case 4: return .thirdPartyPayee
+        
+        case 5: return .other(detail: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: EscalationReason, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .overPerTx(amount,maxPerTx):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(amount, into: &buf)
+            FfiConverterString.write(maxPerTx, into: &buf)
+            
+        
+        case let .overDaily(amount,remaining):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(amount, into: &buf)
+            FfiConverterString.write(remaining, into: &buf)
+            
+        
+        case .noLimit:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .thirdPartyPayee:
+            writeInt(&buf, Int32(4))
+        
+        
+        case let .other(detail):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(detail, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeEscalationReason_lift(_ buf: RustBuffer) throws -> EscalationReason {
+    return try FfiConverterTypeEscalationReason.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeEscalationReason_lower(_ value: EscalationReason) -> RustBuffer {
+    return FfiConverterTypeEscalationReason.lower(value)
+}
+
+
+extension EscalationReason: Equatable, Hashable {}
+
+
+
+
+
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -1033,6 +1153,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeEscalationReason: FfiConverterRustBuffer {
+    typealias SwiftType = EscalationReason?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeEscalationReason.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeEscalationReason.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }

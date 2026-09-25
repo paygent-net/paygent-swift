@@ -9992,6 +9992,7 @@ Used by:
   - paygent-policy 0.1.0
   - paygent-portability 0.1.0
   - paygent-protocol-schemas 0.2.0
+  - paygent-purse-seed 0.1.0
   - paygent-registry-metrics 0.1.0
   - paygent-relative-time 0.1.0
   - paygent-relay-messages 0.2.0
