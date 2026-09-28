@@ -109,7 +109,6 @@ public typealias DeployUserOpRequest = PaygentMobileCore.DeployUserOpRequest
 public typealias TransferUserOpRequest = PaygentMobileCore.TransferUserOpRequest
 public typealias SolanaPocketInfo = PaygentMobileCore.SolanaPocketInfo
 public typealias SolanaPocketReceipt = PaygentMobileCore.SolanaPocketReceipt
-public typealias Period = PaygentMobileCore.Period
 public typealias X402EscalationRequest = PaygentMobileCore.X402EscalationRequest
 public typealias Eip3009Authorization = PaygentMobileCore.Eip3009Authorization
 

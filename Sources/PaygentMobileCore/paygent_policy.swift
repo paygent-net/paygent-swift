@@ -752,9 +752,7 @@ public func FfiConverterTypePolicyIntent_lower(_ value: PolicyIntent) -> RustBuf
 
 public enum EscalationReason {
     
-    case overPerTx(amount: String, maxPerTx: String
-    )
-    case overDaily(amount: String, remaining: String
+    case overLimit(amount: String, remaining: String, periodEnd: UInt64
     )
     case noLimit
     case thirdPartyPayee
@@ -777,17 +775,14 @@ public struct FfiConverterTypeEscalationReason: FfiConverterRustBuffer {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
-        case 1: return .overPerTx(amount: try FfiConverterString.read(from: &buf), maxPerTx: try FfiConverterString.read(from: &buf)
+        case 1: return .overLimit(amount: try FfiConverterString.read(from: &buf), remaining: try FfiConverterString.read(from: &buf), periodEnd: try FfiConverterUInt64.read(from: &buf)
         )
         
-        case 2: return .overDaily(amount: try FfiConverterString.read(from: &buf), remaining: try FfiConverterString.read(from: &buf)
-        )
+        case 2: return .noLimit
         
-        case 3: return .noLimit
+        case 3: return .thirdPartyPayee
         
-        case 4: return .thirdPartyPayee
-        
-        case 5: return .other(detail: try FfiConverterString.read(from: &buf)
+        case 4: return .other(detail: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -798,28 +793,23 @@ public struct FfiConverterTypeEscalationReason: FfiConverterRustBuffer {
         switch value {
         
         
-        case let .overPerTx(amount,maxPerTx):
+        case let .overLimit(amount,remaining,periodEnd):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(amount, into: &buf)
-            FfiConverterString.write(maxPerTx, into: &buf)
-            
-        
-        case let .overDaily(amount,remaining):
-            writeInt(&buf, Int32(2))
-            FfiConverterString.write(amount, into: &buf)
             FfiConverterString.write(remaining, into: &buf)
+            FfiConverterUInt64.write(periodEnd, into: &buf)
             
         
         case .noLimit:
-            writeInt(&buf, Int32(3))
+            writeInt(&buf, Int32(2))
         
         
         case .thirdPartyPayee:
-            writeInt(&buf, Int32(4))
+            writeInt(&buf, Int32(3))
         
         
         case let .other(detail):
-            writeInt(&buf, Int32(5))
+            writeInt(&buf, Int32(4))
             FfiConverterString.write(detail, into: &buf)
             
         }

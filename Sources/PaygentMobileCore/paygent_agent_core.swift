@@ -575,19 +575,28 @@ public struct AgentMandate {
      */
     public var token: String
     /**
-     * Per-transaction ceiling, in the token's smallest unit. Zero means the
-     * module may spend nothing: the owner set it to zero, or the guard holds
-     * no limit for this module and token at all.
+     * Whether the guard holds a limit for this module and token at all.
+     * `false` means the module may spend nothing, and every amount below is
+     * zero.
      */
-    public var maxPerTx: U256
+    public var configured: Bool
     /**
-     * Daily cap, same unit. Zero means zero, as for `max_per_tx`.
+     * The most the module may spend per period, in the token's smallest
+     * unit.
      */
-    public var dailyMax: U256
+    public var amount: U256
     /**
-     * Spent so far today, same unit.
+     * How often `amount` refills; `0` for a one-time allowance.
      */
-    public var spent: U256
+    public var periodSeconds: UInt64
+    /**
+     * What is left to spend this period, same unit, as of the block read.
+     */
+    public var remaining: U256
+    /**
+     * Unix seconds at which this period ends; `0` for a one-time allowance.
+     */
+    public var periodEnd: UInt64
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -609,25 +618,34 @@ public struct AgentMandate {
          * The token the limit below is denominated in.
          */token: String, 
         /**
-         * Per-transaction ceiling, in the token's smallest unit. Zero means the
-         * module may spend nothing: the owner set it to zero, or the guard holds
-         * no limit for this module and token at all.
-         */maxPerTx: U256, 
+         * Whether the guard holds a limit for this module and token at all.
+         * `false` means the module may spend nothing, and every amount below is
+         * zero.
+         */configured: Bool, 
         /**
-         * Daily cap, same unit. Zero means zero, as for `max_per_tx`.
-         */dailyMax: U256, 
+         * The most the module may spend per period, in the token's smallest
+         * unit.
+         */amount: U256, 
         /**
-         * Spent so far today, same unit.
-         */spent: U256) {
+         * How often `amount` refills; `0` for a one-time allowance.
+         */periodSeconds: UInt64, 
+        /**
+         * What is left to spend this period, same unit, as of the block read.
+         */remaining: U256, 
+        /**
+         * Unix seconds at which this period ends; `0` for a one-time allowance.
+         */periodEnd: UInt64) {
         self.wallet = wallet
         self.chainId = chainId
         self.executorModule = executorModule
         self.moduleDeployed = moduleDeployed
         self.moduleEnabled = moduleEnabled
         self.token = token
-        self.maxPerTx = maxPerTx
-        self.dailyMax = dailyMax
-        self.spent = spent
+        self.configured = configured
+        self.amount = amount
+        self.periodSeconds = periodSeconds
+        self.remaining = remaining
+        self.periodEnd = periodEnd
     }
 }
 
@@ -656,13 +674,19 @@ extension AgentMandate: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
-        if lhs.maxPerTx != rhs.maxPerTx {
+        if lhs.configured != rhs.configured {
             return false
         }
-        if lhs.dailyMax != rhs.dailyMax {
+        if lhs.amount != rhs.amount {
             return false
         }
-        if lhs.spent != rhs.spent {
+        if lhs.periodSeconds != rhs.periodSeconds {
+            return false
+        }
+        if lhs.remaining != rhs.remaining {
+            return false
+        }
+        if lhs.periodEnd != rhs.periodEnd {
             return false
         }
         return true
@@ -675,9 +699,11 @@ extension AgentMandate: Equatable, Hashable {
         hasher.combine(moduleDeployed)
         hasher.combine(moduleEnabled)
         hasher.combine(token)
-        hasher.combine(maxPerTx)
-        hasher.combine(dailyMax)
-        hasher.combine(spent)
+        hasher.combine(configured)
+        hasher.combine(amount)
+        hasher.combine(periodSeconds)
+        hasher.combine(remaining)
+        hasher.combine(periodEnd)
     }
 }
 
@@ -696,9 +722,11 @@ public struct FfiConverterTypeAgentMandate: FfiConverterRustBuffer {
                 moduleDeployed: FfiConverterBool.read(from: &buf), 
                 moduleEnabled: FfiConverterBool.read(from: &buf), 
                 token: FfiConverterString.read(from: &buf), 
-                maxPerTx: FfiConverterTypeU256.read(from: &buf), 
-                dailyMax: FfiConverterTypeU256.read(from: &buf), 
-                spent: FfiConverterTypeU256.read(from: &buf)
+                configured: FfiConverterBool.read(from: &buf), 
+                amount: FfiConverterTypeU256.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
+                remaining: FfiConverterTypeU256.read(from: &buf), 
+                periodEnd: FfiConverterUInt64.read(from: &buf)
         )
     }
 
@@ -709,9 +737,11 @@ public struct FfiConverterTypeAgentMandate: FfiConverterRustBuffer {
         FfiConverterBool.write(value.moduleDeployed, into: &buf)
         FfiConverterBool.write(value.moduleEnabled, into: &buf)
         FfiConverterString.write(value.token, into: &buf)
-        FfiConverterTypeU256.write(value.maxPerTx, into: &buf)
-        FfiConverterTypeU256.write(value.dailyMax, into: &buf)
-        FfiConverterTypeU256.write(value.spent, into: &buf)
+        FfiConverterBool.write(value.configured, into: &buf)
+        FfiConverterTypeU256.write(value.amount, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
+        FfiConverterTypeU256.write(value.remaining, into: &buf)
+        FfiConverterUInt64.write(value.periodEnd, into: &buf)
     }
 }
 
@@ -733,24 +763,36 @@ public func FfiConverterTypeAgentMandate_lower(_ value: AgentMandate) -> RustBuf
 
 /**
  * One on-chain cap that bounds what the agent may draw, in token base units.
+ *
+ * The cap follows the RFC-0067 timetable: `period_seconds` is `0` for a
+ * one-time allowance (then `period_end` is `0` too), otherwise the full
+ * ceiling comes back at `period_end` and every `period_seconds` after it.
  */
 public struct AgentRefillCap {
     public var ceiling: UInt64
     /**
-     * What the chain last recorded as left in the current window.
+     * What the chain last recorded as left in the current period.
      */
     public var remaining: UInt64
-    public var window: AgentRefillWindow
+    public var periodSeconds: UInt64
+    /**
+     * Unix seconds at which the recorded period ends. May lie in the past.
+     */
+    public var periodEnd: UInt64
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(ceiling: UInt64, 
         /**
-         * What the chain last recorded as left in the current window.
-         */remaining: UInt64, window: AgentRefillWindow) {
+         * What the chain last recorded as left in the current period.
+         */remaining: UInt64, periodSeconds: UInt64, 
+        /**
+         * Unix seconds at which the recorded period ends. May lie in the past.
+         */periodEnd: UInt64) {
         self.ceiling = ceiling
         self.remaining = remaining
-        self.window = window
+        self.periodSeconds = periodSeconds
+        self.periodEnd = periodEnd
     }
 }
 
@@ -767,7 +809,10 @@ extension AgentRefillCap: Equatable, Hashable {
         if lhs.remaining != rhs.remaining {
             return false
         }
-        if lhs.window != rhs.window {
+        if lhs.periodSeconds != rhs.periodSeconds {
+            return false
+        }
+        if lhs.periodEnd != rhs.periodEnd {
             return false
         }
         return true
@@ -776,7 +821,8 @@ extension AgentRefillCap: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(ceiling)
         hasher.combine(remaining)
-        hasher.combine(window)
+        hasher.combine(periodSeconds)
+        hasher.combine(periodEnd)
     }
 }
 
@@ -791,14 +837,16 @@ public struct FfiConverterTypeAgentRefillCap: FfiConverterRustBuffer {
             try AgentRefillCap(
                 ceiling: FfiConverterUInt64.read(from: &buf), 
                 remaining: FfiConverterUInt64.read(from: &buf), 
-                window: FfiConverterTypeAgentRefillWindow.read(from: &buf)
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
+                periodEnd: FfiConverterUInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: AgentRefillCap, into buf: inout [UInt8]) {
         FfiConverterUInt64.write(value.ceiling, into: &buf)
         FfiConverterUInt64.write(value.remaining, into: &buf)
-        FfiConverterTypeAgentRefillWindow.write(value.window, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
+        FfiConverterUInt64.write(value.periodEnd, into: &buf)
     }
 }
 
@@ -1348,25 +1396,30 @@ public struct AllowanceRequestInput {
      */
     public var ownerDid: String
     /**
-     * The chain the allowance is for.
+     * The chain the allowance is for: the EVM or Tempo chain id, `0` on
+     * Solana.
      */
     public var chainId: UInt64
     /**
-     * The treasury this agent draws from on that chain.
+     * The treasury this agent draws from on that chain: an EVM address, or
+     * the base58 Solana vault.
      */
     public var walletAddress: String
     /**
-     * The token the ceilings are denominated in.
+     * The token the amount is denominated in: its address, or the base58
+     * Solana mint.
      */
     public var token: String
     /**
-     * Per-transaction ceiling, `0x` hex base units, never zero.
+     * The most the agent may spend per period, `0x` hex base units, never
+     * zero.
      */
-    public var maxPerTxHex: String
+    public var amountHex: String
     /**
-     * Daily cap, `0x` hex base units, never zero.
+     * How often the amount refills: `0` (one-time) or 3600..=31536000. On
+     * Tempo the owner keeps the period the key was authorized with.
      */
-    public var dailyMaxHex: String
+    public var periodSeconds: UInt64
     /**
      * Why the agent asks, shown to the owner as someone else's words.
      */
@@ -1391,20 +1444,25 @@ public struct AllowanceRequestInput {
          * The owner passkey DID the request goes to. Signed, not carried.
          */ownerDid: String, 
         /**
-         * The chain the allowance is for.
+         * The chain the allowance is for: the EVM or Tempo chain id, `0` on
+         * Solana.
          */chainId: UInt64, 
         /**
-         * The treasury this agent draws from on that chain.
+         * The treasury this agent draws from on that chain: an EVM address, or
+         * the base58 Solana vault.
          */walletAddress: String, 
         /**
-         * The token the ceilings are denominated in.
+         * The token the amount is denominated in: its address, or the base58
+         * Solana mint.
          */token: String, 
         /**
-         * Per-transaction ceiling, `0x` hex base units, never zero.
-         */maxPerTxHex: String, 
+         * The most the agent may spend per period, `0x` hex base units, never
+         * zero.
+         */amountHex: String, 
         /**
-         * Daily cap, `0x` hex base units, never zero.
-         */dailyMaxHex: String, 
+         * How often the amount refills: `0` (one-time) or 3600..=31536000. On
+         * Tempo the owner keeps the period the key was authorized with.
+         */periodSeconds: UInt64, 
         /**
          * Why the agent asks, shown to the owner as someone else's words.
          */reason: String?, 
@@ -1421,8 +1479,8 @@ public struct AllowanceRequestInput {
         self.chainId = chainId
         self.walletAddress = walletAddress
         self.token = token
-        self.maxPerTxHex = maxPerTxHex
-        self.dailyMaxHex = dailyMaxHex
+        self.amountHex = amountHex
+        self.periodSeconds = periodSeconds
         self.reason = reason
         self.requestId = requestId
         self.issuedAtMs = issuedAtMs
@@ -1449,10 +1507,10 @@ extension AllowanceRequestInput: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
-        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+        if lhs.amountHex != rhs.amountHex {
             return false
         }
-        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         if lhs.reason != rhs.reason {
@@ -1475,8 +1533,8 @@ extension AllowanceRequestInput: Equatable, Hashable {
         hasher.combine(chainId)
         hasher.combine(walletAddress)
         hasher.combine(token)
-        hasher.combine(maxPerTxHex)
-        hasher.combine(dailyMaxHex)
+        hasher.combine(amountHex)
+        hasher.combine(periodSeconds)
         hasher.combine(reason)
         hasher.combine(requestId)
         hasher.combine(issuedAtMs)
@@ -1497,8 +1555,8 @@ public struct FfiConverterTypeAllowanceRequestInput: FfiConverterRustBuffer {
                 chainId: FfiConverterUInt64.read(from: &buf), 
                 walletAddress: FfiConverterString.read(from: &buf), 
                 token: FfiConverterString.read(from: &buf), 
-                maxPerTxHex: FfiConverterString.read(from: &buf), 
-                dailyMaxHex: FfiConverterString.read(from: &buf), 
+                amountHex: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
                 reason: FfiConverterOptionString.read(from: &buf), 
                 requestId: FfiConverterString.read(from: &buf), 
                 issuedAtMs: FfiConverterInt64.read(from: &buf), 
@@ -1511,8 +1569,8 @@ public struct FfiConverterTypeAllowanceRequestInput: FfiConverterRustBuffer {
         FfiConverterUInt64.write(value.chainId, into: &buf)
         FfiConverterString.write(value.walletAddress, into: &buf)
         FfiConverterString.write(value.token, into: &buf)
-        FfiConverterString.write(value.maxPerTxHex, into: &buf)
-        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
         FfiConverterOptionString.write(value.reason, into: &buf)
         FfiConverterString.write(value.requestId, into: &buf)
         FfiConverterInt64.write(value.issuedAtMs, into: &buf)
@@ -1546,7 +1604,7 @@ public func FfiConverterTypeAllowanceRequestInput_lower(_ value: AllowanceReques
  * than letting a host name one. A host that could name it could only get it
  * wrong.
  *
- * The mandate's three fields sit here flat rather than as a
+ * The mandate's fields sit here flat rather than as a
  * [`Mandate`], because that type is a wire shape in
  * `paygent-protocol-schemas` and carries no binding derives.
  *
@@ -1571,18 +1629,18 @@ public struct AttachmentRequestInput {
      */
     public var chainId: UInt64
     /**
-     * The token the two ceilings below are denominated in.
+     * The token the amount below is denominated in.
      */
     public var token: String
     /**
-     * Per-transaction ceiling, minimal `0x` hex. Never `0x0`: a zero side
-     * would let the agent spend nothing.
+     * The most the agent may spend per period, minimal `0x` hex. Never
+     * `0x0`: a zero amount would let the agent spend nothing.
      */
-    public var maxPerTxHex: String
+    public var amountHex: String
     /**
-     * Daily cap, same form and same rule.
+     * How often the amount refills: `0` (one-time) or 3600..=31536000.
      */
-    public var dailyMaxHex: String
+    public var periodSeconds: UInt64
     /**
      * Display-only label. Signed like every other field: it carries no
      * authority, but it is what the owner tells agents apart by.
@@ -1613,15 +1671,15 @@ public struct AttachmentRequestInput {
          * The one chain to be attached on.
          */chainId: UInt64, 
         /**
-         * The token the two ceilings below are denominated in.
+         * The token the amount below is denominated in.
          */token: String, 
         /**
-         * Per-transaction ceiling, minimal `0x` hex. Never `0x0`: a zero side
-         * would let the agent spend nothing.
-         */maxPerTxHex: String, 
+         * The most the agent may spend per period, minimal `0x` hex. Never
+         * `0x0`: a zero amount would let the agent spend nothing.
+         */amountHex: String, 
         /**
-         * Daily cap, same form and same rule.
-         */dailyMaxHex: String, 
+         * How often the amount refills: `0` (one-time) or 3600..=31536000.
+         */periodSeconds: UInt64, 
         /**
          * Display-only label. Signed like every other field: it carries no
          * authority, but it is what the owner tells agents apart by.
@@ -1638,8 +1696,8 @@ public struct AttachmentRequestInput {
         self.ownerDid = ownerDid
         self.chainId = chainId
         self.token = token
-        self.maxPerTxHex = maxPerTxHex
-        self.dailyMaxHex = dailyMaxHex
+        self.amountHex = amountHex
+        self.periodSeconds = periodSeconds
         self.label = label
         self.requestId = requestId
         self.issuedAtMs = issuedAtMs
@@ -1663,10 +1721,10 @@ extension AttachmentRequestInput: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
-        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+        if lhs.amountHex != rhs.amountHex {
             return false
         }
-        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         if lhs.label != rhs.label {
@@ -1688,8 +1746,8 @@ extension AttachmentRequestInput: Equatable, Hashable {
         hasher.combine(ownerDid)
         hasher.combine(chainId)
         hasher.combine(token)
-        hasher.combine(maxPerTxHex)
-        hasher.combine(dailyMaxHex)
+        hasher.combine(amountHex)
+        hasher.combine(periodSeconds)
         hasher.combine(label)
         hasher.combine(requestId)
         hasher.combine(issuedAtMs)
@@ -1709,8 +1767,8 @@ public struct FfiConverterTypeAttachmentRequestInput: FfiConverterRustBuffer {
                 ownerDid: FfiConverterString.read(from: &buf), 
                 chainId: FfiConverterUInt64.read(from: &buf), 
                 token: FfiConverterString.read(from: &buf), 
-                maxPerTxHex: FfiConverterString.read(from: &buf), 
-                dailyMaxHex: FfiConverterString.read(from: &buf), 
+                amountHex: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
                 label: FfiConverterOptionString.read(from: &buf), 
                 requestId: FfiConverterString.read(from: &buf), 
                 issuedAtMs: FfiConverterInt64.read(from: &buf), 
@@ -1722,8 +1780,8 @@ public struct FfiConverterTypeAttachmentRequestInput: FfiConverterRustBuffer {
         FfiConverterString.write(value.ownerDid, into: &buf)
         FfiConverterUInt64.write(value.chainId, into: &buf)
         FfiConverterString.write(value.token, into: &buf)
-        FfiConverterString.write(value.maxPerTxHex, into: &buf)
-        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
         FfiConverterOptionString.write(value.label, into: &buf)
         FfiConverterString.write(value.requestId, into: &buf)
         FfiConverterInt64.write(value.issuedAtMs, into: &buf)
@@ -3183,15 +3241,16 @@ public struct SolanaPocketInfo {
      */
     public var ceiling: UInt64?
     /**
-     * Reset period of the per-agent allowance (`day`/`week`/`month`/
-     * `onetime`). `None` until registered on-chain.
+     * Length of the per-agent allowance period in seconds; `0` for a
+     * one-time allowance. `None` until registered on-chain.
      */
-    public var period: Period?
+    public var periodSeconds: UInt64?
     /**
-     * Unix seconds of the allowance's last period reset. `None` until
-     * registered on-chain.
+     * Unix seconds at which the current per-agent period ends, rolled to the
+     * time of the read; `0` for a one-time allowance. `None` until registered
+     * on-chain.
      */
-    public var lastReset: Int64?
+    public var periodEnd: UInt64?
     /**
      * Current pocket token balance (smallest units). `0` when the pocket ATA
      * does not exist yet.
@@ -3248,13 +3307,14 @@ public struct SolanaPocketInfo {
          * on-chain.
          */ceiling: UInt64?, 
         /**
-         * Reset period of the per-agent allowance (`day`/`week`/`month`/
-         * `onetime`). `None` until registered on-chain.
-         */period: Period?, 
+         * Length of the per-agent allowance period in seconds; `0` for a
+         * one-time allowance. `None` until registered on-chain.
+         */periodSeconds: UInt64?, 
         /**
-         * Unix seconds of the allowance's last period reset. `None` until
-         * registered on-chain.
-         */lastReset: Int64?, 
+         * Unix seconds at which the current per-agent period ends, rolled to the
+         * time of the read; `0` for a one-time allowance. `None` until registered
+         * on-chain.
+         */periodEnd: UInt64?, 
         /**
          * Current pocket token balance (smallest units). `0` when the pocket ATA
          * does not exist yet.
@@ -3269,8 +3329,8 @@ public struct SolanaPocketInfo {
         self.silentKeyHex = silentKeyHex
         self.available = available
         self.ceiling = ceiling
-        self.period = period
-        self.lastReset = lastReset
+        self.periodSeconds = periodSeconds
+        self.periodEnd = periodEnd
         self.balance = balance
         self.registeredOnChain = registeredOnChain
     }
@@ -3304,10 +3364,10 @@ extension SolanaPocketInfo: Equatable, Hashable {
         if lhs.ceiling != rhs.ceiling {
             return false
         }
-        if lhs.period != rhs.period {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
-        if lhs.lastReset != rhs.lastReset {
+        if lhs.periodEnd != rhs.periodEnd {
             return false
         }
         if lhs.balance != rhs.balance {
@@ -3327,8 +3387,8 @@ extension SolanaPocketInfo: Equatable, Hashable {
         hasher.combine(silentKeyHex)
         hasher.combine(available)
         hasher.combine(ceiling)
-        hasher.combine(period)
-        hasher.combine(lastReset)
+        hasher.combine(periodSeconds)
+        hasher.combine(periodEnd)
         hasher.combine(balance)
         hasher.combine(registeredOnChain)
     }
@@ -3350,8 +3410,8 @@ public struct FfiConverterTypeSolanaPocketInfo: FfiConverterRustBuffer {
                 silentKeyHex: FfiConverterOptionString.read(from: &buf), 
                 available: FfiConverterOptionUInt64.read(from: &buf), 
                 ceiling: FfiConverterOptionUInt64.read(from: &buf), 
-                period: FfiConverterOptionTypePeriod.read(from: &buf), 
-                lastReset: FfiConverterOptionInt64.read(from: &buf), 
+                periodSeconds: FfiConverterOptionUInt64.read(from: &buf), 
+                periodEnd: FfiConverterOptionUInt64.read(from: &buf), 
                 balance: FfiConverterUInt64.read(from: &buf), 
                 registeredOnChain: FfiConverterBool.read(from: &buf)
         )
@@ -3365,8 +3425,8 @@ public struct FfiConverterTypeSolanaPocketInfo: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.silentKeyHex, into: &buf)
         FfiConverterOptionUInt64.write(value.available, into: &buf)
         FfiConverterOptionUInt64.write(value.ceiling, into: &buf)
-        FfiConverterOptionTypePeriod.write(value.period, into: &buf)
-        FfiConverterOptionInt64.write(value.lastReset, into: &buf)
+        FfiConverterOptionUInt64.write(value.periodSeconds, into: &buf)
+        FfiConverterOptionUInt64.write(value.periodEnd, into: &buf)
         FfiConverterUInt64.write(value.balance, into: &buf)
         FfiConverterBool.write(value.registeredOnChain, into: &buf)
     }
@@ -4639,60 +4699,70 @@ extension AgentRefillRail: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * When an on-chain cap gives its full ceiling back.
+ * The network family an allowance request is for.
  */
 
-public enum AgentRefillWindow {
+public enum AllowanceNetwork {
     
     /**
-     * Never: what is spent is gone until the owner grants more.
+     * The EVM chain the input's `chain_id` names: exactly the request
+     * [`request_allowance`] signs.
      */
-    case oneTime
+    case evm
     /**
-     * Once `period_s` seconds have passed since `last_reset_s` (unix
-     * seconds), the full ceiling is available again.
+     * A Solana cluster (`mainnet-beta`, `devnet` or `testnet`). The input's
+     * `chain_id` must be `0`.
      */
-    case rolling(periodS: Int64, lastResetS: Int64
+    case solana(cluster: String
     )
+    /**
+     * The Tempo chain the input's `chain_id` names.
+     */
+    case tempo
 }
 
 
 #if compiler(>=6)
-extension AgentRefillWindow: Sendable {}
+extension AllowanceNetwork: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAgentRefillWindow: FfiConverterRustBuffer {
-    typealias SwiftType = AgentRefillWindow
+public struct FfiConverterTypeAllowanceNetwork: FfiConverterRustBuffer {
+    typealias SwiftType = AllowanceNetwork
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentRefillWindow {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AllowanceNetwork {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
-        case 1: return .oneTime
+        case 1: return .evm
         
-        case 2: return .rolling(periodS: try FfiConverterInt64.read(from: &buf), lastResetS: try FfiConverterInt64.read(from: &buf)
+        case 2: return .solana(cluster: try FfiConverterString.read(from: &buf)
         )
+        
+        case 3: return .tempo
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
-    public static func write(_ value: AgentRefillWindow, into buf: inout [UInt8]) {
+    public static func write(_ value: AllowanceNetwork, into buf: inout [UInt8]) {
         switch value {
         
         
-        case .oneTime:
+        case .evm:
             writeInt(&buf, Int32(1))
         
         
-        case let .rolling(periodS,lastResetS):
+        case let .solana(cluster):
             writeInt(&buf, Int32(2))
-            FfiConverterInt64.write(periodS, into: &buf)
-            FfiConverterInt64.write(lastResetS, into: &buf)
+            FfiConverterString.write(cluster, into: &buf)
             
+        
+        case .tempo:
+            writeInt(&buf, Int32(3))
+        
         }
     }
 }
@@ -4701,19 +4771,19 @@ public struct FfiConverterTypeAgentRefillWindow: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeAgentRefillWindow_lift(_ buf: RustBuffer) throws -> AgentRefillWindow {
-    return try FfiConverterTypeAgentRefillWindow.lift(buf)
+public func FfiConverterTypeAllowanceNetwork_lift(_ buf: RustBuffer) throws -> AllowanceNetwork {
+    return try FfiConverterTypeAllowanceNetwork.lift(buf)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeAgentRefillWindow_lower(_ value: AgentRefillWindow) -> RustBuffer {
-    return FfiConverterTypeAgentRefillWindow.lower(value)
+public func FfiConverterTypeAllowanceNetwork_lower(_ value: AllowanceNetwork) -> RustBuffer {
+    return FfiConverterTypeAllowanceNetwork.lower(value)
 }
 
 
-extension AgentRefillWindow: Equatable, Hashable {}
+extension AllowanceNetwork: Equatable, Hashable {}
 
 
 
@@ -5246,94 +5316,6 @@ extension PayResult: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Shadow of [`paygent_solana::Period`], the reset period of a Solana pocket's
- * per-agent allowance.
- */
-
-public enum Period {
-    
-    case oneTime
-    case day
-    case week
-    case month
-}
-
-
-#if compiler(>=6)
-extension Period: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypePeriod: FfiConverterRustBuffer {
-    typealias SwiftType = Period
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Period {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .oneTime
-        
-        case 2: return .day
-        
-        case 3: return .week
-        
-        case 4: return .month
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: Period, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .oneTime:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .day:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .week:
-            writeInt(&buf, Int32(3))
-        
-        
-        case .month:
-            writeInt(&buf, Int32(4))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypePeriod_lift(_ buf: RustBuffer) throws -> Period {
-    return try FfiConverterTypePeriod.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypePeriod_lower(_ value: Period) -> RustBuffer {
-    return FfiConverterTypePeriod.lower(value)
-}
-
-
-extension Period: Equatable, Hashable {}
-
-
-
-
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
  * Shadow of [`paygent_signer::SigningCapability`] -- what backs the host's
  * `signDigest`, and the field the policy engine escalates on.
  */
@@ -5685,30 +5667,6 @@ fileprivate struct FfiConverterOptionTypeWebOrigin: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeWebOrigin.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-fileprivate struct FfiConverterOptionTypePeriod: FfiConverterRustBuffer {
-    typealias SwiftType = Period?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypePeriod.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypePeriod.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }

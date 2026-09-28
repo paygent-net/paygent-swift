@@ -107,7 +107,6 @@ to the owner. It fails towards asking a human, never towards spending.
 - ``TransferUserOpRequest``
 - ``SolanaPocketInfo``
 - ``SolanaPocketReceipt``
-- ``Period``
 - ``UserOpHash``
 
 ### Amounts

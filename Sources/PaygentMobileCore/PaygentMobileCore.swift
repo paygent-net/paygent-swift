@@ -2516,6 +2516,343 @@ public func FfiConverterTypeAllowanceDecline_lower(_ value: AllowanceDecline) ->
 
 
 /**
+ * An `agent.allowance-request` whose hardware binding verified, on any
+ * network. Only [`review_allowance_request`] produces one.
+ */
+public protocol AllowanceReviewProtocol: AnyObject, Sendable {
+    
+    /**
+     * Where the owner's decline goes, naming this request's network.
+     */
+    func decline()  -> AllowanceDecline
+    
+    /**
+     * The owner-signed change that grants the request as asked.
+     *
+     * # Errors
+     *
+     * An agent DID no Tempo key id derives from.
+     */
+    func limitChange() throws  -> AllowanceLimitChangeFfi
+    
+    /**
+     * The network the request is for.
+     */
+    func network()  -> ChainRefFfi
+    
+    /**
+     * The period the requested amount renews over; one-time is `0`.
+     */
+    func periodSeconds()  -> PeriodSeconds
+    
+    /**
+     * Prepare the Solana guard `set_limit` that grants a Solana request.
+     * `agent` is this device's OWN record of the agent: the pocket is derived
+     * from it, never from the request. `ceiling` is the owner's narrower
+     * grant in base units (never more than asked); `None` grants as asked.
+     * `paused` is this device's pause record for the agent, if it holds one:
+     * a paused agent is refused until it is resumed. Finish it like
+     * `prepare_solana_set_limit_webauthn`.
+     *
+     * # Errors
+     *
+     * A request that is not for Solana, a paused agent, a ceiling above the
+     * request, a record for another agent or with no Solana key, or an
+     * unreadable guard.
+     */
+    func prepareSolanaSetLimitWebauthn(agent: AgentRecordFfi, ceiling: String?, paused: PauseRecordFfi?, rpcUrl: String, feeReceiver: String) async throws  -> SolanaWebAuthnOwnerOpPrep
+    
+    /**
+     * Prepare the Tempo `updateSpendingLimit` that grants a Tempo request.
+     * Sign `sig_hash` with the owner passkey, then `finalize_tempo_owner_tx`
+     * and `submit_tempo_owner_tx`. `ceiling` and `paused` are as for
+     * [`Self::prepare_solana_set_limit_webauthn`]. The key keeps the period
+     * it was authorized with; [`Self::read_tempo_limit`] shows which.
+     *
+     * # Errors
+     *
+     * A request that is not for Tempo, a paused agent, a ceiling above the
+     * request, an agent key that is not live on the account, or an unreadable
+     * network.
+     */
+    func prepareTempoLimit(ceiling: String?, paused: PauseRecordFfi?, nowUnix: UInt64) async throws  -> TempoOwnerTxFfi
+    
+    /**
+     * The agent key's live limit on a Tempo request's token: what is left
+     * this period and when the period ends (`0`: a one-time limit that never
+     * refills). A grant keeps that period, so show it before granting.
+     *
+     * # Errors
+     *
+     * A request that is not for Tempo, or an unreadable network.
+     */
+    func readTempoLimit() async throws  -> TempoKeyLimitFfi
+    
+    /**
+     * What to show: the same summary as the `Allowance` arm of
+     * `ReviewedInviteFfi` (`chain_id` is 0 on Solana).
+     */
+    func summary()  -> AllowanceRequestSummaryFfi
+    
+}
+/**
+ * An `agent.allowance-request` whose hardware binding verified, on any
+ * network. Only [`review_allowance_request`] produces one.
+ */
+open class AllowanceReview: AllowanceReviewProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_allowancereview(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_allowancereview(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Where the owner's decline goes, naming this request's network.
+     */
+open func decline() -> AllowanceDecline  {
+    return try!  FfiConverterTypeAllowanceDecline_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_allowancereview_decline(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The owner-signed change that grants the request as asked.
+     *
+     * # Errors
+     *
+     * An agent DID no Tempo key id derives from.
+     */
+open func limitChange()throws  -> AllowanceLimitChangeFfi  {
+    return try  FfiConverterTypeAllowanceLimitChangeFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_allowancereview_limit_change(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The network the request is for.
+     */
+open func network() -> ChainRefFfi  {
+    return try!  FfiConverterTypeChainRefFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_allowancereview_network(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The period the requested amount renews over; one-time is `0`.
+     */
+open func periodSeconds() -> PeriodSeconds  {
+    return try!  FfiConverterTypePeriodSeconds_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_allowancereview_period_seconds(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Prepare the Solana guard `set_limit` that grants a Solana request.
+     * `agent` is this device's OWN record of the agent: the pocket is derived
+     * from it, never from the request. `ceiling` is the owner's narrower
+     * grant in base units (never more than asked); `None` grants as asked.
+     * `paused` is this device's pause record for the agent, if it holds one:
+     * a paused agent is refused until it is resumed. Finish it like
+     * `prepare_solana_set_limit_webauthn`.
+     *
+     * # Errors
+     *
+     * A request that is not for Solana, a paused agent, a ceiling above the
+     * request, a record for another agent or with no Solana key, or an
+     * unreadable guard.
+     */
+open func prepareSolanaSetLimitWebauthn(agent: AgentRecordFfi, ceiling: String?, paused: PauseRecordFfi?, rpcUrl: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_allowancereview_prepare_solana_set_limit_webauthn(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeAgentRecordFfi_lower(agent),FfiConverterOptionString.lower(ceiling),FfiConverterOptionTypePauseRecordFfi.lower(paused),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * Prepare the Tempo `updateSpendingLimit` that grants a Tempo request.
+     * Sign `sig_hash` with the owner passkey, then `finalize_tempo_owner_tx`
+     * and `submit_tempo_owner_tx`. `ceiling` and `paused` are as for
+     * [`Self::prepare_solana_set_limit_webauthn`]. The key keeps the period
+     * it was authorized with; [`Self::read_tempo_limit`] shows which.
+     *
+     * # Errors
+     *
+     * A request that is not for Tempo, a paused agent, a ceiling above the
+     * request, an agent key that is not live on the account, or an unreadable
+     * network.
+     */
+open func prepareTempoLimit(ceiling: String?, paused: PauseRecordFfi?, nowUnix: UInt64)async throws  -> TempoOwnerTxFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_allowancereview_prepare_tempo_limit(
+                    self.uniffiClonePointer(),
+                    FfiConverterOptionString.lower(ceiling),FfiConverterOptionTypePauseRecordFfi.lower(paused),FfiConverterUInt64.lower(nowUnix)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeTempoOwnerTxFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * The agent key's live limit on a Tempo request's token: what is left
+     * this period and when the period ends (`0`: a one-time limit that never
+     * refills). A grant keeps that period, so show it before granting.
+     *
+     * # Errors
+     *
+     * A request that is not for Tempo, or an unreadable network.
+     */
+open func readTempoLimit()async throws  -> TempoKeyLimitFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_allowancereview_read_tempo_limit(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeTempoKeyLimitFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * What to show: the same summary as the `Allowance` arm of
+     * `ReviewedInviteFfi` (`chain_id` is 0 on Solana).
+     */
+open func summary() -> AllowanceRequestSummaryFfi  {
+    return try!  FfiConverterTypeAllowanceRequestSummaryFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_allowancereview_summary(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAllowanceReview: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = AllowanceReview
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> AllowanceReview {
+        return AllowanceReview(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: AllowanceReview) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AllowanceReview {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: AllowanceReview, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceReview_lift(_ pointer: UnsafeMutableRawPointer) throws -> AllowanceReview {
+    return try FfiConverterTypeAllowanceReview.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceReview_lower(_ value: AllowanceReview) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeAllowanceReview.lower(value)
+}
+
+
+
+
+
+
+/**
  * Where a decline goes: which agent, from which owner, about which request.
  *
  * Opaque, and only two calls produce one --
@@ -2925,60 +3262,36 @@ public protocol LightningTreasuryProtocol: AnyObject, Sendable {
     func channels()  -> [LightningChannelFfi]
     
     /**
-     * Connect to one of this treasury's side-wallet nodes at `address`
-     * (`host:port`), so a channel can be opened toward it.
+     * What sending `amount` of the treasury's on-chain bitcoin (what closed
+     * lines left behind) would cost and deliver, to confirm within
+     * `target_blocks`. Six blocks, about an hour, suits moving money to the
+     * owner's own address.
      *
-     * The node id is not a parameter: it is derived here. `address` is only
-     * where to dial, and it does not have to be trusted -- the Lightning
-     * handshake authenticates the peer's node id, so a wrong address fails to
-     * connect rather than connecting to the wrong node.
+     * Priced against the coins the wallet actually holds, listed from the
+     * treasury's Esplora server, at the rate that server's `/fee-estimates`
+     * gives. Changes nothing. Refuses, with the balances, an amount the
+     * coins cannot cover with the fee.
      */
-    func connectSideWallet(sideWalletIndex: UInt32, address: String) throws 
-    
-    /**
-     * A fresh on-chain address for funding the treasury before it opens channels.
-     *
-     * This is bitcoin arriving the ordinary way. Nothing is payable over
-     * Lightning yet at this point -- a channel still has to be opened with the
-     * coins once they confirm.
-     */
-    func fundingAddress() throws  -> String
+    func estimateClosedLineSend(amount: LightningWithdrawAmountFfi, targetBlocks: UInt16) async throws  -> LightningOnchainSendQuoteFfi
     
     /**
      * Whether the treasury has any channel that could route a payment right
-     * now. A coarse "is this treasury able to pay at all" gate; for whether a
-     * particular pocket can be topped up, ask
-     * [`LightningTreasury::side_wallet_channel`].
+     * now: a coarse "is this treasury able to pay at all" gate.
      */
     func hasUsableChannel()  -> Bool
+    
+    /**
+     * How much more this treasury can receive over the lines it already has,
+     * in millisats. A deposit larger than this needs the LSP to set up a new
+     * line.
+     */
+    func inboundRoomMsat()  -> UInt64
     
     /**
      * The treasury's Lightning node id (hex). Pin this write-once and fail closed
      * on any later mismatch.
      */
     func nodeId()  -> String
-    
-    /**
-     * Open a channel to a pocket at the address its peer record holds. See
-     * [`LightningTreasury::open_side_wallet_channel`].
-     */
-    func openRecordedSideWalletChannel(sideWalletIndex: UInt32, channelAmountSats: UInt64, pushMsat: UInt64?) throws 
-    
-    /**
-     * Open a channel from the treasury to one of its side-wallet pockets,
-     * committing `channel_amount_sats` of the treasury's confirmed on-chain
-     * balance to it.
-     *
-     * `push_msat` hands part of that straight to the pocket as the channel
-     * opens, which is the cheapest possible first top-up: it needs no invoice
-     * and no separate payment. Everything after that goes through
-     * [`LightningTreasury::pay_refill`].
-     *
-     * Returns as soon as the open is under way. The channel cannot pay
-     * anything until its funding transaction confirms -- poll
-     * [`LightningTreasury::side_wallet_channel`].
-     */
-    func openSideWalletChannel(sideWalletIndex: UInt32, address: String, channelAmountSats: UInt64, pushMsat: UInt64?) throws 
     
     /**
      * Pay a top-up invoice from the treasury and return the 32-byte payment
@@ -2989,9 +3302,9 @@ public protocol LightningTreasuryProtocol: AnyObject, Sendable {
      * [`LightningTreasury::prepare_refill`], so that no argument a caller can
      * pass reaches a payment to a node this treasury did not seed.
      *
-     * The payment is sent with a zero routing-fee limit, so it can only go
-     * over the treasury's own channel to the pocket and never costs more than
-     * the approved amount.
+     * The payment goes phone -> LSP -> pocket, with a routing-fee limit
+     * derived from the invoice's own amount, the same limit the owner was
+     * shown.
      */
     func payRefill(invoice: String, sideWalletIndex: UInt32) throws  -> Data
     
@@ -3012,10 +3325,18 @@ public protocol LightningTreasuryProtocol: AnyObject, Sendable {
      * and pay it.
      *
      * Refuses any other request kind, an invoice whose amount cannot be read,
-     * and an invoice signed by anything other than this treasury's own derived
-     * side wallet.
+     * an opening fee the LSP's terms do not produce, and an invoice signed by
+     * anything other than this treasury's own derived side wallet.
+     *
+     * A top-up the treasury's ready lines cannot cover is still prepared; its
+     * `affordability` names the shortfall, so the host does not work it out.
      */
     func prepareRefill(request: SignRequestSummary) throws  -> LightningRefillPrepFfi
+    
+    /**
+     * The provider this treasury receives through, if any.
+     */
+    func provider()  -> LightningProviderFfi?
     
     /**
      * Build the sealed message that hands the daemon the seed for one of this
@@ -3038,31 +3359,50 @@ public protocol LightningTreasuryProtocol: AnyObject, Sendable {
     func provisionSideWallet(requestId: String, sideWalletIndex: UInt32, walletAddress: String, bodyKey: Data, subject: String, cmd: String, senderDid: String) throws  -> EncryptedEnvelopeFfi
     
     /**
-     * Remember where one pocket listens (`host:port`), so a channel can be
-     * opened toward it later without being told again.
+     * An invoice to add `amount_sats` to this treasury through the LSP.
+     *
+     * When the phone's existing lines have room it is an ordinary invoice.
+     * Otherwise the LSP sets up a new line as the payment arrives and keeps
+     * its one-time fee, capped at the fee in the returned quote: an LSP that
+     * asks for more has the invoice refused here, never a larger fee taken.
      */
-    func recordSideWalletPeerAddress(sideWalletIndex: UInt32, address: String) throws 
+    func receive(amountSats: UInt64, description: String) throws  -> LightningReceiveFfi
     
     /**
-     * Record where a provisioned pocket listens, from the daemon's sealed
-     * `lightning.side-wallet-provisioned` report, and return the pocket's
-     * updated record.
+     * Record a provisioned pocket from the daemon's sealed
+     * `lightning.side-wallet-provisioned` report, and return its record.
      *
-     * This is how a pocket's address is learned at provisioning, without a
-     * top-up request and without anyone typing it. The report opens only
-     * under the wallet's body key, and its address is recorded only when the
-     * node id it names is the one this treasury derives for that pocket --
-     * so it cannot point a later channel at a node this treasury did not
-     * seed. [`LightningTreasury::record_side_wallet_peer_address`] stays the
-     * way to change the address afterwards.
+     * The report opens only under the wallet's body key, and the pocket is
+     * recorded only when the node id it names is the one this treasury
+     * derives for it.
      */
     func recordSideWalletProvisioned(envelope: EncryptedEnvelopeFfi, bodyKey: Data) throws  -> SideWalletPeerFfi
     
     /**
-     * How the channel toward one pocket stands, or `None` if none was ever
-     * opened toward it.
+     * Owner-only: send what closed lines left on chain to
+     * `destination_address`, at `fee_rate_sat_per_kvb` -- the rate
+     * [`LightningTreasury::estimate_closed_line_send`] quoted, so the fee is
+     * the one the owner saw. Returns the transaction id; the node broadcasts
+     * it through its Esplora server.
+     *
+     * Spends only what is on chain now and never closes a line. The address
+     * must be for the treasury's network, and the rate must be one a send
+     * may be made at.
      */
-    func sideWalletChannel(sideWalletIndex: UInt32) throws  -> LightningChannelFfi?
+    func sendClosedLineFunds(destinationAddress: String, amount: LightningWithdrawAmountFfi, feeRateSatPerKvb: UInt64) throws  -> String
+    
+    /**
+     * Receive through `provider` (`node_id@host:port`, with an optional LSPS2
+     * `token`) from now on, and return its menu of terms.
+     *
+     * The provider is asked for its terms first; one that cannot be reached
+     * or does not answer as an LSPS2 provider is refused and the old one
+     * stays. Otherwise the node restarts on the same storage: lines already
+     * open stay open with their balance, and only new lines come from the new
+     * provider. Store `provider` and `provider_token` and pass them to
+     * [`LightningTreasury::start`] from then on.
+     */
+    func setProvider(provider: String, providerToken: String?) throws  -> [LightningLspTermsFfi]
     
     /**
      * The Lightning node id of one of this treasury's own side-wallet pockets,
@@ -3082,17 +3422,9 @@ public protocol LightningTreasuryProtocol: AnyObject, Sendable {
     func sideWalletPeers() throws  -> [SideWalletPeerFfi]
     
     /**
-     * Whether one pocket can be reached right now: `Reachable` when its node
-     * is connected or a channel to it is usable, `Unknown` otherwise.
-     */
-    func sideWalletReachability(sideWalletIndex: UInt32) throws  -> SideWalletReachabilityFfi
-    
-    /**
-     * Confirmed on-chain sats the treasury could put into a channel, minus the
-     * reserve LDK holds back for anchor outputs.
-     *
-     * Not a spendable Lightning balance: these coins cannot pay an invoice
-     * until they are committed to a channel.
+     * Confirmed on-chain sats, minus the reserve LDK holds back for anchor
+     * outputs: what came back from closed lines and can be sent to an
+     * address. Not a Lightning balance.
      */
     func spendableOnchainBalanceSats()  -> UInt64
     
@@ -3105,8 +3437,8 @@ public protocol LightningTreasuryProtocol: AnyObject, Sendable {
      * Bring the node's view of the chain up to date.
      *
      * The node also polls on its own schedule, so this is not required for
-     * correctness; it exists so a funding screen can make a just-broadcast
-     * payment or confirmation show up now instead of at the next poll.
+     * correctness; it exists so a screen can make a just-broadcast change or
+     * confirmation show up now instead of at the next poll.
      */
     func sync() throws 
     
@@ -3199,7 +3531,10 @@ open class LightningTreasury: LightningTreasuryProtocol, @unchecked Sendable {
     /**
      * Derive the treasury seed from a 32-byte WebAuthn-PRF secret and start the
      * LDK node against `esplora_url` (a public Esplora endpoint or a self-hosted
-     * `electrs`), persisting channel state under `storage_dir`. Deterministic in
+     * `electrs`), persisting channel state under `storage_dir`. The node
+     * receives through `provider`, or, when it is `None`, the network's default
+     * (Megalith on mainnet and on Mutinynet). The provider is not contacted
+     * here, so the node starts offline too. Deterministic in
      * (`prf_secret`, `wallet_index`): the same passkey re-creates the same node id.
      *
      * `expected_node_id` is the pin: on first start pass `None` and record the
@@ -3207,7 +3542,7 @@ open class LightningTreasury: LightningTreasuryProtocol, @unchecked Sendable {
      * id, and a mismatch (e.g. a PRF derivation that silently diverged) fails
      * closed here rather than adopting a different, fund-losing node.
      */
-public static func start(prfSecret: Data, walletIndex: UInt32, network: LightningNetworkFfi, storageDir: String, esploraUrl: String, expectedNodeId: String?)throws  -> LightningTreasury  {
+public static func start(prfSecret: Data, walletIndex: UInt32, network: LightningNetworkFfi, storageDir: String, esploraUrl: String, expectedNodeId: String?, provider: LightningProviderSettingFfi?)throws  -> LightningTreasury  {
     return try  FfiConverterTypeLightningTreasury_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_constructor_lightningtreasury_start(
         FfiConverterData.lower(prfSecret),
@@ -3215,7 +3550,8 @@ public static func start(prfSecret: Data, walletIndex: UInt32, network: Lightnin
         FfiConverterTypeLightningNetworkFfi_lower(network),
         FfiConverterString.lower(storageDir),
         FfiConverterString.lower(esploraUrl),
-        FfiConverterOptionString.lower(expectedNodeId),$0
+        FfiConverterOptionString.lower(expectedNodeId),
+        FfiConverterOptionTypeLightningProviderSettingFfi.lower(provider),$0
     )
 })
 }
@@ -3244,45 +3580,52 @@ open func channels() -> [LightningChannelFfi]  {
 }
     
     /**
-     * Connect to one of this treasury's side-wallet nodes at `address`
-     * (`host:port`), so a channel can be opened toward it.
+     * What sending `amount` of the treasury's on-chain bitcoin (what closed
+     * lines left behind) would cost and deliver, to confirm within
+     * `target_blocks`. Six blocks, about an hour, suits moving money to the
+     * owner's own address.
      *
-     * The node id is not a parameter: it is derived here. `address` is only
-     * where to dial, and it does not have to be trusted -- the Lightning
-     * handshake authenticates the peer's node id, so a wrong address fails to
-     * connect rather than connecting to the wrong node.
+     * Priced against the coins the wallet actually holds, listed from the
+     * treasury's Esplora server, at the rate that server's `/fee-estimates`
+     * gives. Changes nothing. Refuses, with the balances, an amount the
+     * coins cannot cover with the fee.
      */
-open func connectSideWallet(sideWalletIndex: UInt32, address: String)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_connect_side_wallet(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(sideWalletIndex),
-        FfiConverterString.lower(address),$0
-    )
-}
+open func estimateClosedLineSend(amount: LightningWithdrawAmountFfi, targetBlocks: UInt16)async throws  -> LightningOnchainSendQuoteFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_lightningtreasury_estimate_closed_line_send(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeLightningWithdrawAmountFfi_lower(amount),FfiConverterUInt16.lower(targetBlocks)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeLightningOnchainSendQuoteFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
 }
     
     /**
-     * A fresh on-chain address for funding the treasury before it opens channels.
-     *
-     * This is bitcoin arriving the ordinary way. Nothing is payable over
-     * Lightning yet at this point -- a channel still has to be opened with the
-     * coins once they confirm.
+     * Whether the treasury has any channel that could route a payment right
+     * now: a coarse "is this treasury able to pay at all" gate.
      */
-open func fundingAddress()throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_funding_address(self.uniffiClonePointer(),$0
+open func hasUsableChannel() -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_lightningtreasury_has_usable_channel(self.uniffiClonePointer(),$0
     )
 })
 }
     
     /**
-     * Whether the treasury has any channel that could route a payment right
-     * now. A coarse "is this treasury able to pay at all" gate; for whether a
-     * particular pocket can be topped up, ask
-     * [`LightningTreasury::side_wallet_channel`].
+     * How much more this treasury can receive over the lines it already has,
+     * in millisats. A deposit larger than this needs the LSP to set up a new
+     * line.
      */
-open func hasUsableChannel() -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_has_usable_channel(self.uniffiClonePointer(),$0
+open func inboundRoomMsat() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_lightningtreasury_inbound_room_msat(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -3299,43 +3642,6 @@ open func nodeId() -> String  {
 }
     
     /**
-     * Open a channel to a pocket at the address its peer record holds. See
-     * [`LightningTreasury::open_side_wallet_channel`].
-     */
-open func openRecordedSideWalletChannel(sideWalletIndex: UInt32, channelAmountSats: UInt64, pushMsat: UInt64?)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_open_recorded_side_wallet_channel(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(sideWalletIndex),
-        FfiConverterUInt64.lower(channelAmountSats),
-        FfiConverterOptionUInt64.lower(pushMsat),$0
-    )
-}
-}
-    
-    /**
-     * Open a channel from the treasury to one of its side-wallet pockets,
-     * committing `channel_amount_sats` of the treasury's confirmed on-chain
-     * balance to it.
-     *
-     * `push_msat` hands part of that straight to the pocket as the channel
-     * opens, which is the cheapest possible first top-up: it needs no invoice
-     * and no separate payment. Everything after that goes through
-     * [`LightningTreasury::pay_refill`].
-     *
-     * Returns as soon as the open is under way. The channel cannot pay
-     * anything until its funding transaction confirms -- poll
-     * [`LightningTreasury::side_wallet_channel`].
-     */
-open func openSideWalletChannel(sideWalletIndex: UInt32, address: String, channelAmountSats: UInt64, pushMsat: UInt64?)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_open_side_wallet_channel(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(sideWalletIndex),
-        FfiConverterString.lower(address),
-        FfiConverterUInt64.lower(channelAmountSats),
-        FfiConverterOptionUInt64.lower(pushMsat),$0
-    )
-}
-}
-    
-    /**
      * Pay a top-up invoice from the treasury and return the 32-byte payment
      * preimage (proof of payment). Blocks until the payment settles or fails.
      * The caller gates this behind a biometric -- this is the escalated spend.
@@ -3344,9 +3650,9 @@ open func openSideWalletChannel(sideWalletIndex: UInt32, address: String, channe
      * [`LightningTreasury::prepare_refill`], so that no argument a caller can
      * pass reaches a payment to a node this treasury did not seed.
      *
-     * The payment is sent with a zero routing-fee limit, so it can only go
-     * over the treasury's own channel to the pocket and never costs more than
-     * the approved amount.
+     * The payment goes phone -> LSP -> pocket, with a routing-fee limit
+     * derived from the invoice's own amount, the same limit the owner was
+     * shown.
      */
 open func payRefill(invoice: String, sideWalletIndex: UInt32)throws  -> Data  {
     return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
@@ -3385,13 +3691,26 @@ open func planWithdrawal(request: LightningWithdrawalRequestFfi)throws  -> Light
      * and pay it.
      *
      * Refuses any other request kind, an invoice whose amount cannot be read,
-     * and an invoice signed by anything other than this treasury's own derived
-     * side wallet.
+     * an opening fee the LSP's terms do not produce, and an invoice signed by
+     * anything other than this treasury's own derived side wallet.
+     *
+     * A top-up the treasury's ready lines cannot cover is still prepared; its
+     * `affordability` names the shortfall, so the host does not work it out.
      */
 open func prepareRefill(request: SignRequestSummary)throws  -> LightningRefillPrepFfi  {
     return try  FfiConverterTypeLightningRefillPrepFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_method_lightningtreasury_prepare_refill(self.uniffiClonePointer(),
         FfiConverterTypeSignRequestSummary_lower(request),$0
+    )
+})
+}
+    
+    /**
+     * The provider this treasury receives through, if any.
+     */
+open func provider() -> LightningProviderFfi?  {
+    return try!  FfiConverterOptionTypeLightningProviderFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_lightningtreasury_provider(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -3429,29 +3748,29 @@ open func provisionSideWallet(requestId: String, sideWalletIndex: UInt32, wallet
 }
     
     /**
-     * Remember where one pocket listens (`host:port`), so a channel can be
-     * opened toward it later without being told again.
+     * An invoice to add `amount_sats` to this treasury through the LSP.
+     *
+     * When the phone's existing lines have room it is an ordinary invoice.
+     * Otherwise the LSP sets up a new line as the payment arrives and keeps
+     * its one-time fee, capped at the fee in the returned quote: an LSP that
+     * asks for more has the invoice refused here, never a larger fee taken.
      */
-open func recordSideWalletPeerAddress(sideWalletIndex: UInt32, address: String)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_record_side_wallet_peer_address(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(sideWalletIndex),
-        FfiConverterString.lower(address),$0
+open func receive(amountSats: UInt64, description: String)throws  -> LightningReceiveFfi  {
+    return try  FfiConverterTypeLightningReceiveFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_lightningtreasury_receive(self.uniffiClonePointer(),
+        FfiConverterUInt64.lower(amountSats),
+        FfiConverterString.lower(description),$0
     )
-}
+})
 }
     
     /**
-     * Record where a provisioned pocket listens, from the daemon's sealed
-     * `lightning.side-wallet-provisioned` report, and return the pocket's
-     * updated record.
+     * Record a provisioned pocket from the daemon's sealed
+     * `lightning.side-wallet-provisioned` report, and return its record.
      *
-     * This is how a pocket's address is learned at provisioning, without a
-     * top-up request and without anyone typing it. The report opens only
-     * under the wallet's body key, and its address is recorded only when the
-     * node id it names is the one this treasury derives for that pocket --
-     * so it cannot point a later channel at a node this treasury did not
-     * seed. [`LightningTreasury::record_side_wallet_peer_address`] stays the
-     * way to change the address afterwards.
+     * The report opens only under the wallet's body key, and the pocket is
+     * recorded only when the node id it names is the one this treasury
+     * derives for it.
      */
 open func recordSideWalletProvisioned(envelope: EncryptedEnvelopeFfi, bodyKey: Data)throws  -> SideWalletPeerFfi  {
     return try  FfiConverterTypeSideWalletPeerFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
@@ -3463,13 +3782,42 @@ open func recordSideWalletProvisioned(envelope: EncryptedEnvelopeFfi, bodyKey: D
 }
     
     /**
-     * How the channel toward one pocket stands, or `None` if none was ever
-     * opened toward it.
+     * Owner-only: send what closed lines left on chain to
+     * `destination_address`, at `fee_rate_sat_per_kvb` -- the rate
+     * [`LightningTreasury::estimate_closed_line_send`] quoted, so the fee is
+     * the one the owner saw. Returns the transaction id; the node broadcasts
+     * it through its Esplora server.
+     *
+     * Spends only what is on chain now and never closes a line. The address
+     * must be for the treasury's network, and the rate must be one a send
+     * may be made at.
      */
-open func sideWalletChannel(sideWalletIndex: UInt32)throws  -> LightningChannelFfi?  {
-    return try  FfiConverterOptionTypeLightningChannelFfi.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_side_wallet_channel(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(sideWalletIndex),$0
+open func sendClosedLineFunds(destinationAddress: String, amount: LightningWithdrawAmountFfi, feeRateSatPerKvb: UInt64)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_lightningtreasury_send_closed_line_funds(self.uniffiClonePointer(),
+        FfiConverterString.lower(destinationAddress),
+        FfiConverterTypeLightningWithdrawAmountFfi_lower(amount),
+        FfiConverterUInt64.lower(feeRateSatPerKvb),$0
+    )
+})
+}
+    
+    /**
+     * Receive through `provider` (`node_id@host:port`, with an optional LSPS2
+     * `token`) from now on, and return its menu of terms.
+     *
+     * The provider is asked for its terms first; one that cannot be reached
+     * or does not answer as an LSPS2 provider is refused and the old one
+     * stays. Otherwise the node restarts on the same storage: lines already
+     * open stay open with their balance, and only new lines come from the new
+     * provider. Store `provider` and `provider_token` and pass them to
+     * [`LightningTreasury::start`] from then on.
+     */
+open func setProvider(provider: String, providerToken: String?)throws  -> [LightningLspTermsFfi]  {
+    return try  FfiConverterSequenceTypeLightningLspTermsFfi.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_lightningtreasury_set_provider(self.uniffiClonePointer(),
+        FfiConverterString.lower(provider),
+        FfiConverterOptionString.lower(providerToken),$0
     )
 })
 }
@@ -3503,23 +3851,9 @@ open func sideWalletPeers()throws  -> [SideWalletPeerFfi]  {
 }
     
     /**
-     * Whether one pocket can be reached right now: `Reachable` when its node
-     * is connected or a channel to it is usable, `Unknown` otherwise.
-     */
-open func sideWalletReachability(sideWalletIndex: UInt32)throws  -> SideWalletReachabilityFfi  {
-    return try  FfiConverterTypeSideWalletReachabilityFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_method_lightningtreasury_side_wallet_reachability(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(sideWalletIndex),$0
-    )
-})
-}
-    
-    /**
-     * Confirmed on-chain sats the treasury could put into a channel, minus the
-     * reserve LDK holds back for anchor outputs.
-     *
-     * Not a spendable Lightning balance: these coins cannot pay an invoice
-     * until they are committed to a channel.
+     * Confirmed on-chain sats, minus the reserve LDK holds back for anchor
+     * outputs: what came back from closed lines and can be sent to an
+     * address. Not a Lightning balance.
      */
 open func spendableOnchainBalanceSats() -> UInt64  {
     return try!  FfiConverterUInt64.lift(try! rustCall() {
@@ -3541,8 +3875,8 @@ open func stop()throws   {try rustCallWithError(FfiConverterTypeMobileError_lift
      * Bring the node's view of the chain up to date.
      *
      * The node also polls on its own schedule, so this is not required for
-     * correctness; it exists so a funding screen can make a just-broadcast
-     * payment or confirmation show up now instead of at the next poll.
+     * correctness; it exists so a screen can make a just-broadcast change or
+     * confirmation show up now instead of at the next poll.
      */
 open func sync()throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_method_lightningtreasury_sync(self.uniffiClonePointer(),$0
@@ -4416,6 +4750,14 @@ public protocol PaygentAgentProtocol: AnyObject, Sendable {
     func agentRequestAttachment(input: AttachmentRequestInput) async throws  -> String
     
     /**
+     * [`Self::agent_request_allowance`] for a named network: an EVM chain, a
+     * Solana cluster with the period its one ceiling renews over, or a Tempo
+     * chain. A request the owner would refuse on that network's rules throws
+     * before anything is signed.
+     */
+    func agentRequestNetworkAllowance(input: AllowanceRequestInput, network: AllowanceNetwork) async throws  -> String
+    
+    /**
      * What is known about the wallet this client acts for.
      *
      * Does not throw: a session that cannot be read is the empty snapshot,
@@ -4499,6 +4841,15 @@ public protocol PaygentAgentProtocol: AnyObject, Sendable {
      * the one refusal worth retrying.
      */
     func agentVerifyAttachmentGranted(grantedJson: String, senderDid: String, ownerWebauthnPubkey: Data, ownerDeviceDid: String, requestId: String, chainId: UInt64, rpcUrl: String, nowMs: Int64) async throws  -> VerifiedAttachment
+    
+    /**
+     * [`Self::agent_verify_allowance_declined`] for a request about
+     * `network`, the network passed to
+     * [`Self::agent_request_network_allowance`]: the decline must name it as
+     * well as the chain id, because a Solana request carries chain id `0`.
+     * `None` means the EVM chain `chain_id`.
+     */
+    func agentVerifyNetworkAllowanceDeclined(declinedJson: String, senderDid: String, ownerWebauthnPubkey: Data, ownerDeviceDid: String, requestId: String, chainId: UInt64, network: ChainRefFfi?, nowMs: Int64) throws  -> AllowanceDeclinedFfi
     
 }
 /**
@@ -4985,6 +5336,29 @@ open func agentRequestAttachment(input: AttachmentRequestInput)async throws  -> 
 }
     
     /**
+     * [`Self::agent_request_allowance`] for a named network: an EVM chain, a
+     * Solana cluster with the period its one ceiling renews over, or a Tempo
+     * chain. A request the owner would refuse on that network's rules throws
+     * before anything is signed.
+     */
+open func agentRequestNetworkAllowance(input: AllowanceRequestInput, network: AllowanceNetwork)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_paygentagent_agent_request_network_allowance(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeAllowanceRequestInput_lower(input),FfiConverterTypeAllowanceNetwork_lower(network)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
      * What is known about the wallet this client acts for.
      *
      * Does not throw: a session that cannot be read is the empty snapshot,
@@ -5170,6 +5544,28 @@ open func agentVerifyAttachmentGranted(grantedJson: String, senderDid: String, o
             liftFunc: FfiConverterTypeVerifiedAttachment_lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
+}
+    
+    /**
+     * [`Self::agent_verify_allowance_declined`] for a request about
+     * `network`, the network passed to
+     * [`Self::agent_request_network_allowance`]: the decline must name it as
+     * well as the chain id, because a Solana request carries chain id `0`.
+     * `None` means the EVM chain `chain_id`.
+     */
+open func agentVerifyNetworkAllowanceDeclined(declinedJson: String, senderDid: String, ownerWebauthnPubkey: Data, ownerDeviceDid: String, requestId: String, chainId: UInt64, network: ChainRefFfi?, nowMs: Int64)throws  -> AllowanceDeclinedFfi  {
+    return try  FfiConverterTypeAllowanceDeclinedFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_method_paygentagent_agent_verify_network_allowance_declined(self.uniffiClonePointer(),
+        FfiConverterString.lower(declinedJson),
+        FfiConverterString.lower(senderDid),
+        FfiConverterData.lower(ownerWebauthnPubkey),
+        FfiConverterString.lower(ownerDeviceDid),
+        FfiConverterString.lower(requestId),
+        FfiConverterUInt64.lower(chainId),
+        FfiConverterOptionTypeChainRefFfi.lower(network),
+        FfiConverterInt64.lower(nowMs),$0
+    )
+})
 }
     
 
@@ -7514,16 +7910,16 @@ public struct AgentAttachmentSummaryFfi {
     public var chainId: UInt64
     public var requestedToken: String
     /**
-     * Minimal `0x` hex. Safe to render as an amount: `SafeModuleGuard` reads
-     * zero as a limit of zero (nothing may be spent on that side), and "no
-     * cap" as `type(uint256).max`.
+     * Amount per period, minimal `0x` hex. Safe to render as an amount:
+     * `SafeModuleGuard` reads zero as a limit of zero (nothing may be
+     * spent), and "no cap" as `type(uint256).max`.
      */
-    public var requestedMaxPerTxHex: String
+    public var requestedAmountHex: String
     /**
-     * Minimal `0x` hex -- same reading as
-     * [`Self::requested_max_per_tx_hex`].
+     * How often the amount refills, in seconds; `0` is a one-time
+     * allowance.
      */
-    public var requestedDailyMaxHex: String
+    public var requestedPeriodSeconds: UInt64
     /**
      * Unix milliseconds after which the request is void.
      */
@@ -7545,14 +7941,14 @@ public struct AgentAttachmentSummaryFfi {
          * The ONE chain the agent asked to be attached on.
          */chainId: UInt64, requestedToken: String, 
         /**
-         * Minimal `0x` hex. Safe to render as an amount: `SafeModuleGuard` reads
-         * zero as a limit of zero (nothing may be spent on that side), and "no
-         * cap" as `type(uint256).max`.
-         */requestedMaxPerTxHex: String, 
+         * Amount per period, minimal `0x` hex. Safe to render as an amount:
+         * `SafeModuleGuard` reads zero as a limit of zero (nothing may be
+         * spent), and "no cap" as `type(uint256).max`.
+         */requestedAmountHex: String, 
         /**
-         * Minimal `0x` hex -- same reading as
-         * [`Self::requested_max_per_tx_hex`].
-         */requestedDailyMaxHex: String, 
+         * How often the amount refills, in seconds; `0` is a one-time
+         * allowance.
+         */requestedPeriodSeconds: UInt64, 
         /**
          * Unix milliseconds after which the request is void.
          */expiresAtMs: Int64) {
@@ -7561,8 +7957,8 @@ public struct AgentAttachmentSummaryFfi {
         self.agentLabel = agentLabel
         self.chainId = chainId
         self.requestedToken = requestedToken
-        self.requestedMaxPerTxHex = requestedMaxPerTxHex
-        self.requestedDailyMaxHex = requestedDailyMaxHex
+        self.requestedAmountHex = requestedAmountHex
+        self.requestedPeriodSeconds = requestedPeriodSeconds
         self.expiresAtMs = expiresAtMs
     }
 }
@@ -7589,10 +7985,10 @@ extension AgentAttachmentSummaryFfi: Equatable, Hashable {
         if lhs.requestedToken != rhs.requestedToken {
             return false
         }
-        if lhs.requestedMaxPerTxHex != rhs.requestedMaxPerTxHex {
+        if lhs.requestedAmountHex != rhs.requestedAmountHex {
             return false
         }
-        if lhs.requestedDailyMaxHex != rhs.requestedDailyMaxHex {
+        if lhs.requestedPeriodSeconds != rhs.requestedPeriodSeconds {
             return false
         }
         if lhs.expiresAtMs != rhs.expiresAtMs {
@@ -7607,8 +8003,8 @@ extension AgentAttachmentSummaryFfi: Equatable, Hashable {
         hasher.combine(agentLabel)
         hasher.combine(chainId)
         hasher.combine(requestedToken)
-        hasher.combine(requestedMaxPerTxHex)
-        hasher.combine(requestedDailyMaxHex)
+        hasher.combine(requestedAmountHex)
+        hasher.combine(requestedPeriodSeconds)
         hasher.combine(expiresAtMs)
     }
 }
@@ -7627,8 +8023,8 @@ public struct FfiConverterTypeAgentAttachmentSummaryFfi: FfiConverterRustBuffer 
                 agentLabel: FfiConverterOptionString.read(from: &buf), 
                 chainId: FfiConverterUInt64.read(from: &buf), 
                 requestedToken: FfiConverterString.read(from: &buf), 
-                requestedMaxPerTxHex: FfiConverterString.read(from: &buf), 
-                requestedDailyMaxHex: FfiConverterString.read(from: &buf), 
+                requestedAmountHex: FfiConverterString.read(from: &buf), 
+                requestedPeriodSeconds: FfiConverterUInt64.read(from: &buf), 
                 expiresAtMs: FfiConverterInt64.read(from: &buf)
         )
     }
@@ -7639,8 +8035,8 @@ public struct FfiConverterTypeAgentAttachmentSummaryFfi: FfiConverterRustBuffer 
         FfiConverterOptionString.write(value.agentLabel, into: &buf)
         FfiConverterUInt64.write(value.chainId, into: &buf)
         FfiConverterString.write(value.requestedToken, into: &buf)
-        FfiConverterString.write(value.requestedMaxPerTxHex, into: &buf)
-        FfiConverterString.write(value.requestedDailyMaxHex, into: &buf)
+        FfiConverterString.write(value.requestedAmountHex, into: &buf)
+        FfiConverterUInt64.write(value.requestedPeriodSeconds, into: &buf)
         FfiConverterInt64.write(value.expiresAtMs, into: &buf)
     }
 }
@@ -8615,8 +9011,8 @@ public func FfiConverterTypeAllowanceDeclinedFfi_lower(_ value: AllowanceDecline
 
 
 /**
- * What an attached agent asked for, ready to render ("wants $X a day").
- * The amounts are the token's base units as `0x` hex; the host formats them
+ * What an attached agent asked for, ready to render ("wants $X per period").
+ * The amount is the token's base units as `0x` hex; the host formats it
  * with the token's decimals.
  */
 public struct AllowanceRequestSummaryFfi {
@@ -8625,8 +9021,12 @@ public struct AllowanceRequestSummaryFfi {
     public var chainId: UInt64
     public var walletAddress: String
     public var token: String
-    public var maxPerTxHex: String
-    public var dailyMaxHex: String
+    public var amountHex: String
+    /**
+     * How often the amount refills, in seconds; `0` is a one-time
+     * allowance.
+     */
+    public var periodSeconds: UInt64
     /**
      * The agent's reason, already sanitized for display.
      */
@@ -8635,7 +9035,11 @@ public struct AllowanceRequestSummaryFfi {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(requestId: String, delegateDid: String, chainId: UInt64, walletAddress: String, token: String, maxPerTxHex: String, dailyMaxHex: String, 
+    public init(requestId: String, delegateDid: String, chainId: UInt64, walletAddress: String, token: String, amountHex: String, 
+        /**
+         * How often the amount refills, in seconds; `0` is a one-time
+         * allowance.
+         */periodSeconds: UInt64, 
         /**
          * The agent's reason, already sanitized for display.
          */reason: String?, expiresAtMs: Int64) {
@@ -8644,8 +9048,8 @@ public struct AllowanceRequestSummaryFfi {
         self.chainId = chainId
         self.walletAddress = walletAddress
         self.token = token
-        self.maxPerTxHex = maxPerTxHex
-        self.dailyMaxHex = dailyMaxHex
+        self.amountHex = amountHex
+        self.periodSeconds = periodSeconds
         self.reason = reason
         self.expiresAtMs = expiresAtMs
     }
@@ -8673,10 +9077,10 @@ extension AllowanceRequestSummaryFfi: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
-        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+        if lhs.amountHex != rhs.amountHex {
             return false
         }
-        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         if lhs.reason != rhs.reason {
@@ -8694,8 +9098,8 @@ extension AllowanceRequestSummaryFfi: Equatable, Hashable {
         hasher.combine(chainId)
         hasher.combine(walletAddress)
         hasher.combine(token)
-        hasher.combine(maxPerTxHex)
-        hasher.combine(dailyMaxHex)
+        hasher.combine(amountHex)
+        hasher.combine(periodSeconds)
         hasher.combine(reason)
         hasher.combine(expiresAtMs)
     }
@@ -8715,8 +9119,8 @@ public struct FfiConverterTypeAllowanceRequestSummaryFfi: FfiConverterRustBuffer
                 chainId: FfiConverterUInt64.read(from: &buf), 
                 walletAddress: FfiConverterString.read(from: &buf), 
                 token: FfiConverterString.read(from: &buf), 
-                maxPerTxHex: FfiConverterString.read(from: &buf), 
-                dailyMaxHex: FfiConverterString.read(from: &buf), 
+                amountHex: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
                 reason: FfiConverterOptionString.read(from: &buf), 
                 expiresAtMs: FfiConverterInt64.read(from: &buf)
         )
@@ -8728,8 +9132,8 @@ public struct FfiConverterTypeAllowanceRequestSummaryFfi: FfiConverterRustBuffer
         FfiConverterUInt64.write(value.chainId, into: &buf)
         FfiConverterString.write(value.walletAddress, into: &buf)
         FfiConverterString.write(value.token, into: &buf)
-        FfiConverterString.write(value.maxPerTxHex, into: &buf)
-        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
         FfiConverterOptionString.write(value.reason, into: &buf)
         FfiConverterInt64.write(value.expiresAtMs, into: &buf)
     }
@@ -9994,6 +10398,81 @@ public func FfiConverterTypeBolt11AmountFfi_lower(_ value: Bolt11AmountFfi) -> R
 
 
 /**
+ * A sent Solana burn: its signature (what
+ * [`fetch_cctp_network_attestation`] takes) and the message account it
+ * opened, whose rent [`submit_solana_cctp_reclaim_via_purse`] returns.
+ */
+public struct CctpBurnSubmittedFfi {
+    public var signature: String
+    public var eventAccount: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(signature: String, eventAccount: String) {
+        self.signature = signature
+        self.eventAccount = eventAccount
+    }
+}
+
+#if compiler(>=6)
+extension CctpBurnSubmittedFfi: Sendable {}
+#endif
+
+
+extension CctpBurnSubmittedFfi: Equatable, Hashable {
+    public static func ==(lhs: CctpBurnSubmittedFfi, rhs: CctpBurnSubmittedFfi) -> Bool {
+        if lhs.signature != rhs.signature {
+            return false
+        }
+        if lhs.eventAccount != rhs.eventAccount {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(signature)
+        hasher.combine(eventAccount)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCctpBurnSubmittedFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CctpBurnSubmittedFfi {
+        return
+            try CctpBurnSubmittedFfi(
+                signature: FfiConverterString.read(from: &buf), 
+                eventAccount: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CctpBurnSubmittedFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.signature, into: &buf)
+        FfiConverterString.write(value.eventAccount, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpBurnSubmittedFfi_lift(_ buf: RustBuffer) throws -> CctpBurnSubmittedFfi {
+    return try FfiConverterTypeCctpBurnSubmittedFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpBurnSubmittedFfi_lower(_ value: CctpBurnSubmittedFfi) -> RustBuffer {
+    return FfiConverterTypeCctpBurnSubmittedFfi.lower(value)
+}
+
+
+/**
  * A checked chain-to-chain USDC move.
  */
 public struct CctpMovePlanFfi {
@@ -10071,6 +10550,438 @@ public func FfiConverterTypeCctpMovePlanFfi_lift(_ buf: RustBuffer) throws -> Cc
 #endif
 public func FfiConverterTypeCctpMovePlanFfi_lower(_ value: CctpMovePlanFfi) -> RustBuffer {
     return FfiConverterTypeCctpMovePlanFfi.lower(value)
+}
+
+
+/**
+ * The outcome of [`submit_owner_cctp_move_to_evm`]: the stage always
+ * landed; `burn` is set when the burn landed too, `burn_error` when it did
+ * not and the USDC waits in the purse.
+ */
+public struct CctpMoveToEvmSubmittedFfi {
+    public var stageSignature: String
+    public var stagedAmount: String
+    public var burn: CctpBurnSubmittedFfi?
+    public var burnError: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(stageSignature: String, stagedAmount: String, burn: CctpBurnSubmittedFfi?, burnError: String?) {
+        self.stageSignature = stageSignature
+        self.stagedAmount = stagedAmount
+        self.burn = burn
+        self.burnError = burnError
+    }
+}
+
+#if compiler(>=6)
+extension CctpMoveToEvmSubmittedFfi: Sendable {}
+#endif
+
+
+extension CctpMoveToEvmSubmittedFfi: Equatable, Hashable {
+    public static func ==(lhs: CctpMoveToEvmSubmittedFfi, rhs: CctpMoveToEvmSubmittedFfi) -> Bool {
+        if lhs.stageSignature != rhs.stageSignature {
+            return false
+        }
+        if lhs.stagedAmount != rhs.stagedAmount {
+            return false
+        }
+        if lhs.burn != rhs.burn {
+            return false
+        }
+        if lhs.burnError != rhs.burnError {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(stageSignature)
+        hasher.combine(stagedAmount)
+        hasher.combine(burn)
+        hasher.combine(burnError)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCctpMoveToEvmSubmittedFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CctpMoveToEvmSubmittedFfi {
+        return
+            try CctpMoveToEvmSubmittedFfi(
+                stageSignature: FfiConverterString.read(from: &buf), 
+                stagedAmount: FfiConverterString.read(from: &buf), 
+                burn: FfiConverterOptionTypeCctpBurnSubmittedFfi.read(from: &buf), 
+                burnError: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CctpMoveToEvmSubmittedFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.stageSignature, into: &buf)
+        FfiConverterString.write(value.stagedAmount, into: &buf)
+        FfiConverterOptionTypeCctpBurnSubmittedFfi.write(value.burn, into: &buf)
+        FfiConverterOptionString.write(value.burnError, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpMoveToEvmSubmittedFfi_lift(_ buf: RustBuffer) throws -> CctpMoveToEvmSubmittedFfi {
+    return try FfiConverterTypeCctpMoveToEvmSubmittedFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpMoveToEvmSubmittedFfi_lower(_ value: CctpMoveToEvmSubmittedFfi) -> RustBuffer {
+    return FfiConverterTypeCctpMoveToEvmSubmittedFfi.lower(value)
+}
+
+
+/**
+ * A checked move between two networks.
+ */
+public struct CctpNetworkPlanFfi {
+    public var from: ChainRefFfi
+    public var to: ChainRefFfi
+    public var fromDomain: UInt32
+    public var toDomain: UInt32
+    public var amountHex: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(from: ChainRefFfi, to: ChainRefFfi, fromDomain: UInt32, toDomain: UInt32, amountHex: String) {
+        self.from = from
+        self.to = to
+        self.fromDomain = fromDomain
+        self.toDomain = toDomain
+        self.amountHex = amountHex
+    }
+}
+
+#if compiler(>=6)
+extension CctpNetworkPlanFfi: Sendable {}
+#endif
+
+
+extension CctpNetworkPlanFfi: Equatable, Hashable {
+    public static func ==(lhs: CctpNetworkPlanFfi, rhs: CctpNetworkPlanFfi) -> Bool {
+        if lhs.from != rhs.from {
+            return false
+        }
+        if lhs.to != rhs.to {
+            return false
+        }
+        if lhs.fromDomain != rhs.fromDomain {
+            return false
+        }
+        if lhs.toDomain != rhs.toDomain {
+            return false
+        }
+        if lhs.amountHex != rhs.amountHex {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(from)
+        hasher.combine(to)
+        hasher.combine(fromDomain)
+        hasher.combine(toDomain)
+        hasher.combine(amountHex)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCctpNetworkPlanFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CctpNetworkPlanFfi {
+        return
+            try CctpNetworkPlanFfi(
+                from: FfiConverterTypeChainRefFfi.read(from: &buf), 
+                to: FfiConverterTypeChainRefFfi.read(from: &buf), 
+                fromDomain: FfiConverterUInt32.read(from: &buf), 
+                toDomain: FfiConverterUInt32.read(from: &buf), 
+                amountHex: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CctpNetworkPlanFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeChainRefFfi.write(value.from, into: &buf)
+        FfiConverterTypeChainRefFfi.write(value.to, into: &buf)
+        FfiConverterUInt32.write(value.fromDomain, into: &buf)
+        FfiConverterUInt32.write(value.toDomain, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpNetworkPlanFfi_lift(_ buf: RustBuffer) throws -> CctpNetworkPlanFfi {
+    return try FfiConverterTypeCctpNetworkPlanFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpNetworkPlanFfi_lower(_ value: CctpNetworkPlanFfi) -> RustBuffer {
+    return FfiConverterTypeCctpNetworkPlanFfi.lower(value)
+}
+
+
+/**
+ * What one leg costs the purse, in lamports: the network fee, the rent it
+ * locks, whether that rent comes back, and the two together.
+ */
+public struct CctpPurseCostFfi {
+    public var networkFeeLamports: UInt64
+    public var rentLamports: UInt64
+    public var rentReclaimable: Bool
+    public var totalLamports: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(networkFeeLamports: UInt64, rentLamports: UInt64, rentReclaimable: Bool, totalLamports: UInt64) {
+        self.networkFeeLamports = networkFeeLamports
+        self.rentLamports = rentLamports
+        self.rentReclaimable = rentReclaimable
+        self.totalLamports = totalLamports
+    }
+}
+
+#if compiler(>=6)
+extension CctpPurseCostFfi: Sendable {}
+#endif
+
+
+extension CctpPurseCostFfi: Equatable, Hashable {
+    public static func ==(lhs: CctpPurseCostFfi, rhs: CctpPurseCostFfi) -> Bool {
+        if lhs.networkFeeLamports != rhs.networkFeeLamports {
+            return false
+        }
+        if lhs.rentLamports != rhs.rentLamports {
+            return false
+        }
+        if lhs.rentReclaimable != rhs.rentReclaimable {
+            return false
+        }
+        if lhs.totalLamports != rhs.totalLamports {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(networkFeeLamports)
+        hasher.combine(rentLamports)
+        hasher.combine(rentReclaimable)
+        hasher.combine(totalLamports)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCctpPurseCostFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CctpPurseCostFfi {
+        return
+            try CctpPurseCostFfi(
+                networkFeeLamports: FfiConverterUInt64.read(from: &buf), 
+                rentLamports: FfiConverterUInt64.read(from: &buf), 
+                rentReclaimable: FfiConverterBool.read(from: &buf), 
+                totalLamports: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CctpPurseCostFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.networkFeeLamports, into: &buf)
+        FfiConverterUInt64.write(value.rentLamports, into: &buf)
+        FfiConverterBool.write(value.rentReclaimable, into: &buf)
+        FfiConverterUInt64.write(value.totalLamports, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpPurseCostFfi_lift(_ buf: RustBuffer) throws -> CctpPurseCostFfi {
+    return try FfiConverterTypeCctpPurseCostFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpPurseCostFfi_lower(_ value: CctpPurseCostFfi) -> RustBuffer {
+    return FfiConverterTypeCctpPurseCostFfi.lower(value)
+}
+
+
+/**
+ * A sent unstage and the USDC base units (decimal) it returned to the vault.
+ */
+public struct CctpUnstagedFfi {
+    public var signature: String
+    public var amount: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(signature: String, amount: String) {
+        self.signature = signature
+        self.amount = amount
+    }
+}
+
+#if compiler(>=6)
+extension CctpUnstagedFfi: Sendable {}
+#endif
+
+
+extension CctpUnstagedFfi: Equatable, Hashable {
+    public static func ==(lhs: CctpUnstagedFfi, rhs: CctpUnstagedFfi) -> Bool {
+        if lhs.signature != rhs.signature {
+            return false
+        }
+        if lhs.amount != rhs.amount {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(signature)
+        hasher.combine(amount)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCctpUnstagedFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CctpUnstagedFfi {
+        return
+            try CctpUnstagedFfi(
+                signature: FfiConverterString.read(from: &buf), 
+                amount: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CctpUnstagedFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.signature, into: &buf)
+        FfiConverterString.write(value.amount, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpUnstagedFfi_lift(_ buf: RustBuffer) throws -> CctpUnstagedFfi {
+    return try FfiConverterTypeCctpUnstagedFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpUnstagedFfi_lower(_ value: CctpUnstagedFfi) -> RustBuffer {
+    return FfiConverterTypeCctpUnstagedFfi.lower(value)
+}
+
+
+/**
+ * Whether one address holds code on one chain, as the host read it.
+ */
+public struct ChainCodePresenceFfi {
+    public var chainId: UInt64
+    public var address: String
+    public var hasCode: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(chainId: UInt64, address: String, hasCode: Bool) {
+        self.chainId = chainId
+        self.address = address
+        self.hasCode = hasCode
+    }
+}
+
+#if compiler(>=6)
+extension ChainCodePresenceFfi: Sendable {}
+#endif
+
+
+extension ChainCodePresenceFfi: Equatable, Hashable {
+    public static func ==(lhs: ChainCodePresenceFfi, rhs: ChainCodePresenceFfi) -> Bool {
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.address != rhs.address {
+            return false
+        }
+        if lhs.hasCode != rhs.hasCode {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(chainId)
+        hasher.combine(address)
+        hasher.combine(hasCode)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeChainCodePresenceFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainCodePresenceFfi {
+        return
+            try ChainCodePresenceFfi(
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                address: FfiConverterString.read(from: &buf), 
+                hasCode: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ChainCodePresenceFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.address, into: &buf)
+        FfiConverterBool.write(value.hasCode, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeChainCodePresenceFfi_lift(_ buf: RustBuffer) throws -> ChainCodePresenceFfi {
+    return try FfiConverterTypeChainCodePresenceFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeChainCodePresenceFfi_lower(_ value: ChainCodePresenceFfi) -> RustBuffer {
+    return FfiConverterTypeChainCodePresenceFfi.lower(value)
 }
 
 
@@ -11587,6 +12498,87 @@ public func FfiConverterTypeDelegationPrep_lift(_ buf: RustBuffer) throws -> Del
 #endif
 public func FfiConverterTypeDelegationPrep_lower(_ value: DelegationPrep) -> RustBuffer {
     return FfiConverterTypeDelegationPrep.lower(value)
+}
+
+
+/**
+ * A required contract and where it lives.
+ */
+public struct DeployContractInfoFfi {
+    public var contract: DeployContractFfi
+    public var name: String
+    public var address: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(contract: DeployContractFfi, name: String, address: String) {
+        self.contract = contract
+        self.name = name
+        self.address = address
+    }
+}
+
+#if compiler(>=6)
+extension DeployContractInfoFfi: Sendable {}
+#endif
+
+
+extension DeployContractInfoFfi: Equatable, Hashable {
+    public static func ==(lhs: DeployContractInfoFfi, rhs: DeployContractInfoFfi) -> Bool {
+        if lhs.contract != rhs.contract {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.address != rhs.address {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(contract)
+        hasher.combine(name)
+        hasher.combine(address)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDeployContractInfoFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DeployContractInfoFfi {
+        return
+            try DeployContractInfoFfi(
+                contract: FfiConverterTypeDeployContractFfi.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                address: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: DeployContractInfoFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeDeployContractFfi.write(value.contract, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterString.write(value.address, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeployContractInfoFfi_lift(_ buf: RustBuffer) throws -> DeployContractInfoFfi {
+    return try FfiConverterTypeDeployContractInfoFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeployContractInfoFfi_lower(_ value: DeployContractInfoFfi) -> RustBuffer {
+    return FfiConverterTypeDeployContractInfoFfi.lower(value)
 }
 
 
@@ -13395,6 +14387,81 @@ public func FfiConverterTypeEvmChainProbe_lower(_ value: EvmChainProbe) -> RustB
 
 
 /**
+ * A live EVM fee quote in wei per gas, as decimal strings. The gas the
+ * operation burns is a separate argument, because it belongs to one
+ * operation on one network while the quote belongs to the network.
+ */
+public struct EvmFeeQuoteFfi {
+    public var maxFeePerGas: String
+    public var maxPriorityFeePerGas: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(maxFeePerGas: String, maxPriorityFeePerGas: String) {
+        self.maxFeePerGas = maxFeePerGas
+        self.maxPriorityFeePerGas = maxPriorityFeePerGas
+    }
+}
+
+#if compiler(>=6)
+extension EvmFeeQuoteFfi: Sendable {}
+#endif
+
+
+extension EvmFeeQuoteFfi: Equatable, Hashable {
+    public static func ==(lhs: EvmFeeQuoteFfi, rhs: EvmFeeQuoteFfi) -> Bool {
+        if lhs.maxFeePerGas != rhs.maxFeePerGas {
+            return false
+        }
+        if lhs.maxPriorityFeePerGas != rhs.maxPriorityFeePerGas {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(maxFeePerGas)
+        hasher.combine(maxPriorityFeePerGas)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeEvmFeeQuoteFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmFeeQuoteFfi {
+        return
+            try EvmFeeQuoteFfi(
+                maxFeePerGas: FfiConverterString.read(from: &buf), 
+                maxPriorityFeePerGas: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: EvmFeeQuoteFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.maxFeePerGas, into: &buf)
+        FfiConverterString.write(value.maxPriorityFeePerGas, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeEvmFeeQuoteFfi_lift(_ buf: RustBuffer) throws -> EvmFeeQuoteFfi {
+    return try FfiConverterTypeEvmFeeQuoteFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeEvmFeeQuoteFfi_lower(_ value: EvmFeeQuoteFfi) -> RustBuffer {
+    return FfiConverterTypeEvmFeeQuoteFfi.lower(value)
+}
+
+
+/**
  * The EVM chains an owner op applies to, plus this device's own signer
  * addresses. Built with [`evm_targets_from_report`] rather than by hand.
  */
@@ -13801,6 +14868,315 @@ public func FfiConverterTypeExistingPairing_lift(_ buf: RustBuffer) throws -> Ex
 #endif
 public func FfiConverterTypeExistingPairing_lower(_ value: ExistingPairing) -> RustBuffer {
     return FfiConverterTypeExistingPairing.lower(value)
+}
+
+
+/**
+ * The `eth_sendTransaction` request an EVM or Tempo wallet signs.
+ */
+public struct ExternalEvmDepositFfi {
+    public var chainId: UInt64
+    public var chainIdHex: String
+    public var to: String
+    public var data: String
+    public var value: String
+    public var amountBaseUnits: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(chainId: UInt64, chainIdHex: String, to: String, data: String, value: String, amountBaseUnits: String) {
+        self.chainId = chainId
+        self.chainIdHex = chainIdHex
+        self.to = to
+        self.data = data
+        self.value = value
+        self.amountBaseUnits = amountBaseUnits
+    }
+}
+
+#if compiler(>=6)
+extension ExternalEvmDepositFfi: Sendable {}
+#endif
+
+
+extension ExternalEvmDepositFfi: Equatable, Hashable {
+    public static func ==(lhs: ExternalEvmDepositFfi, rhs: ExternalEvmDepositFfi) -> Bool {
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.chainIdHex != rhs.chainIdHex {
+            return false
+        }
+        if lhs.to != rhs.to {
+            return false
+        }
+        if lhs.data != rhs.data {
+            return false
+        }
+        if lhs.value != rhs.value {
+            return false
+        }
+        if lhs.amountBaseUnits != rhs.amountBaseUnits {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(chainId)
+        hasher.combine(chainIdHex)
+        hasher.combine(to)
+        hasher.combine(data)
+        hasher.combine(value)
+        hasher.combine(amountBaseUnits)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeExternalEvmDepositFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ExternalEvmDepositFfi {
+        return
+            try ExternalEvmDepositFfi(
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                chainIdHex: FfiConverterString.read(from: &buf), 
+                to: FfiConverterString.read(from: &buf), 
+                data: FfiConverterString.read(from: &buf), 
+                value: FfiConverterString.read(from: &buf), 
+                amountBaseUnits: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ExternalEvmDepositFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterString.write(value.chainIdHex, into: &buf)
+        FfiConverterString.write(value.to, into: &buf)
+        FfiConverterString.write(value.data, into: &buf)
+        FfiConverterString.write(value.value, into: &buf)
+        FfiConverterString.write(value.amountBaseUnits, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalEvmDepositFfi_lift(_ buf: RustBuffer) throws -> ExternalEvmDepositFfi {
+    return try FfiConverterTypeExternalEvmDepositFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalEvmDepositFfi_lower(_ value: ExternalEvmDepositFfi) -> RustBuffer {
+    return FfiConverterTypeExternalEvmDepositFfi.lower(value)
+}
+
+
+/**
+ * The unsigned Solana transaction the external wallet signs and pays for.
+ */
+public struct ExternalSolanaDepositFfi {
+    public var transactionBase64: String
+    public var feePayer: String
+    public var sourceTokenAccount: String
+    public var vaultTokenAccount: String
+    public var mint: String
+    public var amountBaseUnits: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(transactionBase64: String, feePayer: String, sourceTokenAccount: String, vaultTokenAccount: String, mint: String, amountBaseUnits: String) {
+        self.transactionBase64 = transactionBase64
+        self.feePayer = feePayer
+        self.sourceTokenAccount = sourceTokenAccount
+        self.vaultTokenAccount = vaultTokenAccount
+        self.mint = mint
+        self.amountBaseUnits = amountBaseUnits
+    }
+}
+
+#if compiler(>=6)
+extension ExternalSolanaDepositFfi: Sendable {}
+#endif
+
+
+extension ExternalSolanaDepositFfi: Equatable, Hashable {
+    public static func ==(lhs: ExternalSolanaDepositFfi, rhs: ExternalSolanaDepositFfi) -> Bool {
+        if lhs.transactionBase64 != rhs.transactionBase64 {
+            return false
+        }
+        if lhs.feePayer != rhs.feePayer {
+            return false
+        }
+        if lhs.sourceTokenAccount != rhs.sourceTokenAccount {
+            return false
+        }
+        if lhs.vaultTokenAccount != rhs.vaultTokenAccount {
+            return false
+        }
+        if lhs.mint != rhs.mint {
+            return false
+        }
+        if lhs.amountBaseUnits != rhs.amountBaseUnits {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(transactionBase64)
+        hasher.combine(feePayer)
+        hasher.combine(sourceTokenAccount)
+        hasher.combine(vaultTokenAccount)
+        hasher.combine(mint)
+        hasher.combine(amountBaseUnits)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeExternalSolanaDepositFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ExternalSolanaDepositFfi {
+        return
+            try ExternalSolanaDepositFfi(
+                transactionBase64: FfiConverterString.read(from: &buf), 
+                feePayer: FfiConverterString.read(from: &buf), 
+                sourceTokenAccount: FfiConverterString.read(from: &buf), 
+                vaultTokenAccount: FfiConverterString.read(from: &buf), 
+                mint: FfiConverterString.read(from: &buf), 
+                amountBaseUnits: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ExternalSolanaDepositFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.transactionBase64, into: &buf)
+        FfiConverterString.write(value.feePayer, into: &buf)
+        FfiConverterString.write(value.sourceTokenAccount, into: &buf)
+        FfiConverterString.write(value.vaultTokenAccount, into: &buf)
+        FfiConverterString.write(value.mint, into: &buf)
+        FfiConverterString.write(value.amountBaseUnits, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalSolanaDepositFfi_lift(_ buf: RustBuffer) throws -> ExternalSolanaDepositFfi {
+    return try FfiConverterTypeExternalSolanaDepositFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalSolanaDepositFfi_lower(_ value: ExternalSolanaDepositFfi) -> RustBuffer {
+    return FfiConverterTypeExternalSolanaDepositFfi.lower(value)
+}
+
+
+/**
+ * An agent's failure report, opened. `state` is what to show before the
+ * chain is read: `Failed` for a refused submission, `Pending` for a report
+ * naming a transaction until [`reported_failure_state`] says otherwise.
+ */
+public struct FailedReportFfi {
+    public var intentId: String
+    public var chain: String
+    public var failure: RequestFailureFfi
+    public var state: ActivityStateFfi
+    public var senderDid: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(intentId: String, chain: String, failure: RequestFailureFfi, state: ActivityStateFfi, senderDid: String) {
+        self.intentId = intentId
+        self.chain = chain
+        self.failure = failure
+        self.state = state
+        self.senderDid = senderDid
+    }
+}
+
+#if compiler(>=6)
+extension FailedReportFfi: Sendable {}
+#endif
+
+
+extension FailedReportFfi: Equatable, Hashable {
+    public static func ==(lhs: FailedReportFfi, rhs: FailedReportFfi) -> Bool {
+        if lhs.intentId != rhs.intentId {
+            return false
+        }
+        if lhs.chain != rhs.chain {
+            return false
+        }
+        if lhs.failure != rhs.failure {
+            return false
+        }
+        if lhs.state != rhs.state {
+            return false
+        }
+        if lhs.senderDid != rhs.senderDid {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(intentId)
+        hasher.combine(chain)
+        hasher.combine(failure)
+        hasher.combine(state)
+        hasher.combine(senderDid)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFailedReportFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FailedReportFfi {
+        return
+            try FailedReportFfi(
+                intentId: FfiConverterString.read(from: &buf), 
+                chain: FfiConverterString.read(from: &buf), 
+                failure: FfiConverterTypeRequestFailureFfi.read(from: &buf), 
+                state: FfiConverterTypeActivityStateFfi.read(from: &buf), 
+                senderDid: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FailedReportFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.intentId, into: &buf)
+        FfiConverterString.write(value.chain, into: &buf)
+        FfiConverterTypeRequestFailureFfi.write(value.failure, into: &buf)
+        FfiConverterTypeActivityStateFfi.write(value.state, into: &buf)
+        FfiConverterString.write(value.senderDid, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFailedReportFfi_lift(_ buf: RustBuffer) throws -> FailedReportFfi {
+    return try FfiConverterTypeFailedReportFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFailedReportFfi_lower(_ value: FailedReportFfi) -> RustBuffer {
+    return FfiConverterTypeFailedReportFfi.lower(value)
 }
 
 
@@ -14437,23 +15813,25 @@ public func FfiConverterTypeGeneratedSolanaPurse_lower(_ value: GeneratedSolanaP
  * The spending limit read back off a chain's guard, in token base units.
  */
 public struct GuardLimitReadingFfi {
-    public var maxPerTx: String
-    public var dailyMax: String
     /**
-     * The guard's `configured` flag, absent on a guard too old to have one.
-     * Read it with `RpcClient::spending_limit_configured_flag`.
+     * What the agent may spend per period.
      */
-    public var configured: Bool?
+    public var amount: String
+    /**
+     * The guard's `configured` flag: a written zero from a pair nobody set.
+     */
+    public var configured: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(maxPerTx: String, dailyMax: String, 
+    public init(
         /**
-         * The guard's `configured` flag, absent on a guard too old to have one.
-         * Read it with `RpcClient::spending_limit_configured_flag`.
-         */configured: Bool? = nil) {
-        self.maxPerTx = maxPerTx
-        self.dailyMax = dailyMax
+         * What the agent may spend per period.
+         */amount: String, 
+        /**
+         * The guard's `configured` flag: a written zero from a pair nobody set.
+         */configured: Bool) {
+        self.amount = amount
         self.configured = configured
     }
 }
@@ -14465,10 +15843,7 @@ extension GuardLimitReadingFfi: Sendable {}
 
 extension GuardLimitReadingFfi: Equatable, Hashable {
     public static func ==(lhs: GuardLimitReadingFfi, rhs: GuardLimitReadingFfi) -> Bool {
-        if lhs.maxPerTx != rhs.maxPerTx {
-            return false
-        }
-        if lhs.dailyMax != rhs.dailyMax {
+        if lhs.amount != rhs.amount {
             return false
         }
         if lhs.configured != rhs.configured {
@@ -14478,8 +15853,7 @@ extension GuardLimitReadingFfi: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(maxPerTx)
-        hasher.combine(dailyMax)
+        hasher.combine(amount)
         hasher.combine(configured)
     }
 }
@@ -14493,16 +15867,14 @@ public struct FfiConverterTypeGuardLimitReadingFfi: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GuardLimitReadingFfi {
         return
             try GuardLimitReadingFfi(
-                maxPerTx: FfiConverterString.read(from: &buf), 
-                dailyMax: FfiConverterString.read(from: &buf), 
-                configured: FfiConverterOptionBool.read(from: &buf)
+                amount: FfiConverterString.read(from: &buf), 
+                configured: FfiConverterBool.read(from: &buf)
         )
     }
 
     public static func write(_ value: GuardLimitReadingFfi, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.maxPerTx, into: &buf)
-        FfiConverterString.write(value.dailyMax, into: &buf)
-        FfiConverterOptionBool.write(value.configured, into: &buf)
+        FfiConverterString.write(value.amount, into: &buf)
+        FfiConverterBool.write(value.configured, into: &buf)
     }
 }
 
@@ -15215,13 +16587,13 @@ public struct LightningBalanceSummaryFfi {
      */
     public var readyToPaySats: UInt64
     /**
-     * Confirmed in the on-chain wallet. Not payable over Lightning until it
-     * is committed to a channel.
+     * Confirmed ordinary bitcoin that came back from a closed line. Not
+     * payable over Lightning: the owner sends it to an address.
      */
     public var onchainSats: UInt64
     /**
-     * In transit: channels still confirming, unconfirmed deposits, and
-     * closed-channel balances not yet swept back.
+     * In transit: lines still confirming, and closed-line balances not yet
+     * swept back.
      */
     public var pendingSats: UInt64
 
@@ -15232,12 +16604,12 @@ public struct LightningBalanceSummaryFfi {
          * Sendable now over channels that have confirmed.
          */readyToPaySats: UInt64, 
         /**
-         * Confirmed in the on-chain wallet. Not payable over Lightning until it
-         * is committed to a channel.
+         * Confirmed ordinary bitcoin that came back from a closed line. Not
+         * payable over Lightning: the owner sends it to an address.
          */onchainSats: UInt64, 
         /**
-         * In transit: channels still confirming, unconfirmed deposits, and
-         * closed-channel balances not yet swept back.
+         * In transit: lines still confirming, and closed-line balances not yet
+         * swept back.
          */pendingSats: UInt64) {
         self.readyToPaySats = readyToPaySats
         self.onchainSats = onchainSats
@@ -15413,12 +16785,7 @@ public func FfiConverterTypeLightningChannelCloseFfi_lower(_ value: LightningCha
 
 
 /**
- * How the channel toward one side-wallet pocket stands, for a funding screen.
- *
- * There is no single "balance" to show on this rail, which is why this is a
- * handful of values rather than a number: sats sitting in the on-chain wallet
- * cannot be paid, sats in a channel that has not confirmed yet cannot be paid,
- * and sats in a confirmed channel whose peer is offline cannot be paid either.
+ * How one of the treasury's lines stands.
  */
 public struct LightningChannelFfi {
     /**
@@ -15430,12 +16797,11 @@ public struct LightningChannelFfi {
      */
     public var channelValueSats: UInt64
     /**
-     * What can still be sent over this channel, in millisats. This is the
-     * ceiling on the next top-up, not `channel_value_sats`.
+     * What can still be sent over this channel, in millisats.
      */
     public var outboundCapacityMsat: UInt64
     /**
-     * What the pocket could send back, in millisats.
+     * What the treasury could still receive over it, in millisats.
      */
     public var inboundCapacityMsat: UInt64
     /**
@@ -15463,11 +16829,10 @@ public struct LightningChannelFfi {
          * Total sats committed when the channel was opened.
          */channelValueSats: UInt64, 
         /**
-         * What can still be sent over this channel, in millisats. This is the
-         * ceiling on the next top-up, not `channel_value_sats`.
+         * What can still be sent over this channel, in millisats.
          */outboundCapacityMsat: UInt64, 
         /**
-         * What the pocket could send back, in millisats.
+         * What the treasury could still receive over it, in millisats.
          */inboundCapacityMsat: UInt64, 
         /**
          * The funding transaction has the confirmations the peer required.
@@ -15585,12 +16950,822 @@ public func FfiConverterTypeLightningChannelFfi_lower(_ value: LightningChannelF
 
 
 /**
+ * A provider's menu summed up for the owner: the terms to headline, and
+ * their figures already written for display. Figures carry no unit; the
+ * host adds "sats".
+ */
+public struct LightningHeadlineTermsFfi {
+    /**
+     * The entry chosen for the smallest payment any entry accepts, with its
+     * size range widened to the smallest and largest of the whole menu.
+     */
+    public var terms: LightningLspTermsFfi
+    /**
+     * The least a new line costs, in whole sats rounded down: "2,500".
+     */
+    public var feeFloor: String
+    /**
+     * The share of the payment a new line costs: "1.4%".
+     */
+    public var rate: String
+    /**
+     * The smallest payment that opens a line, in whole sats: "2,501".
+     */
+    public var minPayment: String
+    /**
+     * The largest payment that opens a line, in whole sats: "16,000,000".
+     */
+    public var maxPayment: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The entry chosen for the smallest payment any entry accepts, with its
+         * size range widened to the smallest and largest of the whole menu.
+         */terms: LightningLspTermsFfi, 
+        /**
+         * The least a new line costs, in whole sats rounded down: "2,500".
+         */feeFloor: String, 
+        /**
+         * The share of the payment a new line costs: "1.4%".
+         */rate: String, 
+        /**
+         * The smallest payment that opens a line, in whole sats: "2,501".
+         */minPayment: String, 
+        /**
+         * The largest payment that opens a line, in whole sats: "16,000,000".
+         */maxPayment: String) {
+        self.terms = terms
+        self.feeFloor = feeFloor
+        self.rate = rate
+        self.minPayment = minPayment
+        self.maxPayment = maxPayment
+    }
+}
+
+#if compiler(>=6)
+extension LightningHeadlineTermsFfi: Sendable {}
+#endif
+
+
+extension LightningHeadlineTermsFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningHeadlineTermsFfi, rhs: LightningHeadlineTermsFfi) -> Bool {
+        if lhs.terms != rhs.terms {
+            return false
+        }
+        if lhs.feeFloor != rhs.feeFloor {
+            return false
+        }
+        if lhs.rate != rhs.rate {
+            return false
+        }
+        if lhs.minPayment != rhs.minPayment {
+            return false
+        }
+        if lhs.maxPayment != rhs.maxPayment {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(terms)
+        hasher.combine(feeFloor)
+        hasher.combine(rate)
+        hasher.combine(minPayment)
+        hasher.combine(maxPayment)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningHeadlineTermsFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningHeadlineTermsFfi {
+        return
+            try LightningHeadlineTermsFfi(
+                terms: FfiConverterTypeLightningLspTermsFfi.read(from: &buf), 
+                feeFloor: FfiConverterString.read(from: &buf), 
+                rate: FfiConverterString.read(from: &buf), 
+                minPayment: FfiConverterString.read(from: &buf), 
+                maxPayment: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningHeadlineTermsFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeLightningLspTermsFfi.write(value.terms, into: &buf)
+        FfiConverterString.write(value.feeFloor, into: &buf)
+        FfiConverterString.write(value.rate, into: &buf)
+        FfiConverterString.write(value.minPayment, into: &buf)
+        FfiConverterString.write(value.maxPayment, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningHeadlineTermsFfi_lift(_ buf: RustBuffer) throws -> LightningHeadlineTermsFfi {
+    return try FfiConverterTypeLightningHeadlineTermsFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningHeadlineTermsFfi_lower(_ value: LightningHeadlineTermsFfi) -> RustBuffer {
+    return FfiConverterTypeLightningHeadlineTermsFfi.lower(value)
+}
+
+
+/**
+ * One entry of a provider's LSPS2 menu: what it charges to open a new line.
+ * A new line costs `min_fee_msat` or `proportional_ppm` of the payment,
+ * whichever is higher, for a payment from `min_payment_size_msat` up to
+ * `max_payment_size_msat`.
+ */
+public struct LightningLspTermsFfi {
+    public var minFeeMsat: UInt64
+    public var proportionalPpm: UInt64
+    public var minPaymentSizeMsat: UInt64
+    public var maxPaymentSizeMsat: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(minFeeMsat: UInt64, proportionalPpm: UInt64, minPaymentSizeMsat: UInt64, maxPaymentSizeMsat: UInt64) {
+        self.minFeeMsat = minFeeMsat
+        self.proportionalPpm = proportionalPpm
+        self.minPaymentSizeMsat = minPaymentSizeMsat
+        self.maxPaymentSizeMsat = maxPaymentSizeMsat
+    }
+}
+
+#if compiler(>=6)
+extension LightningLspTermsFfi: Sendable {}
+#endif
+
+
+extension LightningLspTermsFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningLspTermsFfi, rhs: LightningLspTermsFfi) -> Bool {
+        if lhs.minFeeMsat != rhs.minFeeMsat {
+            return false
+        }
+        if lhs.proportionalPpm != rhs.proportionalPpm {
+            return false
+        }
+        if lhs.minPaymentSizeMsat != rhs.minPaymentSizeMsat {
+            return false
+        }
+        if lhs.maxPaymentSizeMsat != rhs.maxPaymentSizeMsat {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(minFeeMsat)
+        hasher.combine(proportionalPpm)
+        hasher.combine(minPaymentSizeMsat)
+        hasher.combine(maxPaymentSizeMsat)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningLspTermsFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningLspTermsFfi {
+        return
+            try LightningLspTermsFfi(
+                minFeeMsat: FfiConverterUInt64.read(from: &buf), 
+                proportionalPpm: FfiConverterUInt64.read(from: &buf), 
+                minPaymentSizeMsat: FfiConverterUInt64.read(from: &buf), 
+                maxPaymentSizeMsat: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningLspTermsFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.minFeeMsat, into: &buf)
+        FfiConverterUInt64.write(value.proportionalPpm, into: &buf)
+        FfiConverterUInt64.write(value.minPaymentSizeMsat, into: &buf)
+        FfiConverterUInt64.write(value.maxPaymentSizeMsat, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningLspTermsFfi_lift(_ buf: RustBuffer) throws -> LightningLspTermsFfi {
+    return try FfiConverterTypeLightningLspTermsFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningLspTermsFfi_lower(_ value: LightningLspTermsFfi) -> RustBuffer {
+    return FfiConverterTypeLightningLspTermsFfi.lower(value)
+}
+
+
+/**
+ * What sending on chain is expected to cost.
+ */
+public struct LightningOnchainFeeEstimateFfi {
+    /**
+     * The expected network fee, in sats, rounded up.
+     */
+    public var feeSats: UInt64
+    /**
+     * The rate it was priced at, in sats per 1,000 virtual bytes (1.5 sat/vB
+     * is 1,500).
+     */
+    public var feeRateSatPerKvb: UInt64
+    /**
+     * The transaction's estimated size, in virtual bytes.
+     */
+    public var vbytes: UInt64
+    /**
+     * The confirmation target of the Esplora entry the rate came from, in
+     * blocks; at most the target asked for.
+     */
+    public var confirmationTargetBlocks: UInt16
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The expected network fee, in sats, rounded up.
+         */feeSats: UInt64, 
+        /**
+         * The rate it was priced at, in sats per 1,000 virtual bytes (1.5 sat/vB
+         * is 1,500).
+         */feeRateSatPerKvb: UInt64, 
+        /**
+         * The transaction's estimated size, in virtual bytes.
+         */vbytes: UInt64, 
+        /**
+         * The confirmation target of the Esplora entry the rate came from, in
+         * blocks; at most the target asked for.
+         */confirmationTargetBlocks: UInt16) {
+        self.feeSats = feeSats
+        self.feeRateSatPerKvb = feeRateSatPerKvb
+        self.vbytes = vbytes
+        self.confirmationTargetBlocks = confirmationTargetBlocks
+    }
+}
+
+#if compiler(>=6)
+extension LightningOnchainFeeEstimateFfi: Sendable {}
+#endif
+
+
+extension LightningOnchainFeeEstimateFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningOnchainFeeEstimateFfi, rhs: LightningOnchainFeeEstimateFfi) -> Bool {
+        if lhs.feeSats != rhs.feeSats {
+            return false
+        }
+        if lhs.feeRateSatPerKvb != rhs.feeRateSatPerKvb {
+            return false
+        }
+        if lhs.vbytes != rhs.vbytes {
+            return false
+        }
+        if lhs.confirmationTargetBlocks != rhs.confirmationTargetBlocks {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(feeSats)
+        hasher.combine(feeRateSatPerKvb)
+        hasher.combine(vbytes)
+        hasher.combine(confirmationTargetBlocks)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningOnchainFeeEstimateFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningOnchainFeeEstimateFfi {
+        return
+            try LightningOnchainFeeEstimateFfi(
+                feeSats: FfiConverterUInt64.read(from: &buf), 
+                feeRateSatPerKvb: FfiConverterUInt64.read(from: &buf), 
+                vbytes: FfiConverterUInt64.read(from: &buf), 
+                confirmationTargetBlocks: FfiConverterUInt16.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningOnchainFeeEstimateFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.feeSats, into: &buf)
+        FfiConverterUInt64.write(value.feeRateSatPerKvb, into: &buf)
+        FfiConverterUInt64.write(value.vbytes, into: &buf)
+        FfiConverterUInt16.write(value.confirmationTargetBlocks, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningOnchainFeeEstimateFfi_lift(_ buf: RustBuffer) throws -> LightningOnchainFeeEstimateFfi {
+    return try FfiConverterTypeLightningOnchainFeeEstimateFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningOnchainFeeEstimateFfi_lower(_ value: LightningOnchainFeeEstimateFfi) -> RustBuffer {
+    return FfiConverterTypeLightningOnchainFeeEstimateFfi.lower(value)
+}
+
+
+/**
+ * A send priced against the coins the treasury's on-chain wallet holds.
+ */
+public struct LightningOnchainSendQuoteFfi {
+    /**
+     * The fee and the rate it was priced at. Pass `fee_rate_sat_per_kvb` to
+     * [`crate::LightningTreasury::send_closed_line_funds`] so the send is
+     * made at the rate the owner saw.
+     */
+    public var fee: LightningOnchainFeeEstimateFfi
+    /**
+     * Coins the send spends.
+     */
+    public var inputCount: UInt32
+    /**
+     * Addresses it pays, counting change back to the treasury.
+     */
+    public var outputCount: UInt32
+    /**
+     * What reaches the destination address.
+     */
+    public var arrivesSats: UInt64
+    /**
+     * What leaves the treasury: `arrives_sats` plus the fee.
+     */
+    public var leavesWalletSats: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The fee and the rate it was priced at. Pass `fee_rate_sat_per_kvb` to
+         * [`crate::LightningTreasury::send_closed_line_funds`] so the send is
+         * made at the rate the owner saw.
+         */fee: LightningOnchainFeeEstimateFfi, 
+        /**
+         * Coins the send spends.
+         */inputCount: UInt32, 
+        /**
+         * Addresses it pays, counting change back to the treasury.
+         */outputCount: UInt32, 
+        /**
+         * What reaches the destination address.
+         */arrivesSats: UInt64, 
+        /**
+         * What leaves the treasury: `arrives_sats` plus the fee.
+         */leavesWalletSats: UInt64) {
+        self.fee = fee
+        self.inputCount = inputCount
+        self.outputCount = outputCount
+        self.arrivesSats = arrivesSats
+        self.leavesWalletSats = leavesWalletSats
+    }
+}
+
+#if compiler(>=6)
+extension LightningOnchainSendQuoteFfi: Sendable {}
+#endif
+
+
+extension LightningOnchainSendQuoteFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningOnchainSendQuoteFfi, rhs: LightningOnchainSendQuoteFfi) -> Bool {
+        if lhs.fee != rhs.fee {
+            return false
+        }
+        if lhs.inputCount != rhs.inputCount {
+            return false
+        }
+        if lhs.outputCount != rhs.outputCount {
+            return false
+        }
+        if lhs.arrivesSats != rhs.arrivesSats {
+            return false
+        }
+        if lhs.leavesWalletSats != rhs.leavesWalletSats {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(fee)
+        hasher.combine(inputCount)
+        hasher.combine(outputCount)
+        hasher.combine(arrivesSats)
+        hasher.combine(leavesWalletSats)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningOnchainSendQuoteFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningOnchainSendQuoteFfi {
+        return
+            try LightningOnchainSendQuoteFfi(
+                fee: FfiConverterTypeLightningOnchainFeeEstimateFfi.read(from: &buf), 
+                inputCount: FfiConverterUInt32.read(from: &buf), 
+                outputCount: FfiConverterUInt32.read(from: &buf), 
+                arrivesSats: FfiConverterUInt64.read(from: &buf), 
+                leavesWalletSats: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningOnchainSendQuoteFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeLightningOnchainFeeEstimateFfi.write(value.fee, into: &buf)
+        FfiConverterUInt32.write(value.inputCount, into: &buf)
+        FfiConverterUInt32.write(value.outputCount, into: &buf)
+        FfiConverterUInt64.write(value.arrivesSats, into: &buf)
+        FfiConverterUInt64.write(value.leavesWalletSats, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningOnchainSendQuoteFfi_lift(_ buf: RustBuffer) throws -> LightningOnchainSendQuoteFfi {
+    return try FfiConverterTypeLightningOnchainSendQuoteFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningOnchainSendQuoteFfi_lower(_ value: LightningOnchainSendQuoteFfi) -> RustBuffer {
+    return FfiConverterTypeLightningOnchainSendQuoteFfi.lower(value)
+}
+
+
+/**
+ * A Lightning service provider (LSP): the node that opens lines toward the
+ * treasury and the agents' pockets. Parsed from `node_id@host:port`, the form
+ * an operator types and the form stored in configuration.
+ */
+public struct LightningProviderFfi {
+    /**
+     * The provider's name when it is one this build knows (Megalith).
+     */
+    public var name: String?
+    /**
+     * What the owner reads: the name, or "Provider " and the start of the
+     * node id for a provider this build does not know.
+     */
+    public var displayName: String
+    /**
+     * The provider's node id, hex.
+     */
+    public var nodeId: String
+    /**
+     * `host:port` of the provider's Lightning listener.
+     */
+    public var address: String
+    /**
+     * `node_id@host:port`, normalised. Pass this back, with the token, to
+     * [`crate::LightningTreasury`]; the token is never part of it.
+     */
+    public var uri: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The provider's name when it is one this build knows (Megalith).
+         */name: String?, 
+        /**
+         * What the owner reads: the name, or "Provider " and the start of the
+         * node id for a provider this build does not know.
+         */displayName: String, 
+        /**
+         * The provider's node id, hex.
+         */nodeId: String, 
+        /**
+         * `host:port` of the provider's Lightning listener.
+         */address: String, 
+        /**
+         * `node_id@host:port`, normalised. Pass this back, with the token, to
+         * [`crate::LightningTreasury`]; the token is never part of it.
+         */uri: String) {
+        self.name = name
+        self.displayName = displayName
+        self.nodeId = nodeId
+        self.address = address
+        self.uri = uri
+    }
+}
+
+#if compiler(>=6)
+extension LightningProviderFfi: Sendable {}
+#endif
+
+
+extension LightningProviderFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningProviderFfi, rhs: LightningProviderFfi) -> Bool {
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.displayName != rhs.displayName {
+            return false
+        }
+        if lhs.nodeId != rhs.nodeId {
+            return false
+        }
+        if lhs.address != rhs.address {
+            return false
+        }
+        if lhs.uri != rhs.uri {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(displayName)
+        hasher.combine(nodeId)
+        hasher.combine(address)
+        hasher.combine(uri)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningProviderFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningProviderFfi {
+        return
+            try LightningProviderFfi(
+                name: FfiConverterOptionString.read(from: &buf), 
+                displayName: FfiConverterString.read(from: &buf), 
+                nodeId: FfiConverterString.read(from: &buf), 
+                address: FfiConverterString.read(from: &buf), 
+                uri: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningProviderFfi, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.name, into: &buf)
+        FfiConverterString.write(value.displayName, into: &buf)
+        FfiConverterString.write(value.nodeId, into: &buf)
+        FfiConverterString.write(value.address, into: &buf)
+        FfiConverterString.write(value.uri, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningProviderFfi_lift(_ buf: RustBuffer) throws -> LightningProviderFfi {
+    return try FfiConverterTypeLightningProviderFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningProviderFfi_lower(_ value: LightningProviderFfi) -> RustBuffer {
+    return FfiConverterTypeLightningProviderFfi.lower(value)
+}
+
+
+/**
+ * The provider setting the app stores and passes to
+ * [`LightningTreasury::start`].
+ */
+public struct LightningProviderSettingFfi {
+    /**
+     * `node_id@host:port`.
+     */
+    public var provider: String
+    /**
+     * The LSPS2 token the provider gave, if it requires one. A secret: store
+     * it with the other credentials, not beside the provider.
+     */
+    public var token: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * `node_id@host:port`.
+         */provider: String, 
+        /**
+         * The LSPS2 token the provider gave, if it requires one. A secret: store
+         * it with the other credentials, not beside the provider.
+         */token: String?) {
+        self.provider = provider
+        self.token = token
+    }
+}
+
+#if compiler(>=6)
+extension LightningProviderSettingFfi: Sendable {}
+#endif
+
+
+extension LightningProviderSettingFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningProviderSettingFfi, rhs: LightningProviderSettingFfi) -> Bool {
+        if lhs.provider != rhs.provider {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(provider)
+        hasher.combine(token)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningProviderSettingFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningProviderSettingFfi {
+        return
+            try LightningProviderSettingFfi(
+                provider: FfiConverterString.read(from: &buf), 
+                token: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningProviderSettingFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.provider, into: &buf)
+        FfiConverterOptionString.write(value.token, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningProviderSettingFfi_lift(_ buf: RustBuffer) throws -> LightningProviderSettingFfi {
+    return try FfiConverterTypeLightningProviderSettingFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningProviderSettingFfi_lower(_ value: LightningProviderSettingFfi) -> RustBuffer {
+    return FfiConverterTypeLightningProviderSettingFfi.lower(value)
+}
+
+
+/**
+ * An invoice for money coming into this treasury through the LSP.
+ */
+public struct LightningReceiveFfi {
+    public var invoice: String
+    /**
+     * How the money reaches this phone. `agent_receives_msat` here is what
+     * lands in the treasury: the amount less the LSP's one-time fee when it
+     * sets up a new line.
+     */
+    public var quote: LightningTopUpQuoteFfi
+    /**
+     * How much the phone's existing lines could receive when the invoice was
+     * made, in millisats.
+     */
+    public var inboundRoomMsat: UInt64
+    /**
+     * When the invoice stops being payable, in milliseconds since the Unix
+     * epoch: its signed creation time plus its signed expiry, read from the
+     * invoice itself.
+     */
+    public var expiresAtMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(invoice: String, 
+        /**
+         * How the money reaches this phone. `agent_receives_msat` here is what
+         * lands in the treasury: the amount less the LSP's one-time fee when it
+         * sets up a new line.
+         */quote: LightningTopUpQuoteFfi, 
+        /**
+         * How much the phone's existing lines could receive when the invoice was
+         * made, in millisats.
+         */inboundRoomMsat: UInt64, 
+        /**
+         * When the invoice stops being payable, in milliseconds since the Unix
+         * epoch: its signed creation time plus its signed expiry, read from the
+         * invoice itself.
+         */expiresAtMs: Int64) {
+        self.invoice = invoice
+        self.quote = quote
+        self.inboundRoomMsat = inboundRoomMsat
+        self.expiresAtMs = expiresAtMs
+    }
+}
+
+#if compiler(>=6)
+extension LightningReceiveFfi: Sendable {}
+#endif
+
+
+extension LightningReceiveFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningReceiveFfi, rhs: LightningReceiveFfi) -> Bool {
+        if lhs.invoice != rhs.invoice {
+            return false
+        }
+        if lhs.quote != rhs.quote {
+            return false
+        }
+        if lhs.inboundRoomMsat != rhs.inboundRoomMsat {
+            return false
+        }
+        if lhs.expiresAtMs != rhs.expiresAtMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(invoice)
+        hasher.combine(quote)
+        hasher.combine(inboundRoomMsat)
+        hasher.combine(expiresAtMs)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningReceiveFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningReceiveFfi {
+        return
+            try LightningReceiveFfi(
+                invoice: FfiConverterString.read(from: &buf), 
+                quote: FfiConverterTypeLightningTopUpQuoteFfi.read(from: &buf), 
+                inboundRoomMsat: FfiConverterUInt64.read(from: &buf), 
+                expiresAtMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningReceiveFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.invoice, into: &buf)
+        FfiConverterTypeLightningTopUpQuoteFfi.write(value.quote, into: &buf)
+        FfiConverterUInt64.write(value.inboundRoomMsat, into: &buf)
+        FfiConverterInt64.write(value.expiresAtMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningReceiveFfi_lift(_ buf: RustBuffer) throws -> LightningReceiveFfi {
+    return try FfiConverterTypeLightningReceiveFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningReceiveFfi_lower(_ value: LightningReceiveFfi) -> RustBuffer {
+    return FfiConverterTypeLightningReceiveFfi.lower(value)
+}
+
+
+/**
  * A Lightning top-up the owner has agreed to, validated and ready to pay.
  *
- * Reaching this value means two things have already been established: the
+ * Reaching this value means three things have already been established: the
  * invoice's amount could be read (so the number shown to the owner is real),
- * and the invoice is signed by the very side-wallet node this device derived.
- * It cannot be constructed any other way.
+ * the opening fee the daemon claimed is the one the LSP's terms produce, and
+ * the invoice is signed by the very side-wallet node this device derived. It
+ * cannot be constructed any other way.
  */
 public struct LightningRefillPrepFfi {
     /**
@@ -15611,17 +17786,41 @@ public struct LightningRefillPrepFfi {
      * key that signed `invoice`.
      */
     public var sideWalletNodeId: String
-    /**
-     * `host:port` to dial if no channel to that pocket exists yet.
-     */
-    public var peerAddress: String
     public var sessionToken: String
     /**
-     * The most the payment may cost in routing fees, in millisats. Zero: a
-     * top-up goes over the treasury's own channel to the pocket, which
-     * charges nothing, so the approved amount is exactly what leaves.
+     * The most the payment may cost in routing fees, in millisats.
      */
     public var maxRoutingFeeMsat: UInt64
+    /**
+     * The LSP the payment goes through, as the owner reads it: its name, or
+     * "Provider " and the start of its node id.
+     */
+    public var provider: String
+    /**
+     * Node id of that LSP, hex. A new line's invoice has been checked to
+     * route through it.
+     */
+    public var lspNodeId: String
+    /**
+     * The provider's terms the opening fee was priced on; present when a new
+     * line is opened.
+     */
+    public var openingFeeTerms: LightningLspTermsFfi?
+    /**
+     * What the top-up costs and what reaches the agent.
+     */
+    public var quote: LightningTopUpQuoteFfi
+    /**
+     * How much the agent's line could still receive, as the daemon reported
+     * it. A new-line top-up bigger than this is why a new line is needed.
+     */
+    public var inboundRoomMsat: UInt64
+    /**
+     * Whether the treasury's ready lines cover `quote.owner_pays_at_most_msat`
+     * (the amount, which already holds any opening fee, plus the routing-fee
+     * cap), and the shortfall when they do not.
+     */
+    public var affordability: LightningTopUpAffordabilityFfi
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -15639,22 +17838,46 @@ public struct LightningRefillPrepFfi {
         /**
          * Node id of that pocket, derived on this device and confirmed to be the
          * key that signed `invoice`.
-         */sideWalletNodeId: String, 
+         */sideWalletNodeId: String, sessionToken: String, 
         /**
-         * `host:port` to dial if no channel to that pocket exists yet.
-         */peerAddress: String, sessionToken: String, 
+         * The most the payment may cost in routing fees, in millisats.
+         */maxRoutingFeeMsat: UInt64, 
         /**
-         * The most the payment may cost in routing fees, in millisats. Zero: a
-         * top-up goes over the treasury's own channel to the pocket, which
-         * charges nothing, so the approved amount is exactly what leaves.
-         */maxRoutingFeeMsat: UInt64) {
+         * The LSP the payment goes through, as the owner reads it: its name, or
+         * "Provider " and the start of its node id.
+         */provider: String, 
+        /**
+         * Node id of that LSP, hex. A new line's invoice has been checked to
+         * route through it.
+         */lspNodeId: String, 
+        /**
+         * The provider's terms the opening fee was priced on; present when a new
+         * line is opened.
+         */openingFeeTerms: LightningLspTermsFfi?, 
+        /**
+         * What the top-up costs and what reaches the agent.
+         */quote: LightningTopUpQuoteFfi, 
+        /**
+         * How much the agent's line could still receive, as the daemon reported
+         * it. A new-line top-up bigger than this is why a new line is needed.
+         */inboundRoomMsat: UInt64, 
+        /**
+         * Whether the treasury's ready lines cover `quote.owner_pays_at_most_msat`
+         * (the amount, which already holds any opening fee, plus the routing-fee
+         * cap), and the shortfall when they do not.
+         */affordability: LightningTopUpAffordabilityFfi) {
         self.invoice = invoice
         self.amountMsat = amountMsat
         self.sideWalletIndex = sideWalletIndex
         self.sideWalletNodeId = sideWalletNodeId
-        self.peerAddress = peerAddress
         self.sessionToken = sessionToken
         self.maxRoutingFeeMsat = maxRoutingFeeMsat
+        self.provider = provider
+        self.lspNodeId = lspNodeId
+        self.openingFeeTerms = openingFeeTerms
+        self.quote = quote
+        self.inboundRoomMsat = inboundRoomMsat
+        self.affordability = affordability
     }
 }
 
@@ -15677,13 +17900,28 @@ extension LightningRefillPrepFfi: Equatable, Hashable {
         if lhs.sideWalletNodeId != rhs.sideWalletNodeId {
             return false
         }
-        if lhs.peerAddress != rhs.peerAddress {
-            return false
-        }
         if lhs.sessionToken != rhs.sessionToken {
             return false
         }
         if lhs.maxRoutingFeeMsat != rhs.maxRoutingFeeMsat {
+            return false
+        }
+        if lhs.provider != rhs.provider {
+            return false
+        }
+        if lhs.lspNodeId != rhs.lspNodeId {
+            return false
+        }
+        if lhs.openingFeeTerms != rhs.openingFeeTerms {
+            return false
+        }
+        if lhs.quote != rhs.quote {
+            return false
+        }
+        if lhs.inboundRoomMsat != rhs.inboundRoomMsat {
+            return false
+        }
+        if lhs.affordability != rhs.affordability {
             return false
         }
         return true
@@ -15694,9 +17932,14 @@ extension LightningRefillPrepFfi: Equatable, Hashable {
         hasher.combine(amountMsat)
         hasher.combine(sideWalletIndex)
         hasher.combine(sideWalletNodeId)
-        hasher.combine(peerAddress)
         hasher.combine(sessionToken)
         hasher.combine(maxRoutingFeeMsat)
+        hasher.combine(provider)
+        hasher.combine(lspNodeId)
+        hasher.combine(openingFeeTerms)
+        hasher.combine(quote)
+        hasher.combine(inboundRoomMsat)
+        hasher.combine(affordability)
     }
 }
 
@@ -15713,9 +17956,14 @@ public struct FfiConverterTypeLightningRefillPrepFfi: FfiConverterRustBuffer {
                 amountMsat: FfiConverterUInt64.read(from: &buf), 
                 sideWalletIndex: FfiConverterUInt32.read(from: &buf), 
                 sideWalletNodeId: FfiConverterString.read(from: &buf), 
-                peerAddress: FfiConverterString.read(from: &buf), 
                 sessionToken: FfiConverterString.read(from: &buf), 
-                maxRoutingFeeMsat: FfiConverterUInt64.read(from: &buf)
+                maxRoutingFeeMsat: FfiConverterUInt64.read(from: &buf), 
+                provider: FfiConverterString.read(from: &buf), 
+                lspNodeId: FfiConverterString.read(from: &buf), 
+                openingFeeTerms: FfiConverterOptionTypeLightningLspTermsFfi.read(from: &buf), 
+                quote: FfiConverterTypeLightningTopUpQuoteFfi.read(from: &buf), 
+                inboundRoomMsat: FfiConverterUInt64.read(from: &buf), 
+                affordability: FfiConverterTypeLightningTopUpAffordabilityFfi.read(from: &buf)
         )
     }
 
@@ -15724,9 +17972,14 @@ public struct FfiConverterTypeLightningRefillPrepFfi: FfiConverterRustBuffer {
         FfiConverterUInt64.write(value.amountMsat, into: &buf)
         FfiConverterUInt32.write(value.sideWalletIndex, into: &buf)
         FfiConverterString.write(value.sideWalletNodeId, into: &buf)
-        FfiConverterString.write(value.peerAddress, into: &buf)
         FfiConverterString.write(value.sessionToken, into: &buf)
         FfiConverterUInt64.write(value.maxRoutingFeeMsat, into: &buf)
+        FfiConverterString.write(value.provider, into: &buf)
+        FfiConverterString.write(value.lspNodeId, into: &buf)
+        FfiConverterOptionTypeLightningLspTermsFfi.write(value.openingFeeTerms, into: &buf)
+        FfiConverterTypeLightningTopUpQuoteFfi.write(value.quote, into: &buf)
+        FfiConverterUInt64.write(value.inboundRoomMsat, into: &buf)
+        FfiConverterTypeLightningTopUpAffordabilityFfi.write(value.affordability, into: &buf)
     }
 }
 
@@ -15830,6 +18083,127 @@ public func FfiConverterTypeLightningReturningFundsFfi_lift(_ buf: RustBuffer) t
 #endif
 public func FfiConverterTypeLightningReturningFundsFfi_lower(_ value: LightningReturningFundsFfi) -> RustBuffer {
     return FfiConverterTypeLightningReturningFundsFfi.lower(value)
+}
+
+
+/**
+ * What a top-up costs the owner and what reaches the agent, in millisats.
+ */
+public struct LightningTopUpQuoteFfi {
+    /**
+     * What the owner sends, before routing fees.
+     */
+    public var amountMsat: UInt64
+    public var route: LightningTopUpRouteFfi
+    /**
+     * What lands in the agent's pocket: the amount less any opening fee.
+     */
+    public var agentReceivesMsat: UInt64
+    /**
+     * The routing-fee limit the payment is sent with.
+     */
+    public var maxRoutingFeeMsat: UInt64
+    /**
+     * The most that can leave the owner's balance.
+     */
+    public var ownerPaysAtMostMsat: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * What the owner sends, before routing fees.
+         */amountMsat: UInt64, route: LightningTopUpRouteFfi, 
+        /**
+         * What lands in the agent's pocket: the amount less any opening fee.
+         */agentReceivesMsat: UInt64, 
+        /**
+         * The routing-fee limit the payment is sent with.
+         */maxRoutingFeeMsat: UInt64, 
+        /**
+         * The most that can leave the owner's balance.
+         */ownerPaysAtMostMsat: UInt64) {
+        self.amountMsat = amountMsat
+        self.route = route
+        self.agentReceivesMsat = agentReceivesMsat
+        self.maxRoutingFeeMsat = maxRoutingFeeMsat
+        self.ownerPaysAtMostMsat = ownerPaysAtMostMsat
+    }
+}
+
+#if compiler(>=6)
+extension LightningTopUpQuoteFfi: Sendable {}
+#endif
+
+
+extension LightningTopUpQuoteFfi: Equatable, Hashable {
+    public static func ==(lhs: LightningTopUpQuoteFfi, rhs: LightningTopUpQuoteFfi) -> Bool {
+        if lhs.amountMsat != rhs.amountMsat {
+            return false
+        }
+        if lhs.route != rhs.route {
+            return false
+        }
+        if lhs.agentReceivesMsat != rhs.agentReceivesMsat {
+            return false
+        }
+        if lhs.maxRoutingFeeMsat != rhs.maxRoutingFeeMsat {
+            return false
+        }
+        if lhs.ownerPaysAtMostMsat != rhs.ownerPaysAtMostMsat {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(amountMsat)
+        hasher.combine(route)
+        hasher.combine(agentReceivesMsat)
+        hasher.combine(maxRoutingFeeMsat)
+        hasher.combine(ownerPaysAtMostMsat)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningTopUpQuoteFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningTopUpQuoteFfi {
+        return
+            try LightningTopUpQuoteFfi(
+                amountMsat: FfiConverterUInt64.read(from: &buf), 
+                route: FfiConverterTypeLightningTopUpRouteFfi.read(from: &buf), 
+                agentReceivesMsat: FfiConverterUInt64.read(from: &buf), 
+                maxRoutingFeeMsat: FfiConverterUInt64.read(from: &buf), 
+                ownerPaysAtMostMsat: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LightningTopUpQuoteFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.amountMsat, into: &buf)
+        FfiConverterTypeLightningTopUpRouteFfi.write(value.route, into: &buf)
+        FfiConverterUInt64.write(value.agentReceivesMsat, into: &buf)
+        FfiConverterUInt64.write(value.maxRoutingFeeMsat, into: &buf)
+        FfiConverterUInt64.write(value.ownerPaysAtMostMsat, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningTopUpQuoteFfi_lift(_ buf: RustBuffer) throws -> LightningTopUpQuoteFfi {
+    return try FfiConverterTypeLightningTopUpQuoteFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningTopUpQuoteFfi_lower(_ value: LightningTopUpQuoteFfi) -> RustBuffer {
+    return FfiConverterTypeLightningTopUpQuoteFfi.lower(value)
 }
 
 
@@ -16362,19 +18736,25 @@ public func FfiConverterTypeLiveGrant_lower(_ value: LiveGrant) -> RustBuffer {
 
 
 /**
- * A spending mandate: one token, a per-transaction ceiling and a daily cap.
+ * A spending mandate: one token, one amount, one period.
  */
 public struct MandateFfi {
     public var token: String
-    public var maxPerTxHex: String
-    public var dailyMaxHex: String
+    public var amountHex: String
+    /**
+     * Seconds between refills; `0` is a one-time allowance.
+     */
+    public var periodSeconds: UInt64
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(token: String, maxPerTxHex: String, dailyMaxHex: String) {
+    public init(token: String, amountHex: String, 
+        /**
+         * Seconds between refills; `0` is a one-time allowance.
+         */periodSeconds: UInt64) {
         self.token = token
-        self.maxPerTxHex = maxPerTxHex
-        self.dailyMaxHex = dailyMaxHex
+        self.amountHex = amountHex
+        self.periodSeconds = periodSeconds
     }
 }
 
@@ -16388,10 +18768,10 @@ extension MandateFfi: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
-        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+        if lhs.amountHex != rhs.amountHex {
             return false
         }
-        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         return true
@@ -16399,8 +18779,8 @@ extension MandateFfi: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(token)
-        hasher.combine(maxPerTxHex)
-        hasher.combine(dailyMaxHex)
+        hasher.combine(amountHex)
+        hasher.combine(periodSeconds)
     }
 }
 
@@ -16414,15 +18794,15 @@ public struct FfiConverterTypeMandateFfi: FfiConverterRustBuffer {
         return
             try MandateFfi(
                 token: FfiConverterString.read(from: &buf), 
-                maxPerTxHex: FfiConverterString.read(from: &buf), 
-                dailyMaxHex: FfiConverterString.read(from: &buf)
+                amountHex: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: MandateFfi, into buf: inout [UInt8]) {
         FfiConverterString.write(value.token, into: &buf)
-        FfiConverterString.write(value.maxPerTxHex, into: &buf)
-        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
     }
 }
 
@@ -16439,6 +18819,103 @@ public func FfiConverterTypeMandateFfi_lift(_ buf: RustBuffer) throws -> Mandate
 #endif
 public func FfiConverterTypeMandateFfi_lower(_ value: MandateFfi) -> RustBuffer {
     return FfiConverterTypeMandateFfi.lower(value)
+}
+
+
+/**
+ * A contract a chain lacks for a first deploy.
+ */
+public struct MissingDeployContractFfi {
+    public var chainId: UInt64
+    public var contract: DeployContractFfi
+    public var name: String
+    public var address: String
+    public var reason: MissingDeployContractReasonFfi
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(chainId: UInt64, contract: DeployContractFfi, name: String, address: String, reason: MissingDeployContractReasonFfi) {
+        self.chainId = chainId
+        self.contract = contract
+        self.name = name
+        self.address = address
+        self.reason = reason
+    }
+}
+
+#if compiler(>=6)
+extension MissingDeployContractFfi: Sendable {}
+#endif
+
+
+extension MissingDeployContractFfi: Equatable, Hashable {
+    public static func ==(lhs: MissingDeployContractFfi, rhs: MissingDeployContractFfi) -> Bool {
+        if lhs.chainId != rhs.chainId {
+            return false
+        }
+        if lhs.contract != rhs.contract {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.address != rhs.address {
+            return false
+        }
+        if lhs.reason != rhs.reason {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(chainId)
+        hasher.combine(contract)
+        hasher.combine(name)
+        hasher.combine(address)
+        hasher.combine(reason)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMissingDeployContractFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MissingDeployContractFfi {
+        return
+            try MissingDeployContractFfi(
+                chainId: FfiConverterUInt64.read(from: &buf), 
+                contract: FfiConverterTypeDeployContractFfi.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                address: FfiConverterString.read(from: &buf), 
+                reason: FfiConverterTypeMissingDeployContractReasonFfi.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MissingDeployContractFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.chainId, into: &buf)
+        FfiConverterTypeDeployContractFfi.write(value.contract, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterString.write(value.address, into: &buf)
+        FfiConverterTypeMissingDeployContractReasonFfi.write(value.reason, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMissingDeployContractFfi_lift(_ buf: RustBuffer) throws -> MissingDeployContractFfi {
+    return try FfiConverterTypeMissingDeployContractFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMissingDeployContractFfi_lower(_ value: MissingDeployContractFfi) -> RustBuffer {
+    return FfiConverterTypeMissingDeployContractFfi.lower(value)
 }
 
 
@@ -17682,6 +20159,208 @@ public func FfiConverterTypeOwnerCctpMoveRequestFfi_lower(_ value: OwnerCctpMove
 
 
 /**
+ * All inputs to [`prepare_owner_cctp_move_to_solana`].
+ */
+public struct OwnerCctpMoveToSolanaRequestFfi {
+    public var fromChainId: UInt64
+    public var toCluster: String
+    public var amountHex: String
+    public var safe: String
+    public var webauthnSigner: String
+    public var vaultAddress: String
+    public var rpcUrl: String
+    public var bundlerUrl: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(fromChainId: UInt64, toCluster: String, amountHex: String, safe: String, webauthnSigner: String, vaultAddress: String, rpcUrl: String, bundlerUrl: String) {
+        self.fromChainId = fromChainId
+        self.toCluster = toCluster
+        self.amountHex = amountHex
+        self.safe = safe
+        self.webauthnSigner = webauthnSigner
+        self.vaultAddress = vaultAddress
+        self.rpcUrl = rpcUrl
+        self.bundlerUrl = bundlerUrl
+    }
+}
+
+#if compiler(>=6)
+extension OwnerCctpMoveToSolanaRequestFfi: Sendable {}
+#endif
+
+
+extension OwnerCctpMoveToSolanaRequestFfi: Equatable, Hashable {
+    public static func ==(lhs: OwnerCctpMoveToSolanaRequestFfi, rhs: OwnerCctpMoveToSolanaRequestFfi) -> Bool {
+        if lhs.fromChainId != rhs.fromChainId {
+            return false
+        }
+        if lhs.toCluster != rhs.toCluster {
+            return false
+        }
+        if lhs.amountHex != rhs.amountHex {
+            return false
+        }
+        if lhs.safe != rhs.safe {
+            return false
+        }
+        if lhs.webauthnSigner != rhs.webauthnSigner {
+            return false
+        }
+        if lhs.vaultAddress != rhs.vaultAddress {
+            return false
+        }
+        if lhs.rpcUrl != rhs.rpcUrl {
+            return false
+        }
+        if lhs.bundlerUrl != rhs.bundlerUrl {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(fromChainId)
+        hasher.combine(toCluster)
+        hasher.combine(amountHex)
+        hasher.combine(safe)
+        hasher.combine(webauthnSigner)
+        hasher.combine(vaultAddress)
+        hasher.combine(rpcUrl)
+        hasher.combine(bundlerUrl)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeOwnerCctpMoveToSolanaRequestFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OwnerCctpMoveToSolanaRequestFfi {
+        return
+            try OwnerCctpMoveToSolanaRequestFfi(
+                fromChainId: FfiConverterUInt64.read(from: &buf), 
+                toCluster: FfiConverterString.read(from: &buf), 
+                amountHex: FfiConverterString.read(from: &buf), 
+                safe: FfiConverterString.read(from: &buf), 
+                webauthnSigner: FfiConverterString.read(from: &buf), 
+                vaultAddress: FfiConverterString.read(from: &buf), 
+                rpcUrl: FfiConverterString.read(from: &buf), 
+                bundlerUrl: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: OwnerCctpMoveToSolanaRequestFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.fromChainId, into: &buf)
+        FfiConverterString.write(value.toCluster, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+        FfiConverterString.write(value.safe, into: &buf)
+        FfiConverterString.write(value.webauthnSigner, into: &buf)
+        FfiConverterString.write(value.vaultAddress, into: &buf)
+        FfiConverterString.write(value.rpcUrl, into: &buf)
+        FfiConverterString.write(value.bundlerUrl, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerCctpMoveToSolanaRequestFfi_lift(_ buf: RustBuffer) throws -> OwnerCctpMoveToSolanaRequestFfi {
+    return try FfiConverterTypeOwnerCctpMoveToSolanaRequestFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerCctpMoveToSolanaRequestFfi_lower(_ value: OwnerCctpMoveToSolanaRequestFfi) -> RustBuffer {
+    return FfiConverterTypeOwnerCctpMoveToSolanaRequestFfi.lower(value)
+}
+
+
+/**
+ * The burn of a move to Solana, ready for the owner's passkey.
+ */
+public struct OwnerCctpNetworkMovePreparedFfi {
+    public var prepared: OwnerFundedPreparedFfi
+    public var plan: CctpNetworkPlanFfi
+    public var route: CctpBurnRouteFfi
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(prepared: OwnerFundedPreparedFfi, plan: CctpNetworkPlanFfi, route: CctpBurnRouteFfi) {
+        self.prepared = prepared
+        self.plan = plan
+        self.route = route
+    }
+}
+
+#if compiler(>=6)
+extension OwnerCctpNetworkMovePreparedFfi: Sendable {}
+#endif
+
+
+extension OwnerCctpNetworkMovePreparedFfi: Equatable, Hashable {
+    public static func ==(lhs: OwnerCctpNetworkMovePreparedFfi, rhs: OwnerCctpNetworkMovePreparedFfi) -> Bool {
+        if lhs.prepared != rhs.prepared {
+            return false
+        }
+        if lhs.plan != rhs.plan {
+            return false
+        }
+        if lhs.route != rhs.route {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(prepared)
+        hasher.combine(plan)
+        hasher.combine(route)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeOwnerCctpNetworkMovePreparedFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OwnerCctpNetworkMovePreparedFfi {
+        return
+            try OwnerCctpNetworkMovePreparedFfi(
+                prepared: FfiConverterTypeOwnerFundedPreparedFfi.read(from: &buf), 
+                plan: FfiConverterTypeCctpNetworkPlanFfi.read(from: &buf), 
+                route: FfiConverterTypeCctpBurnRouteFfi.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: OwnerCctpNetworkMovePreparedFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeOwnerFundedPreparedFfi.write(value.prepared, into: &buf)
+        FfiConverterTypeCctpNetworkPlanFfi.write(value.plan, into: &buf)
+        FfiConverterTypeCctpBurnRouteFfi.write(value.route, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerCctpNetworkMovePreparedFfi_lift(_ buf: RustBuffer) throws -> OwnerCctpNetworkMovePreparedFfi {
+    return try FfiConverterTypeOwnerCctpNetworkMovePreparedFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerCctpNetworkMovePreparedFfi_lower(_ value: OwnerCctpNetworkMovePreparedFfi) -> RustBuffer {
+    return FfiConverterTypeOwnerCctpNetworkMovePreparedFfi.lower(value)
+}
+
+
+/**
  * The owner-funded sibling of [`AgentToggleSummaryFfi`].
  */
 public struct OwnerFundedAgentToggleSummaryFfi {
@@ -18328,16 +21007,16 @@ public struct OwnerSolanaLimitFfi {
     public var pocket: String
     public var amount: String
     public var decimals: UInt32
-    public var period: SolanaPeriod
+    public var periodSeconds: PeriodSeconds
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(mint: String, pocket: String, amount: String, decimals: UInt32, period: SolanaPeriod) {
+    public init(mint: String, pocket: String, amount: String, decimals: UInt32, periodSeconds: PeriodSeconds) {
         self.mint = mint
         self.pocket = pocket
         self.amount = amount
         self.decimals = decimals
-        self.period = period
+        self.periodSeconds = periodSeconds
     }
 }
 
@@ -18360,7 +21039,7 @@ extension OwnerSolanaLimitFfi: Equatable, Hashable {
         if lhs.decimals != rhs.decimals {
             return false
         }
-        if lhs.period != rhs.period {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         return true
@@ -18371,7 +21050,7 @@ extension OwnerSolanaLimitFfi: Equatable, Hashable {
         hasher.combine(pocket)
         hasher.combine(amount)
         hasher.combine(decimals)
-        hasher.combine(period)
+        hasher.combine(periodSeconds)
     }
 }
 
@@ -18388,7 +21067,7 @@ public struct FfiConverterTypeOwnerSolanaLimitFfi: FfiConverterRustBuffer {
                 pocket: FfiConverterString.read(from: &buf), 
                 amount: FfiConverterString.read(from: &buf), 
                 decimals: FfiConverterUInt32.read(from: &buf), 
-                period: FfiConverterTypeSolanaPeriod.read(from: &buf)
+                periodSeconds: FfiConverterTypePeriodSeconds.read(from: &buf)
         )
     }
 
@@ -18397,7 +21076,7 @@ public struct FfiConverterTypeOwnerSolanaLimitFfi: FfiConverterRustBuffer {
         FfiConverterString.write(value.pocket, into: &buf)
         FfiConverterString.write(value.amount, into: &buf)
         FfiConverterUInt32.write(value.decimals, into: &buf)
-        FfiConverterTypeSolanaPeriod.write(value.period, into: &buf)
+        FfiConverterTypePeriodSeconds.write(value.periodSeconds, into: &buf)
     }
 }
 
@@ -19423,15 +22102,15 @@ public struct PausedSolanaAllowanceFfi {
     public var mint: String
     public var pocket: String
     public var ceiling: String
-    public var period: SolanaPeriod
+    public var periodSeconds: PeriodSeconds
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(mint: String, pocket: String, ceiling: String, period: SolanaPeriod) {
+    public init(mint: String, pocket: String, ceiling: String, periodSeconds: PeriodSeconds) {
         self.mint = mint
         self.pocket = pocket
         self.ceiling = ceiling
-        self.period = period
+        self.periodSeconds = periodSeconds
     }
 }
 
@@ -19451,7 +22130,7 @@ extension PausedSolanaAllowanceFfi: Equatable, Hashable {
         if lhs.ceiling != rhs.ceiling {
             return false
         }
-        if lhs.period != rhs.period {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         return true
@@ -19461,7 +22140,7 @@ extension PausedSolanaAllowanceFfi: Equatable, Hashable {
         hasher.combine(mint)
         hasher.combine(pocket)
         hasher.combine(ceiling)
-        hasher.combine(period)
+        hasher.combine(periodSeconds)
     }
 }
 
@@ -19477,7 +22156,7 @@ public struct FfiConverterTypePausedSolanaAllowanceFfi: FfiConverterRustBuffer {
                 mint: FfiConverterString.read(from: &buf), 
                 pocket: FfiConverterString.read(from: &buf), 
                 ceiling: FfiConverterString.read(from: &buf), 
-                period: FfiConverterTypeSolanaPeriod.read(from: &buf)
+                periodSeconds: FfiConverterTypePeriodSeconds.read(from: &buf)
         )
     }
 
@@ -19485,7 +22164,7 @@ public struct FfiConverterTypePausedSolanaAllowanceFfi: FfiConverterRustBuffer {
         FfiConverterString.write(value.mint, into: &buf)
         FfiConverterString.write(value.pocket, into: &buf)
         FfiConverterString.write(value.ceiling, into: &buf)
-        FfiConverterTypeSolanaPeriod.write(value.period, into: &buf)
+        FfiConverterTypePeriodSeconds.write(value.periodSeconds, into: &buf)
     }
 }
 
@@ -19584,6 +22263,105 @@ public func FfiConverterTypePausedTempoLimitFfi_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypePausedTempoLimitFfi_lower(_ value: PausedTempoLimitFfi) -> RustBuffer {
     return FfiConverterTypePausedTempoLimitFfi.lower(value)
+}
+
+
+/**
+ * A scanned payment request, every field checked against the registries.
+ * `amount_base_units` is in the token's smallest unit; `None` means the
+ * payer chooses.
+ */
+public struct PaymentRequestFfi {
+    public var network: ChainRefFfi
+    public var token: String
+    public var recipient: String
+    public var amountBaseUnits: String?
+    public var decimals: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(network: ChainRefFfi, token: String, recipient: String, amountBaseUnits: String?, decimals: UInt32) {
+        self.network = network
+        self.token = token
+        self.recipient = recipient
+        self.amountBaseUnits = amountBaseUnits
+        self.decimals = decimals
+    }
+}
+
+#if compiler(>=6)
+extension PaymentRequestFfi: Sendable {}
+#endif
+
+
+extension PaymentRequestFfi: Equatable, Hashable {
+    public static func ==(lhs: PaymentRequestFfi, rhs: PaymentRequestFfi) -> Bool {
+        if lhs.network != rhs.network {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        if lhs.recipient != rhs.recipient {
+            return false
+        }
+        if lhs.amountBaseUnits != rhs.amountBaseUnits {
+            return false
+        }
+        if lhs.decimals != rhs.decimals {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(network)
+        hasher.combine(token)
+        hasher.combine(recipient)
+        hasher.combine(amountBaseUnits)
+        hasher.combine(decimals)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePaymentRequestFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PaymentRequestFfi {
+        return
+            try PaymentRequestFfi(
+                network: FfiConverterTypeChainRefFfi.read(from: &buf), 
+                token: FfiConverterString.read(from: &buf), 
+                recipient: FfiConverterString.read(from: &buf), 
+                amountBaseUnits: FfiConverterOptionString.read(from: &buf), 
+                decimals: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PaymentRequestFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeChainRefFfi.write(value.network, into: &buf)
+        FfiConverterString.write(value.token, into: &buf)
+        FfiConverterString.write(value.recipient, into: &buf)
+        FfiConverterOptionString.write(value.amountBaseUnits, into: &buf)
+        FfiConverterUInt32.write(value.decimals, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentRequestFfi_lift(_ buf: RustBuffer) throws -> PaymentRequestFfi {
+    return try FfiConverterTypePaymentRequestFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentRequestFfi_lower(_ value: PaymentRequestFfi) -> RustBuffer {
+    return FfiConverterTypePaymentRequestFfi.lower(value)
 }
 
 
@@ -19770,6 +22548,88 @@ public func FfiConverterTypePendingInviteRow_lift(_ buf: RustBuffer) throws -> P
 #endif
 public func FfiConverterTypePendingInviteRow_lower(_ value: PendingInviteRow) -> RustBuffer {
     return FfiConverterTypePendingInviteRow.lower(value)
+}
+
+
+/**
+ * What the control shows: a segment, and for `Custom` the count as typed and
+ * its unit.
+ */
+public struct PeriodDraftFfi {
+    public var preset: PeriodPresetFfi
+    public var count: String
+    public var unit: PeriodUnitFfi
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(preset: PeriodPresetFfi, count: String, unit: PeriodUnitFfi) {
+        self.preset = preset
+        self.count = count
+        self.unit = unit
+    }
+}
+
+#if compiler(>=6)
+extension PeriodDraftFfi: Sendable {}
+#endif
+
+
+extension PeriodDraftFfi: Equatable, Hashable {
+    public static func ==(lhs: PeriodDraftFfi, rhs: PeriodDraftFfi) -> Bool {
+        if lhs.preset != rhs.preset {
+            return false
+        }
+        if lhs.count != rhs.count {
+            return false
+        }
+        if lhs.unit != rhs.unit {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(preset)
+        hasher.combine(count)
+        hasher.combine(unit)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeriodDraftFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeriodDraftFfi {
+        return
+            try PeriodDraftFfi(
+                preset: FfiConverterTypePeriodPresetFfi.read(from: &buf), 
+                count: FfiConverterString.read(from: &buf), 
+                unit: FfiConverterTypePeriodUnitFfi.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PeriodDraftFfi, into buf: inout [UInt8]) {
+        FfiConverterTypePeriodPresetFfi.write(value.preset, into: &buf)
+        FfiConverterString.write(value.count, into: &buf)
+        FfiConverterTypePeriodUnitFfi.write(value.unit, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodDraftFfi_lift(_ buf: RustBuffer) throws -> PeriodDraftFfi {
+    return try FfiConverterTypePeriodDraftFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodDraftFfi_lower(_ value: PeriodDraftFfi) -> RustBuffer {
+    return FfiConverterTypePeriodDraftFfi.lower(value)
 }
 
 
@@ -21948,23 +24808,15 @@ public struct SideWalletPeerFfi {
      * Derived on this device from the treasury seed.
      */
     public var nodeId: String
-    /**
-     * `host:port` the pocket listens on, once known. A dial hint only.
-     */
-    public var peerAddress: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(sideWalletIndex: UInt32, 
         /**
          * Derived on this device from the treasury seed.
-         */nodeId: String, 
-        /**
-         * `host:port` the pocket listens on, once known. A dial hint only.
-         */peerAddress: String?) {
+         */nodeId: String) {
         self.sideWalletIndex = sideWalletIndex
         self.nodeId = nodeId
-        self.peerAddress = peerAddress
     }
 }
 
@@ -21981,16 +24833,12 @@ extension SideWalletPeerFfi: Equatable, Hashable {
         if lhs.nodeId != rhs.nodeId {
             return false
         }
-        if lhs.peerAddress != rhs.peerAddress {
-            return false
-        }
         return true
     }
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(sideWalletIndex)
         hasher.combine(nodeId)
-        hasher.combine(peerAddress)
     }
 }
 
@@ -22004,15 +24852,13 @@ public struct FfiConverterTypeSideWalletPeerFfi: FfiConverterRustBuffer {
         return
             try SideWalletPeerFfi(
                 sideWalletIndex: FfiConverterUInt32.read(from: &buf), 
-                nodeId: FfiConverterString.read(from: &buf), 
-                peerAddress: FfiConverterOptionString.read(from: &buf)
+                nodeId: FfiConverterString.read(from: &buf)
         )
     }
 
     public static func write(_ value: SideWalletPeerFfi, into buf: inout [UInt8]) {
         FfiConverterUInt32.write(value.sideWalletIndex, into: &buf)
         FfiConverterString.write(value.nodeId, into: &buf)
-        FfiConverterOptionString.write(value.peerAddress, into: &buf)
     }
 }
 
@@ -22453,15 +25299,19 @@ public struct SolanaAgentLimitFfi {
      * Per-period ceiling in the token's smallest unit, decimal string.
      */
     public var ceiling: String
-    public var period: SolanaPeriod
     /**
-     * Refillable capacity left in the current period, decimal string.
+     * Spend-limit period in seconds (0 = one-time).
+     */
+    public var periodSeconds: UInt64
+    /**
+     * Capacity left as stored on chain, decimal string. Once `period_end`
+     * has passed, the next refill starts a fresh period at the full ceiling.
      */
     public var remaining: String
     /**
-     * Unix seconds of the last period reset.
+     * Unix seconds at which the current period ends (0 for one-time).
      */
-    public var lastReset: Int64
+    public var periodEnd: Int64
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -22471,18 +25321,22 @@ public struct SolanaAgentLimitFfi {
          */pocket: String, 
         /**
          * Per-period ceiling in the token's smallest unit, decimal string.
-         */ceiling: String, period: SolanaPeriod, 
+         */ceiling: String, 
         /**
-         * Refillable capacity left in the current period, decimal string.
+         * Spend-limit period in seconds (0 = one-time).
+         */periodSeconds: UInt64, 
+        /**
+         * Capacity left as stored on chain, decimal string. Once `period_end`
+         * has passed, the next refill starts a fresh period at the full ceiling.
          */remaining: String, 
         /**
-         * Unix seconds of the last period reset.
-         */lastReset: Int64) {
+         * Unix seconds at which the current period ends (0 for one-time).
+         */periodEnd: Int64) {
         self.pocket = pocket
         self.ceiling = ceiling
-        self.period = period
+        self.periodSeconds = periodSeconds
         self.remaining = remaining
-        self.lastReset = lastReset
+        self.periodEnd = periodEnd
     }
 }
 
@@ -22499,13 +25353,13 @@ extension SolanaAgentLimitFfi: Equatable, Hashable {
         if lhs.ceiling != rhs.ceiling {
             return false
         }
-        if lhs.period != rhs.period {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         if lhs.remaining != rhs.remaining {
             return false
         }
-        if lhs.lastReset != rhs.lastReset {
+        if lhs.periodEnd != rhs.periodEnd {
             return false
         }
         return true
@@ -22514,9 +25368,9 @@ extension SolanaAgentLimitFfi: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(pocket)
         hasher.combine(ceiling)
-        hasher.combine(period)
+        hasher.combine(periodSeconds)
         hasher.combine(remaining)
-        hasher.combine(lastReset)
+        hasher.combine(periodEnd)
     }
 }
 
@@ -22531,18 +25385,18 @@ public struct FfiConverterTypeSolanaAgentLimitFfi: FfiConverterRustBuffer {
             try SolanaAgentLimitFfi(
                 pocket: FfiConverterString.read(from: &buf), 
                 ceiling: FfiConverterString.read(from: &buf), 
-                period: FfiConverterTypeSolanaPeriod.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
                 remaining: FfiConverterString.read(from: &buf), 
-                lastReset: FfiConverterInt64.read(from: &buf)
+                periodEnd: FfiConverterInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: SolanaAgentLimitFfi, into buf: inout [UInt8]) {
         FfiConverterString.write(value.pocket, into: &buf)
         FfiConverterString.write(value.ceiling, into: &buf)
-        FfiConverterTypeSolanaPeriod.write(value.period, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
         FfiConverterString.write(value.remaining, into: &buf)
-        FfiConverterInt64.write(value.lastReset, into: &buf)
+        FfiConverterInt64.write(value.periodEnd, into: &buf)
     }
 }
 
@@ -22559,6 +25413,145 @@ public func FfiConverterTypeSolanaAgentLimitFfi_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeSolanaAgentLimitFfi_lower(_ value: SolanaAgentLimitFfi) -> RustBuffer {
     return FfiConverterTypeSolanaAgentLimitFfi.lower(value)
+}
+
+
+/**
+ * The Solana base fee, in lamports per signature. Never zero.
+ */
+public struct SolanaBaseFeeFfi {
+    public var lamportsPerSignature: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(lamportsPerSignature: UInt64) {
+        self.lamportsPerSignature = lamportsPerSignature
+    }
+}
+
+#if compiler(>=6)
+extension SolanaBaseFeeFfi: Sendable {}
+#endif
+
+
+extension SolanaBaseFeeFfi: Equatable, Hashable {
+    public static func ==(lhs: SolanaBaseFeeFfi, rhs: SolanaBaseFeeFfi) -> Bool {
+        if lhs.lamportsPerSignature != rhs.lamportsPerSignature {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(lamportsPerSignature)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaBaseFeeFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaBaseFeeFfi {
+        return
+            try SolanaBaseFeeFfi(
+                lamportsPerSignature: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SolanaBaseFeeFfi, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.lamportsPerSignature, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaBaseFeeFfi_lift(_ buf: RustBuffer) throws -> SolanaBaseFeeFfi {
+    return try FfiConverterTypeSolanaBaseFeeFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaBaseFeeFfi_lower(_ value: SolanaBaseFeeFfi) -> RustBuffer {
+    return FfiConverterTypeSolanaBaseFeeFfi.lower(value)
+}
+
+
+/**
+ * The Solana base fee costs are shown at, and whether it was read live
+ * rather than taken from the pinned default.
+ */
+public struct SolanaBaseFeeReadingFfi {
+    public var baseFee: SolanaBaseFeeFfi
+    public var measured: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(baseFee: SolanaBaseFeeFfi, measured: Bool) {
+        self.baseFee = baseFee
+        self.measured = measured
+    }
+}
+
+#if compiler(>=6)
+extension SolanaBaseFeeReadingFfi: Sendable {}
+#endif
+
+
+extension SolanaBaseFeeReadingFfi: Equatable, Hashable {
+    public static func ==(lhs: SolanaBaseFeeReadingFfi, rhs: SolanaBaseFeeReadingFfi) -> Bool {
+        if lhs.baseFee != rhs.baseFee {
+            return false
+        }
+        if lhs.measured != rhs.measured {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(baseFee)
+        hasher.combine(measured)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaBaseFeeReadingFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaBaseFeeReadingFfi {
+        return
+            try SolanaBaseFeeReadingFfi(
+                baseFee: FfiConverterTypeSolanaBaseFeeFfi.read(from: &buf), 
+                measured: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SolanaBaseFeeReadingFfi, into buf: inout [UInt8]) {
+        FfiConverterTypeSolanaBaseFeeFfi.write(value.baseFee, into: &buf)
+        FfiConverterBool.write(value.measured, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaBaseFeeReadingFfi_lift(_ buf: RustBuffer) throws -> SolanaBaseFeeReadingFfi {
+    return try FfiConverterTypeSolanaBaseFeeReadingFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaBaseFeeReadingFfi_lower(_ value: SolanaBaseFeeReadingFfi) -> RustBuffer {
+    return FfiConverterTypeSolanaBaseFeeReadingFfi.lower(value)
 }
 
 
@@ -22898,15 +25891,19 @@ public struct SolanaGuardLimitsFfi {
      * Global aggregate per-period refill ceiling, decimal string.
      */
     public var ceiling: String
-    public var period: SolanaPeriod
     /**
-     * Global refillable capacity left in the current period, decimal string.
+     * Spend-limit period in seconds (0 = one-time).
+     */
+    public var periodSeconds: UInt64
+    /**
+     * Global capacity left as stored on chain, decimal string. Once
+     * `period_end` has passed, the next refill starts a fresh period.
      */
     public var remaining: String
     /**
-     * Unix seconds of the last global period reset.
+     * Unix seconds at which the current period ends (0 for one-time).
      */
-    public var lastReset: Int64
+    public var periodEnd: Int64
     public var agents: [SolanaAgentLimitFfi]
 
     // Default memberwise initializers are never public by default, so we
@@ -22923,20 +25920,24 @@ public struct SolanaGuardLimitsFfi {
          */mint: String, 
         /**
          * Global aggregate per-period refill ceiling, decimal string.
-         */ceiling: String, period: SolanaPeriod, 
+         */ceiling: String, 
         /**
-         * Global refillable capacity left in the current period, decimal string.
+         * Spend-limit period in seconds (0 = one-time).
+         */periodSeconds: UInt64, 
+        /**
+         * Global capacity left as stored on chain, decimal string. Once
+         * `period_end` has passed, the next refill starts a fresh period.
          */remaining: String, 
         /**
-         * Unix seconds of the last global period reset.
-         */lastReset: Int64, agents: [SolanaAgentLimitFfi]) {
+         * Unix seconds at which the current period ends (0 for one-time).
+         */periodEnd: Int64, agents: [SolanaAgentLimitFfi]) {
         self.guardPda = guardPda
         self.vault = vault
         self.mint = mint
         self.ceiling = ceiling
-        self.period = period
+        self.periodSeconds = periodSeconds
         self.remaining = remaining
-        self.lastReset = lastReset
+        self.periodEnd = periodEnd
         self.agents = agents
     }
 }
@@ -22960,13 +25961,13 @@ extension SolanaGuardLimitsFfi: Equatable, Hashable {
         if lhs.ceiling != rhs.ceiling {
             return false
         }
-        if lhs.period != rhs.period {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         if lhs.remaining != rhs.remaining {
             return false
         }
-        if lhs.lastReset != rhs.lastReset {
+        if lhs.periodEnd != rhs.periodEnd {
             return false
         }
         if lhs.agents != rhs.agents {
@@ -22980,9 +25981,9 @@ extension SolanaGuardLimitsFfi: Equatable, Hashable {
         hasher.combine(vault)
         hasher.combine(mint)
         hasher.combine(ceiling)
-        hasher.combine(period)
+        hasher.combine(periodSeconds)
         hasher.combine(remaining)
-        hasher.combine(lastReset)
+        hasher.combine(periodEnd)
         hasher.combine(agents)
     }
 }
@@ -23000,9 +26001,9 @@ public struct FfiConverterTypeSolanaGuardLimitsFfi: FfiConverterRustBuffer {
                 vault: FfiConverterString.read(from: &buf), 
                 mint: FfiConverterString.read(from: &buf), 
                 ceiling: FfiConverterString.read(from: &buf), 
-                period: FfiConverterTypeSolanaPeriod.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
                 remaining: FfiConverterString.read(from: &buf), 
-                lastReset: FfiConverterInt64.read(from: &buf), 
+                periodEnd: FfiConverterInt64.read(from: &buf), 
                 agents: FfiConverterSequenceTypeSolanaAgentLimitFfi.read(from: &buf)
         )
     }
@@ -23012,9 +26013,9 @@ public struct FfiConverterTypeSolanaGuardLimitsFfi: FfiConverterRustBuffer {
         FfiConverterString.write(value.vault, into: &buf)
         FfiConverterString.write(value.mint, into: &buf)
         FfiConverterString.write(value.ceiling, into: &buf)
-        FfiConverterTypeSolanaPeriod.write(value.period, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
         FfiConverterString.write(value.remaining, into: &buf)
-        FfiConverterInt64.write(value.lastReset, into: &buf)
+        FfiConverterInt64.write(value.periodEnd, into: &buf)
         FfiConverterSequenceTypeSolanaAgentLimitFfi.write(value.agents, into: &buf)
     }
 }
@@ -23043,9 +26044,10 @@ public func FfiConverterTypeSolanaGuardLimitsFfi_lower(_ value: SolanaGuardLimit
 public struct SolanaGuardMessage {
     /**
      * Hex-encoded canonical message (variable length). Includes the
-     * `PAYGENT_GUARD_V1` domain separator, the op tag, the guard PDA
-     * (32 bytes), the mint (32 bytes), the amount (u64 LE), and the
-     * guard's current nonce (u64 LE). The daemon needs these exact
+     * `PAYGENT_GUARD_V2` domain separator, the op tag, the guard PDA
+     * (32 bytes), the mint (32 bytes), the amount (u64 LE), for a limit
+     * op the period in seconds (u64 LE), and the guard's current nonce
+     * (u64 LE). The daemon needs these exact
      * bytes to assemble the `Secp256r1SigVerify` precompile leg.
      */
     public var canonicalMessageHex: String
@@ -23060,9 +26062,10 @@ public struct SolanaGuardMessage {
     public init(
         /**
          * Hex-encoded canonical message (variable length). Includes the
-         * `PAYGENT_GUARD_V1` domain separator, the op tag, the guard PDA
-         * (32 bytes), the mint (32 bytes), the amount (u64 LE), and the
-         * guard's current nonce (u64 LE). The daemon needs these exact
+         * `PAYGENT_GUARD_V2` domain separator, the op tag, the guard PDA
+         * (32 bytes), the mint (32 bytes), the amount (u64 LE), for a limit
+         * op the period in seconds (u64 LE), and the guard's current nonce
+         * (u64 LE). The daemon needs these exact
          * bytes to assemble the `Secp256r1SigVerify` precompile leg.
          */canonicalMessageHex: String, 
         /**
@@ -23203,6 +26206,79 @@ public func FfiConverterTypeSolanaGuardOwnerFfi_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeSolanaGuardOwnerFfi_lower(_ value: SolanaGuardOwnerFfi) -> RustBuffer {
     return FfiConverterTypeSolanaGuardOwnerFfi.lower(value)
+}
+
+
+/**
+ * No live quote, and why. `detail` is diagnostic text, not owner copy.
+ */
+public struct SolanaKoraQuoteFallback {
+    public var reason: SolanaKoraQuoteFallbackReason
+    public var detail: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(reason: SolanaKoraQuoteFallbackReason, detail: String) {
+        self.reason = reason
+        self.detail = detail
+    }
+}
+
+#if compiler(>=6)
+extension SolanaKoraQuoteFallback: Sendable {}
+#endif
+
+
+extension SolanaKoraQuoteFallback: Equatable, Hashable {
+    public static func ==(lhs: SolanaKoraQuoteFallback, rhs: SolanaKoraQuoteFallback) -> Bool {
+        if lhs.reason != rhs.reason {
+            return false
+        }
+        if lhs.detail != rhs.detail {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(reason)
+        hasher.combine(detail)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaKoraQuoteFallback: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaKoraQuoteFallback {
+        return
+            try SolanaKoraQuoteFallback(
+                reason: FfiConverterTypeSolanaKoraQuoteFallbackReason.read(from: &buf), 
+                detail: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SolanaKoraQuoteFallback, into buf: inout [UInt8]) {
+        FfiConverterTypeSolanaKoraQuoteFallbackReason.write(value.reason, into: &buf)
+        FfiConverterString.write(value.detail, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaKoraQuoteFallback_lift(_ buf: RustBuffer) throws -> SolanaKoraQuoteFallback {
+    return try FfiConverterTypeSolanaKoraQuoteFallback.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaKoraQuoteFallback_lower(_ value: SolanaKoraQuoteFallback) -> RustBuffer {
+    return FfiConverterTypeSolanaKoraQuoteFallback.lower(value)
 }
 
 
@@ -23997,15 +27073,15 @@ public func FfiConverterTypeSolanaPurseFloat_lower(_ value: SolanaPurseFloat) ->
 public struct SolanaResumePrefillFfi {
     public var mint: String
     public var pocket: String
-    public var period: SolanaPeriod
+    public var periodSeconds: PeriodSeconds
     public var ceiling: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(mint: String, pocket: String, period: SolanaPeriod, ceiling: String?) {
+    public init(mint: String, pocket: String, periodSeconds: PeriodSeconds, ceiling: String?) {
         self.mint = mint
         self.pocket = pocket
-        self.period = period
+        self.periodSeconds = periodSeconds
         self.ceiling = ceiling
     }
 }
@@ -24023,7 +27099,7 @@ extension SolanaResumePrefillFfi: Equatable, Hashable {
         if lhs.pocket != rhs.pocket {
             return false
         }
-        if lhs.period != rhs.period {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         if lhs.ceiling != rhs.ceiling {
@@ -24035,7 +27111,7 @@ extension SolanaResumePrefillFfi: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(mint)
         hasher.combine(pocket)
-        hasher.combine(period)
+        hasher.combine(periodSeconds)
         hasher.combine(ceiling)
     }
 }
@@ -24051,7 +27127,7 @@ public struct FfiConverterTypeSolanaResumePrefillFfi: FfiConverterRustBuffer {
             try SolanaResumePrefillFfi(
                 mint: FfiConverterString.read(from: &buf), 
                 pocket: FfiConverterString.read(from: &buf), 
-                period: FfiConverterTypeSolanaPeriod.read(from: &buf), 
+                periodSeconds: FfiConverterTypePeriodSeconds.read(from: &buf), 
                 ceiling: FfiConverterOptionString.read(from: &buf)
         )
     }
@@ -24059,7 +27135,7 @@ public struct FfiConverterTypeSolanaResumePrefillFfi: FfiConverterRustBuffer {
     public static func write(_ value: SolanaResumePrefillFfi, into buf: inout [UInt8]) {
         FfiConverterString.write(value.mint, into: &buf)
         FfiConverterString.write(value.pocket, into: &buf)
-        FfiConverterTypeSolanaPeriod.write(value.period, into: &buf)
+        FfiConverterTypePeriodSeconds.write(value.periodSeconds, into: &buf)
         FfiConverterOptionString.write(value.ceiling, into: &buf)
     }
 }
@@ -24077,6 +27153,312 @@ public func FfiConverterTypeSolanaResumePrefillFfi_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeSolanaResumePrefillFfi_lower(_ value: SolanaResumePrefillFfi) -> RustBuffer {
     return FfiConverterTypeSolanaResumePrefillFfi.lower(value)
+}
+
+
+/**
+ * Result of a setup-with-agent prepare: one challenge for three
+ * transactions.
+ */
+public struct SolanaSetupWithAgentPrep {
+    /**
+     * 32-byte Merkle root over the three ops: the WebAuthn challenge.
+     */
+    public var challenge: Data
+    /**
+     * Opaque state for [`complete_solana_setup_with_agent_webauthn`].
+     */
+    public var sessionToken: String
+    /**
+     * The three carriers' request ids, in submission order.
+     */
+    public var requestIds: [String]
+    /**
+     * The guard PDA the account will live at, base58.
+     */
+    public var guardPda: String
+    /**
+     * The agent's pocket, base58.
+     */
+    public var pocket: String
+    public var initializeFees: SolanaOwnerOpFees
+    public var setGuardLimitFees: SolanaOwnerOpFees
+    public var addAgentFees: SolanaOwnerOpFees
+    /**
+     * The longest clientDataJSON, in bytes, that keeps every transaction
+     * within Solana's 1232-byte limit with a 37-byte authenticatorData.
+     */
+    public var maxClientDataJsonLen: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * 32-byte Merkle root over the three ops: the WebAuthn challenge.
+         */challenge: Data, 
+        /**
+         * Opaque state for [`complete_solana_setup_with_agent_webauthn`].
+         */sessionToken: String, 
+        /**
+         * The three carriers' request ids, in submission order.
+         */requestIds: [String], 
+        /**
+         * The guard PDA the account will live at, base58.
+         */guardPda: String, 
+        /**
+         * The agent's pocket, base58.
+         */pocket: String, initializeFees: SolanaOwnerOpFees, setGuardLimitFees: SolanaOwnerOpFees, addAgentFees: SolanaOwnerOpFees, 
+        /**
+         * The longest clientDataJSON, in bytes, that keeps every transaction
+         * within Solana's 1232-byte limit with a 37-byte authenticatorData.
+         */maxClientDataJsonLen: UInt32) {
+        self.challenge = challenge
+        self.sessionToken = sessionToken
+        self.requestIds = requestIds
+        self.guardPda = guardPda
+        self.pocket = pocket
+        self.initializeFees = initializeFees
+        self.setGuardLimitFees = setGuardLimitFees
+        self.addAgentFees = addAgentFees
+        self.maxClientDataJsonLen = maxClientDataJsonLen
+    }
+}
+
+#if compiler(>=6)
+extension SolanaSetupWithAgentPrep: Sendable {}
+#endif
+
+
+extension SolanaSetupWithAgentPrep: Equatable, Hashable {
+    public static func ==(lhs: SolanaSetupWithAgentPrep, rhs: SolanaSetupWithAgentPrep) -> Bool {
+        if lhs.challenge != rhs.challenge {
+            return false
+        }
+        if lhs.sessionToken != rhs.sessionToken {
+            return false
+        }
+        if lhs.requestIds != rhs.requestIds {
+            return false
+        }
+        if lhs.guardPda != rhs.guardPda {
+            return false
+        }
+        if lhs.pocket != rhs.pocket {
+            return false
+        }
+        if lhs.initializeFees != rhs.initializeFees {
+            return false
+        }
+        if lhs.setGuardLimitFees != rhs.setGuardLimitFees {
+            return false
+        }
+        if lhs.addAgentFees != rhs.addAgentFees {
+            return false
+        }
+        if lhs.maxClientDataJsonLen != rhs.maxClientDataJsonLen {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(challenge)
+        hasher.combine(sessionToken)
+        hasher.combine(requestIds)
+        hasher.combine(guardPda)
+        hasher.combine(pocket)
+        hasher.combine(initializeFees)
+        hasher.combine(setGuardLimitFees)
+        hasher.combine(addAgentFees)
+        hasher.combine(maxClientDataJsonLen)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaSetupWithAgentPrep: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaSetupWithAgentPrep {
+        return
+            try SolanaSetupWithAgentPrep(
+                challenge: FfiConverterData.read(from: &buf), 
+                sessionToken: FfiConverterString.read(from: &buf), 
+                requestIds: FfiConverterSequenceString.read(from: &buf), 
+                guardPda: FfiConverterString.read(from: &buf), 
+                pocket: FfiConverterString.read(from: &buf), 
+                initializeFees: FfiConverterTypeSolanaOwnerOpFees.read(from: &buf), 
+                setGuardLimitFees: FfiConverterTypeSolanaOwnerOpFees.read(from: &buf), 
+                addAgentFees: FfiConverterTypeSolanaOwnerOpFees.read(from: &buf), 
+                maxClientDataJsonLen: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SolanaSetupWithAgentPrep, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.challenge, into: &buf)
+        FfiConverterString.write(value.sessionToken, into: &buf)
+        FfiConverterSequenceString.write(value.requestIds, into: &buf)
+        FfiConverterString.write(value.guardPda, into: &buf)
+        FfiConverterString.write(value.pocket, into: &buf)
+        FfiConverterTypeSolanaOwnerOpFees.write(value.initializeFees, into: &buf)
+        FfiConverterTypeSolanaOwnerOpFees.write(value.setGuardLimitFees, into: &buf)
+        FfiConverterTypeSolanaOwnerOpFees.write(value.addAgentFees, into: &buf)
+        FfiConverterUInt32.write(value.maxClientDataJsonLen, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaSetupWithAgentPrep_lift(_ buf: RustBuffer) throws -> SolanaSetupWithAgentPrep {
+    return try FfiConverterTypeSolanaSetupWithAgentPrep.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaSetupWithAgentPrep_lower(_ value: SolanaSetupWithAgentPrep) -> RustBuffer {
+    return FfiConverterTypeSolanaSetupWithAgentPrep.lower(value)
+}
+
+
+/**
+ * A live fee quote the core has checked. Amounts are USDC base-unit decimal
+ * strings.
+ */
+public struct SolanaVerifiedFeeQuote {
+    public var op: SolanaOwnerOp
+    /**
+     * The most the op can charge: the ceiling the owner signs ("up to").
+     */
+    public var maxUsdc: String
+    /**
+     * What the op charges at the quoted price.
+     */
+    public var actualUsdc: String
+    /**
+     * Unix second from which the quote is refused.
+     */
+    public var expiresAt: Int64
+    /**
+     * Whether the fee covers the op's whole network cost; when false Paygent
+     * absorbs the part above the on-chain cap.
+     */
+    public var koraCoversRent: Bool
+    /**
+     * The quote to hand back to a `_quoted` prepare and submit.
+     */
+    public var quoteToken: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(op: SolanaOwnerOp, 
+        /**
+         * The most the op can charge: the ceiling the owner signs ("up to").
+         */maxUsdc: String, 
+        /**
+         * What the op charges at the quoted price.
+         */actualUsdc: String, 
+        /**
+         * Unix second from which the quote is refused.
+         */expiresAt: Int64, 
+        /**
+         * Whether the fee covers the op's whole network cost; when false Paygent
+         * absorbs the part above the on-chain cap.
+         */koraCoversRent: Bool, 
+        /**
+         * The quote to hand back to a `_quoted` prepare and submit.
+         */quoteToken: String) {
+        self.op = op
+        self.maxUsdc = maxUsdc
+        self.actualUsdc = actualUsdc
+        self.expiresAt = expiresAt
+        self.koraCoversRent = koraCoversRent
+        self.quoteToken = quoteToken
+    }
+}
+
+#if compiler(>=6)
+extension SolanaVerifiedFeeQuote: Sendable {}
+#endif
+
+
+extension SolanaVerifiedFeeQuote: Equatable, Hashable {
+    public static func ==(lhs: SolanaVerifiedFeeQuote, rhs: SolanaVerifiedFeeQuote) -> Bool {
+        if lhs.op != rhs.op {
+            return false
+        }
+        if lhs.maxUsdc != rhs.maxUsdc {
+            return false
+        }
+        if lhs.actualUsdc != rhs.actualUsdc {
+            return false
+        }
+        if lhs.expiresAt != rhs.expiresAt {
+            return false
+        }
+        if lhs.koraCoversRent != rhs.koraCoversRent {
+            return false
+        }
+        if lhs.quoteToken != rhs.quoteToken {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(op)
+        hasher.combine(maxUsdc)
+        hasher.combine(actualUsdc)
+        hasher.combine(expiresAt)
+        hasher.combine(koraCoversRent)
+        hasher.combine(quoteToken)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaVerifiedFeeQuote: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaVerifiedFeeQuote {
+        return
+            try SolanaVerifiedFeeQuote(
+                op: FfiConverterTypeSolanaOwnerOp.read(from: &buf), 
+                maxUsdc: FfiConverterString.read(from: &buf), 
+                actualUsdc: FfiConverterString.read(from: &buf), 
+                expiresAt: FfiConverterInt64.read(from: &buf), 
+                koraCoversRent: FfiConverterBool.read(from: &buf), 
+                quoteToken: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SolanaVerifiedFeeQuote, into buf: inout [UInt8]) {
+        FfiConverterTypeSolanaOwnerOp.write(value.op, into: &buf)
+        FfiConverterString.write(value.maxUsdc, into: &buf)
+        FfiConverterString.write(value.actualUsdc, into: &buf)
+        FfiConverterInt64.write(value.expiresAt, into: &buf)
+        FfiConverterBool.write(value.koraCoversRent, into: &buf)
+        FfiConverterString.write(value.quoteToken, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaVerifiedFeeQuote_lift(_ buf: RustBuffer) throws -> SolanaVerifiedFeeQuote {
+    return try FfiConverterTypeSolanaVerifiedFeeQuote.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaVerifiedFeeQuote_lower(_ value: SolanaVerifiedFeeQuote) -> RustBuffer {
+    return FfiConverterTypeSolanaVerifiedFeeQuote.lower(value)
 }
 
 
@@ -24409,27 +27791,53 @@ public func FfiConverterTypeSpendFiguresInputFfi_lower(_ value: SpendFiguresInpu
  * Spending-limit snapshot read from `SafeModuleGuard` on chain.
  */
 public struct SpendingLimitFfi {
-    public var maxPerTx: String
-    public var dailyMax: String
-    public var spentToday: String
-    public var remainingToday: String
     /**
-     * Whether a setup wrote a limit for this pair; `None` on a guard too old
-     * to say. Both limits zero with `Some(true)` means the agent is blocked.
+     * What the agent may spend per period, decimal base units.
      */
-    public var configured: Bool?
+    public var amount: String
+    /**
+     * Period length in seconds; `0` is a one-time allowance.
+     */
+    public var periodSeconds: UInt64
+    /**
+     * Capacity left as stored on chain, decimal base units. Once
+     * `period_end` has passed the next spend starts a fresh period.
+     */
+    public var remaining: String
+    /**
+     * Unix seconds the current period ends; `0` for a one-time allowance.
+     */
+    public var periodEnd: UInt64
+    /**
+     * Whether a setup wrote a limit for this pair. A zero amount with
+     * `true` means the agent is blocked.
+     */
+    public var configured: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(maxPerTx: String, dailyMax: String, spentToday: String, remainingToday: String, 
+    public init(
         /**
-         * Whether a setup wrote a limit for this pair; `None` on a guard too old
-         * to say. Both limits zero with `Some(true)` means the agent is blocked.
-         */configured: Bool? = nil) {
-        self.maxPerTx = maxPerTx
-        self.dailyMax = dailyMax
-        self.spentToday = spentToday
-        self.remainingToday = remainingToday
+         * What the agent may spend per period, decimal base units.
+         */amount: String, 
+        /**
+         * Period length in seconds; `0` is a one-time allowance.
+         */periodSeconds: UInt64, 
+        /**
+         * Capacity left as stored on chain, decimal base units. Once
+         * `period_end` has passed the next spend starts a fresh period.
+         */remaining: String, 
+        /**
+         * Unix seconds the current period ends; `0` for a one-time allowance.
+         */periodEnd: UInt64, 
+        /**
+         * Whether a setup wrote a limit for this pair. A zero amount with
+         * `true` means the agent is blocked.
+         */configured: Bool) {
+        self.amount = amount
+        self.periodSeconds = periodSeconds
+        self.remaining = remaining
+        self.periodEnd = periodEnd
         self.configured = configured
     }
 }
@@ -24441,16 +27849,16 @@ extension SpendingLimitFfi: Sendable {}
 
 extension SpendingLimitFfi: Equatable, Hashable {
     public static func ==(lhs: SpendingLimitFfi, rhs: SpendingLimitFfi) -> Bool {
-        if lhs.maxPerTx != rhs.maxPerTx {
+        if lhs.amount != rhs.amount {
             return false
         }
-        if lhs.dailyMax != rhs.dailyMax {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
-        if lhs.spentToday != rhs.spentToday {
+        if lhs.remaining != rhs.remaining {
             return false
         }
-        if lhs.remainingToday != rhs.remainingToday {
+        if lhs.periodEnd != rhs.periodEnd {
             return false
         }
         if lhs.configured != rhs.configured {
@@ -24460,10 +27868,10 @@ extension SpendingLimitFfi: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(maxPerTx)
-        hasher.combine(dailyMax)
-        hasher.combine(spentToday)
-        hasher.combine(remainingToday)
+        hasher.combine(amount)
+        hasher.combine(periodSeconds)
+        hasher.combine(remaining)
+        hasher.combine(periodEnd)
         hasher.combine(configured)
     }
 }
@@ -24477,20 +27885,20 @@ public struct FfiConverterTypeSpendingLimitFfi: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SpendingLimitFfi {
         return
             try SpendingLimitFfi(
-                maxPerTx: FfiConverterString.read(from: &buf), 
-                dailyMax: FfiConverterString.read(from: &buf), 
-                spentToday: FfiConverterString.read(from: &buf), 
-                remainingToday: FfiConverterString.read(from: &buf), 
-                configured: FfiConverterOptionBool.read(from: &buf)
+                amount: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterUInt64.read(from: &buf), 
+                remaining: FfiConverterString.read(from: &buf), 
+                periodEnd: FfiConverterUInt64.read(from: &buf), 
+                configured: FfiConverterBool.read(from: &buf)
         )
     }
 
     public static func write(_ value: SpendingLimitFfi, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.maxPerTx, into: &buf)
-        FfiConverterString.write(value.dailyMax, into: &buf)
-        FfiConverterString.write(value.spentToday, into: &buf)
-        FfiConverterString.write(value.remainingToday, into: &buf)
-        FfiConverterOptionBool.write(value.configured, into: &buf)
+        FfiConverterString.write(value.amount, into: &buf)
+        FfiConverterUInt64.write(value.periodSeconds, into: &buf)
+        FfiConverterString.write(value.remaining, into: &buf)
+        FfiConverterUInt64.write(value.periodEnd, into: &buf)
+        FfiConverterBool.write(value.configured, into: &buf)
     }
 }
 
@@ -24519,13 +27927,13 @@ public struct SpendingLimitInputFfi {
      */
     public var token: String
     /**
-     * Max per-transaction limit, hex `0x...` U256.
+     * What the agent may spend per period, hex `0x...` U256.
      */
-    public var maxPerTxHex: String
+    public var amountHex: String
     /**
-     * Daily cap, hex `0x...` U256.
+     * Period length in seconds; `0` is a one-time allowance.
      */
-    public var dailyMaxHex: String
+    public var periodSeconds: PeriodSeconds
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -24534,14 +27942,14 @@ public struct SpendingLimitInputFfi {
          * ERC-20 token address (or USDC default when absent at higher layers).
          */token: String, 
         /**
-         * Max per-transaction limit, hex `0x...` U256.
-         */maxPerTxHex: String, 
+         * What the agent may spend per period, hex `0x...` U256.
+         */amountHex: String, 
         /**
-         * Daily cap, hex `0x...` U256.
-         */dailyMaxHex: String) {
+         * Period length in seconds; `0` is a one-time allowance.
+         */periodSeconds: PeriodSeconds) {
         self.token = token
-        self.maxPerTxHex = maxPerTxHex
-        self.dailyMaxHex = dailyMaxHex
+        self.amountHex = amountHex
+        self.periodSeconds = periodSeconds
     }
 }
 
@@ -24555,10 +27963,10 @@ extension SpendingLimitInputFfi: Equatable, Hashable {
         if lhs.token != rhs.token {
             return false
         }
-        if lhs.maxPerTxHex != rhs.maxPerTxHex {
+        if lhs.amountHex != rhs.amountHex {
             return false
         }
-        if lhs.dailyMaxHex != rhs.dailyMaxHex {
+        if lhs.periodSeconds != rhs.periodSeconds {
             return false
         }
         return true
@@ -24566,8 +27974,8 @@ extension SpendingLimitInputFfi: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(token)
-        hasher.combine(maxPerTxHex)
-        hasher.combine(dailyMaxHex)
+        hasher.combine(amountHex)
+        hasher.combine(periodSeconds)
     }
 }
 
@@ -24581,15 +27989,15 @@ public struct FfiConverterTypeSpendingLimitInputFfi: FfiConverterRustBuffer {
         return
             try SpendingLimitInputFfi(
                 token: FfiConverterString.read(from: &buf), 
-                maxPerTxHex: FfiConverterString.read(from: &buf), 
-                dailyMaxHex: FfiConverterString.read(from: &buf)
+                amountHex: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterTypePeriodSeconds.read(from: &buf)
         )
     }
 
     public static func write(_ value: SpendingLimitInputFfi, into buf: inout [UInt8]) {
         FfiConverterString.write(value.token, into: &buf)
-        FfiConverterString.write(value.maxPerTxHex, into: &buf)
-        FfiConverterString.write(value.dailyMaxHex, into: &buf)
+        FfiConverterString.write(value.amountHex, into: &buf)
+        FfiConverterTypePeriodSeconds.write(value.periodSeconds, into: &buf)
     }
 }
 
@@ -24938,6 +28346,107 @@ public func FfiConverterTypeStripeOnrampNetworkFfi_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeStripeOnrampNetworkFfi_lower(_ value: StripeOnrampNetworkFfi) -> RustBuffer {
     return FfiConverterTypeStripeOnrampNetworkFfi.lower(value)
+}
+
+
+/**
+ * An allowance an agent proposes: one cap per period, in `token` base units
+ * (for USDC, 1 USD is 1_000_000), as a decimal string already checked to be
+ * positive and to fit in uint256.
+ */
+public struct SuggestedAllowanceFfi {
+    /**
+     * Token contract address or mint, as the agent sent it.
+     */
+    public var token: String
+    /**
+     * The cap per period, in token base units.
+     */
+    public var amount: String
+    /**
+     * How often the cap refills, in seconds; `0` is a one-time allowance.
+     */
+    public var periodSeconds: PeriodSeconds
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Token contract address or mint, as the agent sent it.
+         */token: String, 
+        /**
+         * The cap per period, in token base units.
+         */amount: String, 
+        /**
+         * How often the cap refills, in seconds; `0` is a one-time allowance.
+         */periodSeconds: PeriodSeconds) {
+        self.token = token
+        self.amount = amount
+        self.periodSeconds = periodSeconds
+    }
+}
+
+#if compiler(>=6)
+extension SuggestedAllowanceFfi: Sendable {}
+#endif
+
+
+extension SuggestedAllowanceFfi: Equatable, Hashable {
+    public static func ==(lhs: SuggestedAllowanceFfi, rhs: SuggestedAllowanceFfi) -> Bool {
+        if lhs.token != rhs.token {
+            return false
+        }
+        if lhs.amount != rhs.amount {
+            return false
+        }
+        if lhs.periodSeconds != rhs.periodSeconds {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(token)
+        hasher.combine(amount)
+        hasher.combine(periodSeconds)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSuggestedAllowanceFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SuggestedAllowanceFfi {
+        return
+            try SuggestedAllowanceFfi(
+                token: FfiConverterString.read(from: &buf), 
+                amount: FfiConverterString.read(from: &buf), 
+                periodSeconds: FfiConverterTypePeriodSeconds.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SuggestedAllowanceFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.token, into: &buf)
+        FfiConverterString.write(value.amount, into: &buf)
+        FfiConverterTypePeriodSeconds.write(value.periodSeconds, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSuggestedAllowanceFfi_lift(_ buf: RustBuffer) throws -> SuggestedAllowanceFfi {
+    return try FfiConverterTypeSuggestedAllowanceFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSuggestedAllowanceFfi_lower(_ value: SuggestedAllowanceFfi) -> RustBuffer {
+    return FfiConverterTypeSuggestedAllowanceFfi.lower(value)
 }
 
 
@@ -25497,6 +29006,91 @@ public func FfiConverterTypeTempoChainFfi_lift(_ buf: RustBuffer) throws -> Temp
 #endif
 public func FfiConverterTypeTempoChainFfi_lower(_ value: TempoChainFfi) -> RustBuffer {
     return FfiConverterTypeTempoChainFfi.lower(value)
+}
+
+
+/**
+ * [`core_allowance::TempoKeyLimit`] across the FFI.
+ */
+public struct TempoKeyLimitFfi {
+    /**
+     * Decimal base units left this period.
+     */
+    public var remaining: String
+    /**
+     * Unix second the period ends; `0` for a one-time limit.
+     */
+    public var periodEndUnix: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Decimal base units left this period.
+         */remaining: String, 
+        /**
+         * Unix second the period ends; `0` for a one-time limit.
+         */periodEndUnix: UInt64) {
+        self.remaining = remaining
+        self.periodEndUnix = periodEndUnix
+    }
+}
+
+#if compiler(>=6)
+extension TempoKeyLimitFfi: Sendable {}
+#endif
+
+
+extension TempoKeyLimitFfi: Equatable, Hashable {
+    public static func ==(lhs: TempoKeyLimitFfi, rhs: TempoKeyLimitFfi) -> Bool {
+        if lhs.remaining != rhs.remaining {
+            return false
+        }
+        if lhs.periodEndUnix != rhs.periodEndUnix {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(remaining)
+        hasher.combine(periodEndUnix)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTempoKeyLimitFfi: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TempoKeyLimitFfi {
+        return
+            try TempoKeyLimitFfi(
+                remaining: FfiConverterString.read(from: &buf), 
+                periodEndUnix: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TempoKeyLimitFfi, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.remaining, into: &buf)
+        FfiConverterUInt64.write(value.periodEndUnix, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTempoKeyLimitFfi_lift(_ buf: RustBuffer) throws -> TempoKeyLimitFfi {
+    return try FfiConverterTypeTempoKeyLimitFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTempoKeyLimitFfi_lower(_ value: TempoKeyLimitFfi) -> RustBuffer {
+    return FfiConverterTypeTempoKeyLimitFfi.lower(value)
 }
 
 
@@ -27568,6 +31162,11 @@ public struct WalletCreationRequestFfi {
      */
     public var p256Cosigner: String?
     /**
+     * The allowance the agent proposes, if any. Pre-fill the allowance field
+     * with it; the owner may enter any other amount.
+     */
+    public var suggestedAllowance: SuggestedAllowanceFfi?
+    /**
      * Unix milliseconds the agent produced the request.
      */
     public var issuedAtMs: Int64
@@ -27596,6 +31195,10 @@ public struct WalletCreationRequestFfi {
          * agent has no hardware key. It is NOT an input to the wallet address.
          */p256Cosigner: String?, 
         /**
+         * The allowance the agent proposes, if any. Pre-fill the allowance field
+         * with it; the owner may enter any other amount.
+         */suggestedAllowance: SuggestedAllowanceFfi?, 
+        /**
          * Unix milliseconds the agent produced the request.
          */issuedAtMs: Int64) {
         self.requestId = requestId
@@ -27604,6 +31207,7 @@ public struct WalletCreationRequestFfi {
         self.label = label
         self.delegateDid = delegateDid
         self.p256Cosigner = p256Cosigner
+        self.suggestedAllowance = suggestedAllowance
         self.issuedAtMs = issuedAtMs
     }
 }
@@ -27633,6 +31237,9 @@ extension WalletCreationRequestFfi: Equatable, Hashable {
         if lhs.p256Cosigner != rhs.p256Cosigner {
             return false
         }
+        if lhs.suggestedAllowance != rhs.suggestedAllowance {
+            return false
+        }
         if lhs.issuedAtMs != rhs.issuedAtMs {
             return false
         }
@@ -27646,6 +31253,7 @@ extension WalletCreationRequestFfi: Equatable, Hashable {
         hasher.combine(label)
         hasher.combine(delegateDid)
         hasher.combine(p256Cosigner)
+        hasher.combine(suggestedAllowance)
         hasher.combine(issuedAtMs)
     }
 }
@@ -27665,6 +31273,7 @@ public struct FfiConverterTypeWalletCreationRequestFfi: FfiConverterRustBuffer {
                 label: FfiConverterOptionString.read(from: &buf), 
                 delegateDid: FfiConverterString.read(from: &buf), 
                 p256Cosigner: FfiConverterOptionString.read(from: &buf), 
+                suggestedAllowance: FfiConverterOptionTypeSuggestedAllowanceFfi.read(from: &buf), 
                 issuedAtMs: FfiConverterInt64.read(from: &buf)
         )
     }
@@ -27676,6 +31285,7 @@ public struct FfiConverterTypeWalletCreationRequestFfi: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.label, into: &buf)
         FfiConverterString.write(value.delegateDid, into: &buf)
         FfiConverterOptionString.write(value.p256Cosigner, into: &buf)
+        FfiConverterOptionTypeSuggestedAllowanceFfi.write(value.suggestedAllowance, into: &buf)
         FfiConverterInt64.write(value.issuedAtMs, into: &buf)
     }
 }
@@ -28869,6 +32479,118 @@ extension AgentSignerBacking: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The owner-signed change that grants an allowance request, by network.
+ */
+
+public enum AllowanceLimitChangeFfi {
+    
+    /**
+     * The EVM guard's per-agent limit, through the ordinary EVM limit flow.
+     */
+    case evm(chainId: UInt64, walletAddress: String, token: String, amountHex: String, periodSeconds: UInt64
+    )
+    /**
+     * The Solana guard's `set_limit` on the agent's pocket: one ceiling
+     * (decimal base units) per period. [`AllowanceReview::prepare_solana_set_limit_webauthn`].
+     */
+    case solana(cluster: String, walletAddress: String, mint: String, ceiling: String, periodSeconds: UInt64
+    )
+    /**
+     * The keychain `updateSpendingLimit` on the agent's key: `limit` in
+     * decimal base units. [`AllowanceReview::prepare_tempo_limit`].
+     */
+    case tempo(chainId: UInt64, account: String, keyId: String, token: String, limit: String
+    )
+}
+
+
+#if compiler(>=6)
+extension AllowanceLimitChangeFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAllowanceLimitChangeFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AllowanceLimitChangeFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AllowanceLimitChangeFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .evm(chainId: try FfiConverterUInt64.read(from: &buf), walletAddress: try FfiConverterString.read(from: &buf), token: try FfiConverterString.read(from: &buf), amountHex: try FfiConverterString.read(from: &buf), periodSeconds: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 2: return .solana(cluster: try FfiConverterString.read(from: &buf), walletAddress: try FfiConverterString.read(from: &buf), mint: try FfiConverterString.read(from: &buf), ceiling: try FfiConverterString.read(from: &buf), periodSeconds: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        case 3: return .tempo(chainId: try FfiConverterUInt64.read(from: &buf), account: try FfiConverterString.read(from: &buf), keyId: try FfiConverterString.read(from: &buf), token: try FfiConverterString.read(from: &buf), limit: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AllowanceLimitChangeFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .evm(chainId,walletAddress,token,amountHex,periodSeconds):
+            writeInt(&buf, Int32(1))
+            FfiConverterUInt64.write(chainId, into: &buf)
+            FfiConverterString.write(walletAddress, into: &buf)
+            FfiConverterString.write(token, into: &buf)
+            FfiConverterString.write(amountHex, into: &buf)
+            FfiConverterUInt64.write(periodSeconds, into: &buf)
+            
+        
+        case let .solana(cluster,walletAddress,mint,ceiling,periodSeconds):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(cluster, into: &buf)
+            FfiConverterString.write(walletAddress, into: &buf)
+            FfiConverterString.write(mint, into: &buf)
+            FfiConverterString.write(ceiling, into: &buf)
+            FfiConverterUInt64.write(periodSeconds, into: &buf)
+            
+        
+        case let .tempo(chainId,account,keyId,token,limit):
+            writeInt(&buf, Int32(3))
+            FfiConverterUInt64.write(chainId, into: &buf)
+            FfiConverterString.write(account, into: &buf)
+            FfiConverterString.write(keyId, into: &buf)
+            FfiConverterString.write(token, into: &buf)
+            FfiConverterString.write(limit, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceLimitChangeFfi_lift(_ buf: RustBuffer) throws -> AllowanceLimitChangeFfi {
+    return try FfiConverterTypeAllowanceLimitChangeFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceLimitChangeFfi_lower(_ value: AllowanceLimitChangeFfi) -> RustBuffer {
+    return FfiConverterTypeAllowanceLimitChangeFfi.lower(value)
+}
+
+
+extension AllowanceLimitChangeFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum AnsweredOutcomeFfi {
     
@@ -29030,10 +32752,10 @@ public enum AttachmentOutcomeFfi {
      */
     case pending
     /**
-     * Enabled and deployed, but the guard holds a different mandate. Both
-     * values are decimal, as the guard reports them.
+     * Enabled and deployed, but the guard holds a different mandate. The
+     * amount is decimal, as the guard reports it.
      */
-    case mandateMismatch(onChainMaxPerTx: String, onChainDailyMax: String
+    case mandateMismatch(onChainAmount: String, onChainPeriodSeconds: UInt64
     )
 }
 
@@ -29057,7 +32779,7 @@ public struct FfiConverterTypeAttachmentOutcomeFfi: FfiConverterRustBuffer {
         
         case 2: return .pending
         
-        case 3: return .mandateMismatch(onChainMaxPerTx: try FfiConverterString.read(from: &buf), onChainDailyMax: try FfiConverterString.read(from: &buf)
+        case 3: return .mandateMismatch(onChainAmount: try FfiConverterString.read(from: &buf), onChainPeriodSeconds: try FfiConverterUInt64.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -29077,10 +32799,10 @@ public struct FfiConverterTypeAttachmentOutcomeFfi: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case let .mandateMismatch(onChainMaxPerTx,onChainDailyMax):
+        case let .mandateMismatch(onChainAmount,onChainPeriodSeconds):
             writeInt(&buf, Int32(3))
-            FfiConverterString.write(onChainMaxPerTx, into: &buf)
-            FfiConverterString.write(onChainDailyMax, into: &buf)
+            FfiConverterString.write(onChainAmount, into: &buf)
+            FfiConverterUInt64.write(onChainPeriodSeconds, into: &buf)
             
         }
     }
@@ -29379,14 +33101,14 @@ extension BalanceAfterFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * The Bitcoin network a BOLT-11 invoice is denominated on. `Testnet` covers
- * signet too: the invoice does not tell them apart.
+ * The Bitcoin network a BOLT-11 invoice is denominated on.
  */
 
 public enum Bolt11NetworkFfi {
     
     case bitcoin
     case testnet
+    case signet
     case regtest
     case simnet
 }
@@ -29410,9 +33132,11 @@ public struct FfiConverterTypeBolt11NetworkFfi: FfiConverterRustBuffer {
         
         case 2: return .testnet
         
-        case 3: return .regtest
+        case 3: return .signet
         
-        case 4: return .simnet
+        case 4: return .regtest
+        
+        case 5: return .simnet
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -29430,12 +33154,16 @@ public struct FfiConverterTypeBolt11NetworkFfi: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         
         
-        case .regtest:
+        case .signet:
             writeInt(&buf, Int32(3))
         
         
-        case .simnet:
+        case .regtest:
             writeInt(&buf, Int32(4))
+        
+        
+        case .simnet:
+            writeInt(&buf, Int32(5))
         
         }
     }
@@ -29725,6 +33453,100 @@ public func FfiConverterTypeCctpMoveStatusFfi_lower(_ value: CctpMoveStatusFfi) 
 
 
 extension CctpMoveStatusFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * One Solana leg of a CCTP move, all paid by the purse.
+ */
+
+public enum CctpPurseLegFfi {
+    
+    case stage
+    case burn
+    case receive
+    case unstage
+    case reclaim
+}
+
+
+#if compiler(>=6)
+extension CctpPurseLegFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCctpPurseLegFfi: FfiConverterRustBuffer {
+    typealias SwiftType = CctpPurseLegFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CctpPurseLegFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .stage
+        
+        case 2: return .burn
+        
+        case 3: return .receive
+        
+        case 4: return .unstage
+        
+        case 5: return .reclaim
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: CctpPurseLegFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .stage:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .burn:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .receive:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .unstage:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .reclaim:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpPurseLegFfi_lift(_ buf: RustBuffer) throws -> CctpPurseLegFfi {
+    return try FfiConverterTypeCctpPurseLegFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCctpPurseLegFfi_lower(_ value: CctpPurseLegFfi) -> RustBuffer {
+    return FfiConverterTypeCctpPurseLegFfi.lower(value)
+}
+
+
+extension CctpPurseLegFfi: Equatable, Hashable {}
 
 
 
@@ -30230,6 +34052,142 @@ public func FfiConverterTypeConnectivityFfi_lower(_ value: ConnectivityFfi) -> R
 
 
 extension ConnectivityFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * A contract a first deploy calls into.
+ */
+
+public enum DeployContractFfi {
+    
+    case webAuthnSignerFactory
+    case batchWebAuthnSignerFactory
+    case fclP256Verifier
+    case arachnidCreate2Factory
+    case safeModuleGuardFactory
+    case safeProxyFactory
+    case safeSingleton
+    case safe4337Module
+    case safeModuleSetup
+    case multiSend
+    case multicall3
+}
+
+
+#if compiler(>=6)
+extension DeployContractFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDeployContractFfi: FfiConverterRustBuffer {
+    typealias SwiftType = DeployContractFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DeployContractFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .webAuthnSignerFactory
+        
+        case 2: return .batchWebAuthnSignerFactory
+        
+        case 3: return .fclP256Verifier
+        
+        case 4: return .arachnidCreate2Factory
+        
+        case 5: return .safeModuleGuardFactory
+        
+        case 6: return .safeProxyFactory
+        
+        case 7: return .safeSingleton
+        
+        case 8: return .safe4337Module
+        
+        case 9: return .safeModuleSetup
+        
+        case 10: return .multiSend
+        
+        case 11: return .multicall3
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DeployContractFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .webAuthnSignerFactory:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .batchWebAuthnSignerFactory:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .fclP256Verifier:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .arachnidCreate2Factory:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .safeModuleGuardFactory:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .safeProxyFactory:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .safeSingleton:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .safe4337Module:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .safeModuleSetup:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .multiSend:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .multicall3:
+            writeInt(&buf, Int32(11))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeployContractFfi_lift(_ buf: RustBuffer) throws -> DeployContractFfi {
+    return try FfiConverterTypeDeployContractFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeployContractFfi_lower(_ value: DeployContractFfi) -> RustBuffer {
+    return FfiConverterTypeDeployContractFfi.lower(value)
+}
+
+
+extension DeployContractFfi: Equatable, Hashable {}
 
 
 
@@ -31414,6 +35372,259 @@ extension EvmPurseSweepFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Whether the external wallet is on the deposit's chain. Only `Ok` may send.
+ */
+
+public enum ExternalChainVerdictFfi {
+    
+    case ok
+    case wrongChain
+    case notEvm
+    case unrecognized
+}
+
+
+#if compiler(>=6)
+extension ExternalChainVerdictFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeExternalChainVerdictFfi: FfiConverterRustBuffer {
+    typealias SwiftType = ExternalChainVerdictFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ExternalChainVerdictFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .ok
+        
+        case 2: return .wrongChain
+        
+        case 3: return .notEvm
+        
+        case 4: return .unrecognized
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ExternalChainVerdictFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .ok:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .wrongChain:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .notEvm:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .unrecognized:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalChainVerdictFfi_lift(_ buf: RustBuffer) throws -> ExternalChainVerdictFfi {
+    return try FfiConverterTypeExternalChainVerdictFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalChainVerdictFfi_lower(_ value: ExternalChainVerdictFfi) -> RustBuffer {
+    return FfiConverterTypeExternalChainVerdictFfi.lower(value)
+}
+
+
+extension ExternalChainVerdictFfi: Equatable, Hashable {}
+
+
+
+
+
+
+
+/**
+ * Why no deposit was built. One case per refusal, so the app picks its copy
+ * by case; `detail` is for logs. Field name is `detail` rather than
+ * `message` for the same reason as `MobileError`: UniFFI emits a Kotlin
+ * class whose `message` would collide with `Throwable.message`.
+ */
+public enum ExternalDepositRefusal: Swift.Error {
+
+    
+    
+    case UnsupportedNetwork(detail: String
+    )
+    case ZeroAmount
+    case AmountTooLarge
+    case InvalidAmount(detail: String
+    )
+    case InvalidAddress(detail: String
+    )
+    case NotATreasury(detail: String
+    )
+    case SameAccount
+    case WalletOnWrongChain(expected: UInt64
+    )
+    case UnrecognizedWalletChain
+    case InvalidBlockhash(detail: String
+    )
+    case Build(detail: String
+    )
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeExternalDepositRefusal: FfiConverterRustBuffer {
+    typealias SwiftType = ExternalDepositRefusal
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ExternalDepositRefusal {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        
+
+        
+        case 1: return .UnsupportedNetwork(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 2: return .ZeroAmount
+        case 3: return .AmountTooLarge
+        case 4: return .InvalidAmount(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 5: return .InvalidAddress(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 6: return .NotATreasury(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 7: return .SameAccount
+        case 8: return .WalletOnWrongChain(
+            expected: try FfiConverterUInt64.read(from: &buf)
+            )
+        case 9: return .UnrecognizedWalletChain
+        case 10: return .InvalidBlockhash(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 11: return .Build(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+
+         default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ExternalDepositRefusal, into buf: inout [UInt8]) {
+        switch value {
+
+        
+
+        
+        
+        case let .UnsupportedNetwork(detail):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case .ZeroAmount:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .AmountTooLarge:
+            writeInt(&buf, Int32(3))
+        
+        
+        case let .InvalidAmount(detail):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .InvalidAddress(detail):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .NotATreasury(detail):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case .SameAccount:
+            writeInt(&buf, Int32(7))
+        
+        
+        case let .WalletOnWrongChain(expected):
+            writeInt(&buf, Int32(8))
+            FfiConverterUInt64.write(expected, into: &buf)
+            
+        
+        case .UnrecognizedWalletChain:
+            writeInt(&buf, Int32(9))
+        
+        
+        case let .InvalidBlockhash(detail):
+            writeInt(&buf, Int32(10))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .Build(detail):
+            writeInt(&buf, Int32(11))
+            FfiConverterString.write(detail, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalDepositRefusal_lift(_ buf: RustBuffer) throws -> ExternalDepositRefusal {
+    return try FfiConverterTypeExternalDepositRefusal.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeExternalDepositRefusal_lower(_ value: ExternalDepositRefusal) -> RustBuffer {
+    return FfiConverterTypeExternalDepositRefusal.lower(value)
+}
+
+
+extension ExternalDepositRefusal: Equatable, Hashable {}
+
+
+
+
+extension ExternalDepositRefusal: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * What a join does on one family. `message` is the sentence to show.
  */
 
@@ -31489,6 +35700,98 @@ public func FfiConverterTypeFamilyJoin_lower(_ value: FamilyJoin) -> RustBuffer 
 
 
 extension FamilyJoin: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Mirrors `paygent_authorizer_core::FeeQuoteRefusal`: why a live Kora fee
+ * quote, or the carrier priced at it, was refused.
+ */
+
+public enum FeeQuoteRefusalFfi {
+    
+    /**
+     * The quote expired. Fetch a new quote and prepare again.
+     */
+    case quoteExpired
+    /**
+     * Paygent's fee payer does not know the SOL price right now. Retry
+     * later, or gas the op from the device gas purse.
+     */
+    case priceUnknown
+    /**
+     * The carrier charges more than the fee ceiling the owner signed.
+     * Prepare again at a new quote.
+     */
+    case feeAboveSignedCeiling
+}
+
+
+#if compiler(>=6)
+extension FeeQuoteRefusalFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFeeQuoteRefusalFfi: FfiConverterRustBuffer {
+    typealias SwiftType = FeeQuoteRefusalFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FeeQuoteRefusalFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .quoteExpired
+        
+        case 2: return .priceUnknown
+        
+        case 3: return .feeAboveSignedCeiling
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FeeQuoteRefusalFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .quoteExpired:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .priceUnknown:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .feeAboveSignedCeiling:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFeeQuoteRefusalFfi_lift(_ buf: RustBuffer) throws -> FeeQuoteRefusalFfi {
+    return try FfiConverterTypeFeeQuoteRefusalFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFeeQuoteRefusalFfi_lower(_ value: FeeQuoteRefusalFfi) -> RustBuffer {
+    return FfiConverterTypeFeeQuoteRefusalFfi.lower(value)
+}
+
+
+extension FeeQuoteRefusalFfi: Equatable, Hashable {}
 
 
 
@@ -32777,6 +37080,171 @@ extension LightningOnchainSendFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Whether the treasury can pay a top-up right now.
+ */
+
+public enum LightningTopUpAffordabilityFfi {
+    
+    /**
+     * What the treasury can send covers the most the top-up can cost.
+     */
+    case canPay
+    /**
+     * It does not: the owner adds at least `shortfall_msat` first.
+     */
+    case shortfall(shortfallMsat: UInt64
+    )
+}
+
+
+#if compiler(>=6)
+extension LightningTopUpAffordabilityFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningTopUpAffordabilityFfi: FfiConverterRustBuffer {
+    typealias SwiftType = LightningTopUpAffordabilityFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningTopUpAffordabilityFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .canPay
+        
+        case 2: return .shortfall(shortfallMsat: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LightningTopUpAffordabilityFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .canPay:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .shortfall(shortfallMsat):
+            writeInt(&buf, Int32(2))
+            FfiConverterUInt64.write(shortfallMsat, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningTopUpAffordabilityFfi_lift(_ buf: RustBuffer) throws -> LightningTopUpAffordabilityFfi {
+    return try FfiConverterTypeLightningTopUpAffordabilityFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningTopUpAffordabilityFfi_lower(_ value: LightningTopUpAffordabilityFfi) -> RustBuffer {
+    return FfiConverterTypeLightningTopUpAffordabilityFfi.lower(value)
+}
+
+
+extension LightningTopUpAffordabilityFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * How a top-up reaches the agent.
+ */
+
+public enum LightningTopUpRouteFfi {
+    
+    /**
+     * Over the agent's existing payment line: an ordinary payment.
+     */
+    case existingLine
+    /**
+     * The LSP sets up a new line as the payment arrives and keeps
+     * `opening_fee_msat` of it.
+     */
+    case newLine(openingFeeMsat: UInt64
+    )
+}
+
+
+#if compiler(>=6)
+extension LightningTopUpRouteFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeLightningTopUpRouteFfi: FfiConverterRustBuffer {
+    typealias SwiftType = LightningTopUpRouteFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LightningTopUpRouteFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .existingLine
+        
+        case 2: return .newLine(openingFeeMsat: try FfiConverterUInt64.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LightningTopUpRouteFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .existingLine:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .newLine(openingFeeMsat):
+            writeInt(&buf, Int32(2))
+            FfiConverterUInt64.write(openingFeeMsat, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningTopUpRouteFfi_lift(_ buf: RustBuffer) throws -> LightningTopUpRouteFfi {
+    return try FfiConverterTypeLightningTopUpRouteFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeLightningTopUpRouteFfi_lower(_ value: LightningTopUpRouteFfi) -> RustBuffer {
+    return FfiConverterTypeLightningTopUpRouteFfi.lower(value)
+}
+
+
+extension LightningTopUpRouteFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * How much to send on chain.
  */
 
@@ -32980,6 +37448,7 @@ public enum ManualMintReasonFfi {
     case destinationNotForwarded
     case quoteUnavailable
     case amountBelowFee
+    case sourceNotForwarded
 }
 
 
@@ -33003,6 +37472,8 @@ public struct FfiConverterTypeManualMintReasonFfi: FfiConverterRustBuffer {
         
         case 3: return .amountBelowFee
         
+        case 4: return .sourceNotForwarded
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -33021,6 +37492,10 @@ public struct FfiConverterTypeManualMintReasonFfi: FfiConverterRustBuffer {
         
         case .amountBelowFee:
             writeInt(&buf, Int32(3))
+        
+        
+        case .sourceNotForwarded:
+            writeInt(&buf, Int32(4))
         
         }
     }
@@ -33043,6 +37518,85 @@ public func FfiConverterTypeManualMintReasonFfi_lower(_ value: ManualMintReasonF
 
 
 extension ManualMintReasonFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why a required contract does not count as present.
+ */
+
+public enum MissingDeployContractReasonFfi {
+    
+    /**
+     * The chain was read and there is no code at the address.
+     */
+    case noCode
+    /**
+     * Nothing was read for the address, which never counts as present.
+     */
+    case notRead
+}
+
+
+#if compiler(>=6)
+extension MissingDeployContractReasonFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMissingDeployContractReasonFfi: FfiConverterRustBuffer {
+    typealias SwiftType = MissingDeployContractReasonFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MissingDeployContractReasonFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .noCode
+        
+        case 2: return .notRead
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MissingDeployContractReasonFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .noCode:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .notRead:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMissingDeployContractReasonFfi_lift(_ buf: RustBuffer) throws -> MissingDeployContractReasonFfi {
+    return try FfiConverterTypeMissingDeployContractReasonFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMissingDeployContractReasonFfi_lower(_ value: MissingDeployContractReasonFfi) -> RustBuffer {
+    return FfiConverterTypeMissingDeployContractReasonFfi.lower(value)
+}
+
+
+extension MissingDeployContractReasonFfi: Equatable, Hashable {}
 
 
 
@@ -33080,12 +37634,6 @@ public enum MobileError: Swift.Error {
     case InsufficientGas(chain: String, symbol: String, needed: String, available: String
     )
     /**
-     * Mirrors `CoreError::ZeroLimitUnsupported`: this guard reverts a limit
-     * of zero-and-zero, so the write was refused before the fee.
-     */
-    case ZeroLimitUnsupported(chain: String
-    )
-    /**
      * Mirrors `CoreError::AgentPaused`: the request came from a paused agent.
      */
     case AgentPaused(agent: String
@@ -33106,6 +37654,13 @@ public enum MobileError: Swift.Error {
      * asked for, and the passkey assertion carried no PRF output.
      */
     case GasPurseNeedsPrf
+    /**
+     * Mirrors `CoreError::FeeQuoteRefused`: a Solana administration op cannot
+     * go ahead at its live Kora fee quote. Branch on `reason`; `detail` is
+     * diagnostic text, not owner copy.
+     */
+    case FeeQuoteRefused(reason: FeeQuoteRefusalFfi, detail: String
+    )
     /**
      * Reconcile refused because the view of the wallet is partial: these
      * deployed chains' owner sets could not be read. Carried as a list so the
@@ -33212,17 +37767,18 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             needed: try FfiConverterString.read(from: &buf), 
             available: try FfiConverterString.read(from: &buf)
             )
-        case 8: return .ZeroLimitUnsupported(
-            chain: try FfiConverterString.read(from: &buf)
-            )
-        case 9: return .AgentPaused(
+        case 8: return .AgentPaused(
             agent: try FfiConverterString.read(from: &buf)
             )
-        case 10: return .InvalidLimit(
+        case 9: return .InvalidLimit(
             reason: try FfiConverterTypeLimitEntryRefusalFfi.read(from: &buf)
             )
-        case 11: return .OwnerKeyMustBeOwnerInitiated
-        case 12: return .GasPurseNeedsPrf
+        case 10: return .OwnerKeyMustBeOwnerInitiated
+        case 11: return .GasPurseNeedsPrf
+        case 12: return .FeeQuoteRefused(
+            reason: try FfiConverterTypeFeeQuoteRefusalFfi.read(from: &buf), 
+            detail: try FfiConverterString.read(from: &buf)
+            )
         case 13: return .ReconcileBlocked(
             chains: try FfiConverterSequenceString.read(from: &buf)
             )
@@ -33303,28 +37859,29 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             FfiConverterString.write(available, into: &buf)
             
         
-        case let .ZeroLimitUnsupported(chain):
-            writeInt(&buf, Int32(8))
-            FfiConverterString.write(chain, into: &buf)
-            
-        
         case let .AgentPaused(agent):
-            writeInt(&buf, Int32(9))
+            writeInt(&buf, Int32(8))
             FfiConverterString.write(agent, into: &buf)
             
         
         case let .InvalidLimit(reason):
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(9))
             FfiConverterTypeLimitEntryRefusalFfi.write(reason, into: &buf)
             
         
         case .OwnerKeyMustBeOwnerInitiated:
-            writeInt(&buf, Int32(11))
+            writeInt(&buf, Int32(10))
         
         
         case .GasPurseNeedsPrf:
-            writeInt(&buf, Int32(12))
+            writeInt(&buf, Int32(11))
         
+        
+        case let .FeeQuoteRefused(reason,detail):
+            writeInt(&buf, Int32(12))
+            FfiConverterTypeFeeQuoteRefusalFfi.write(reason, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
+            
         
         case let .ReconcileBlocked(chains):
             writeInt(&buf, Int32(13))
@@ -34245,6 +38802,264 @@ extension PauseActionFfi: Equatable, Hashable {}
 
 
 
+
+public enum PaymentLinkRefusal: Swift.Error {
+
+    
+    
+    case Empty
+    case MalformedUri(detail: String
+    )
+    case ChainIdentifierNotAPayment
+    case TransactionRequestNotSupported
+    case UnknownChain(chainId: UInt64
+    )
+    case UnsupportedCluster(cluster: String
+    )
+    case NoUsdcOnNetwork
+    case NativeCoinNotSupported
+    case TokenNotInRegistry(token: String
+    )
+    case NetworkTokenMismatch(token: String
+    )
+    case UnsupportedFunction(function: String
+    )
+    case UnsupportedParameter(name: String
+    )
+    case MalformedAmount(amount: String
+    )
+    case ZeroAmount(amount: String
+    )
+    case AmountOverflow(amount: String
+    )
+    case InvalidAddress(address: String
+    )
+    case BadChecksum(address: String
+    )
+    case AmbiguousNetwork
+    case AddressNetworkMismatch
+    case RecipientIsTokenContract(address: String
+    )
+    case UnusableRecipient(address: String
+    )
+    case NotASolanaPayWallet(address: String
+    )
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePaymentLinkRefusal: FfiConverterRustBuffer {
+    typealias SwiftType = PaymentLinkRefusal
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PaymentLinkRefusal {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        
+
+        
+        case 1: return .Empty
+        case 2: return .MalformedUri(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 3: return .ChainIdentifierNotAPayment
+        case 4: return .TransactionRequestNotSupported
+        case 5: return .UnknownChain(
+            chainId: try FfiConverterUInt64.read(from: &buf)
+            )
+        case 6: return .UnsupportedCluster(
+            cluster: try FfiConverterString.read(from: &buf)
+            )
+        case 7: return .NoUsdcOnNetwork
+        case 8: return .NativeCoinNotSupported
+        case 9: return .TokenNotInRegistry(
+            token: try FfiConverterString.read(from: &buf)
+            )
+        case 10: return .NetworkTokenMismatch(
+            token: try FfiConverterString.read(from: &buf)
+            )
+        case 11: return .UnsupportedFunction(
+            function: try FfiConverterString.read(from: &buf)
+            )
+        case 12: return .UnsupportedParameter(
+            name: try FfiConverterString.read(from: &buf)
+            )
+        case 13: return .MalformedAmount(
+            amount: try FfiConverterString.read(from: &buf)
+            )
+        case 14: return .ZeroAmount(
+            amount: try FfiConverterString.read(from: &buf)
+            )
+        case 15: return .AmountOverflow(
+            amount: try FfiConverterString.read(from: &buf)
+            )
+        case 16: return .InvalidAddress(
+            address: try FfiConverterString.read(from: &buf)
+            )
+        case 17: return .BadChecksum(
+            address: try FfiConverterString.read(from: &buf)
+            )
+        case 18: return .AmbiguousNetwork
+        case 19: return .AddressNetworkMismatch
+        case 20: return .RecipientIsTokenContract(
+            address: try FfiConverterString.read(from: &buf)
+            )
+        case 21: return .UnusableRecipient(
+            address: try FfiConverterString.read(from: &buf)
+            )
+        case 22: return .NotASolanaPayWallet(
+            address: try FfiConverterString.read(from: &buf)
+            )
+
+         default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PaymentLinkRefusal, into buf: inout [UInt8]) {
+        switch value {
+
+        
+
+        
+        
+        case .Empty:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .MalformedUri(detail):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case .ChainIdentifierNotAPayment:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .TransactionRequestNotSupported:
+            writeInt(&buf, Int32(4))
+        
+        
+        case let .UnknownChain(chainId):
+            writeInt(&buf, Int32(5))
+            FfiConverterUInt64.write(chainId, into: &buf)
+            
+        
+        case let .UnsupportedCluster(cluster):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(cluster, into: &buf)
+            
+        
+        case .NoUsdcOnNetwork:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .NativeCoinNotSupported:
+            writeInt(&buf, Int32(8))
+        
+        
+        case let .TokenNotInRegistry(token):
+            writeInt(&buf, Int32(9))
+            FfiConverterString.write(token, into: &buf)
+            
+        
+        case let .NetworkTokenMismatch(token):
+            writeInt(&buf, Int32(10))
+            FfiConverterString.write(token, into: &buf)
+            
+        
+        case let .UnsupportedFunction(function):
+            writeInt(&buf, Int32(11))
+            FfiConverterString.write(function, into: &buf)
+            
+        
+        case let .UnsupportedParameter(name):
+            writeInt(&buf, Int32(12))
+            FfiConverterString.write(name, into: &buf)
+            
+        
+        case let .MalformedAmount(amount):
+            writeInt(&buf, Int32(13))
+            FfiConverterString.write(amount, into: &buf)
+            
+        
+        case let .ZeroAmount(amount):
+            writeInt(&buf, Int32(14))
+            FfiConverterString.write(amount, into: &buf)
+            
+        
+        case let .AmountOverflow(amount):
+            writeInt(&buf, Int32(15))
+            FfiConverterString.write(amount, into: &buf)
+            
+        
+        case let .InvalidAddress(address):
+            writeInt(&buf, Int32(16))
+            FfiConverterString.write(address, into: &buf)
+            
+        
+        case let .BadChecksum(address):
+            writeInt(&buf, Int32(17))
+            FfiConverterString.write(address, into: &buf)
+            
+        
+        case .AmbiguousNetwork:
+            writeInt(&buf, Int32(18))
+        
+        
+        case .AddressNetworkMismatch:
+            writeInt(&buf, Int32(19))
+        
+        
+        case let .RecipientIsTokenContract(address):
+            writeInt(&buf, Int32(20))
+            FfiConverterString.write(address, into: &buf)
+            
+        
+        case let .UnusableRecipient(address):
+            writeInt(&buf, Int32(21))
+            FfiConverterString.write(address, into: &buf)
+            
+        
+        case let .NotASolanaPayWallet(address):
+            writeInt(&buf, Int32(22))
+            FfiConverterString.write(address, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentLinkRefusal_lift(_ buf: RustBuffer) throws -> PaymentLinkRefusal {
+    return try FfiConverterTypePaymentLinkRefusal.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePaymentLinkRefusal_lower(_ value: PaymentLinkRefusal) -> RustBuffer {
+    return FfiConverterTypePaymentLinkRefusal.lower(value)
+}
+
+
+extension PaymentLinkRefusal: Equatable, Hashable {}
+
+
+
+
+extension PaymentLinkRefusal: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
+
+
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
@@ -34362,6 +39177,173 @@ public func FfiConverterTypePerChainStatusFfi_lower(_ value: PerChainStatusFfi) 
 
 
 extension PerChainStatusFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * One segment of the "how often" control.
+ */
+
+public enum PeriodPresetFfi {
+    
+    case day
+    case week
+    case thirtyDays
+    case oneTime
+    case custom
+}
+
+
+#if compiler(>=6)
+extension PeriodPresetFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeriodPresetFfi: FfiConverterRustBuffer {
+    typealias SwiftType = PeriodPresetFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeriodPresetFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .day
+        
+        case 2: return .week
+        
+        case 3: return .thirtyDays
+        
+        case 4: return .oneTime
+        
+        case 5: return .custom
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PeriodPresetFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .day:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .week:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .thirtyDays:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .oneTime:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .custom:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodPresetFfi_lift(_ buf: RustBuffer) throws -> PeriodPresetFfi {
+    return try FfiConverterTypePeriodPresetFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodPresetFfi_lower(_ value: PeriodPresetFfi) -> RustBuffer {
+    return FfiConverterTypePeriodPresetFfi.lower(value)
+}
+
+
+extension PeriodPresetFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The unit a custom count is typed in.
+ */
+
+public enum PeriodUnitFfi {
+    
+    case hours
+    case days
+}
+
+
+#if compiler(>=6)
+extension PeriodUnitFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeriodUnitFfi: FfiConverterRustBuffer {
+    typealias SwiftType = PeriodUnitFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeriodUnitFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .hours
+        
+        case 2: return .days
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PeriodUnitFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .hours:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .days:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodUnitFfi_lift(_ buf: RustBuffer) throws -> PeriodUnitFfi {
+    return try FfiConverterTypePeriodUnitFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodUnitFfi_lower(_ value: PeriodUnitFfi) -> RustBuffer {
+    return FfiConverterTypePeriodUnitFfi.lower(value)
+}
+
+
+extension PeriodUnitFfi: Equatable, Hashable {}
 
 
 
@@ -35301,6 +40283,94 @@ extension RemovalStepStateFfi: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why a spend the owner approved definitively did not happen. A failure
+ * that reached the chain names its transaction; a refused submission names
+ * none.
+ */
+
+public enum RequestFailureFfi {
+    
+    case reverted(txHash: String
+    )
+    case targetMismatch(txHash: String
+    )
+    case rejectedByBundler
+}
+
+
+#if compiler(>=6)
+extension RequestFailureFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRequestFailureFfi: FfiConverterRustBuffer {
+    typealias SwiftType = RequestFailureFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RequestFailureFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .reverted(txHash: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .targetMismatch(txHash: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 3: return .rejectedByBundler
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RequestFailureFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .reverted(txHash):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(txHash, into: &buf)
+            
+        
+        case let .targetMismatch(txHash):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(txHash, into: &buf)
+            
+        
+        case .rejectedByBundler:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRequestFailureFfi_lift(_ buf: RustBuffer) throws -> RequestFailureFfi {
+    return try FfiConverterTypeRequestFailureFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRequestFailureFfi_lower(_ value: RequestFailureFfi) -> RustBuffer {
+    return FfiConverterTypeRequestFailureFfi.lower(value)
+}
+
+
+extension RequestFailureFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum RequestHistoryOutcomeFfi {
     
@@ -35617,6 +40687,174 @@ public func FfiConverterTypeRequestOutcomeFfi_lower(_ value: RequestOutcomeFfi) 
 
 
 extension RequestOutcomeFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * How the host writes the day in a [`ResetWhen::Dated`] template.
+ */
+
+public enum ResetDayStyle {
+    
+    /**
+     * The weekday alone: "Friday".
+     */
+    case weekday
+    /**
+     * The day of the month and the short month: "3 Oct".
+     */
+    case dayMonth
+}
+
+
+#if compiler(>=6)
+extension ResetDayStyle: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeResetDayStyle: FfiConverterRustBuffer {
+    typealias SwiftType = ResetDayStyle
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ResetDayStyle {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .weekday
+        
+        case 2: return .dayMonth
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ResetDayStyle, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .weekday:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .dayMonth:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeResetDayStyle_lift(_ buf: RustBuffer) throws -> ResetDayStyle {
+    return try FfiConverterTypeResetDayStyle.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeResetDayStyle_lower(_ value: ResetDayStyle) -> RustBuffer {
+    return FfiConverterTypeResetDayStyle.lower(value)
+}
+
+
+extension ResetDayStyle: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The words after "Resets" on an allowance.
+ */
+
+public enum ResetWhen {
+    
+    /**
+     * Complete as it is: "today at 7:30", "tomorrow at 7:30".
+     */
+    case text(text: String
+    )
+    /**
+     * A template holding `{day}` once ("{day} at 7:30", "on {day} at 7:30").
+     * Format `timestamp_ms` in `style` with the platform's date formatter and
+     * put it where `{day}` sits.
+     */
+    case dated(timestampMs: Int64, style: ResetDayStyle, template: String
+    )
+}
+
+
+#if compiler(>=6)
+extension ResetWhen: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeResetWhen: FfiConverterRustBuffer {
+    typealias SwiftType = ResetWhen
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ResetWhen {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .text(text: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 2: return .dated(timestampMs: try FfiConverterInt64.read(from: &buf), style: try FfiConverterTypeResetDayStyle.read(from: &buf), template: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ResetWhen, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .text(text):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(text, into: &buf)
+            
+        
+        case let .dated(timestampMs,style,template):
+            writeInt(&buf, Int32(2))
+            FfiConverterInt64.write(timestampMs, into: &buf)
+            FfiConverterTypeResetDayStyle.write(style, into: &buf)
+            FfiConverterString.write(template, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeResetWhen_lift(_ buf: RustBuffer) throws -> ResetWhen {
+    return try FfiConverterTypeResetWhen.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeResetWhen_lower(_ value: ResetWhen) -> RustBuffer {
+    return FfiConverterTypeResetWhen.lower(value)
+}
+
+
+extension ResetWhen: Equatable, Hashable {}
 
 
 
@@ -36320,81 +41558,6 @@ extension SelfPayRouteFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Whether the treasury can reach one side-wallet pocket right now. There is
- * no "unreachable" and no zero: a pocket that is not connected may just be
- * asleep, and its money is not gone.
- */
-
-public enum SideWalletReachabilityFfi {
-    
-    case reachable
-    case unknown
-}
-
-
-#if compiler(>=6)
-extension SideWalletReachabilityFfi: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeSideWalletReachabilityFfi: FfiConverterRustBuffer {
-    typealias SwiftType = SideWalletReachabilityFfi
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SideWalletReachabilityFfi {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .reachable
-        
-        case 2: return .unknown
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: SideWalletReachabilityFfi, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .reachable:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .unknown:
-            writeInt(&buf, Int32(2))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeSideWalletReachabilityFfi_lift(_ buf: RustBuffer) throws -> SideWalletReachabilityFfi {
-    return try FfiConverterTypeSideWalletReachabilityFfi.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeSideWalletReachabilityFfi_lower(_ value: SideWalletReachabilityFfi) -> RustBuffer {
-    return FfiConverterTypeSideWalletReachabilityFfi.lower(value)
-}
-
-
-extension SideWalletReachabilityFfi: Equatable, Hashable {}
-
-
-
-
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
  * One sidewallet to empty.
  */
 
@@ -36536,7 +41699,21 @@ public enum SignRequestKind {
      * credited, and the device re-derives that pocket's node id from it, so an
      * invoice signed by anything else is refused rather than paid.
      */
-    case lightningEscalateRefill(intentId: String, sideWalletIndex: UInt32, invoice: String, peerAddress: String, resourceDescription: UntrustedText?
+    case lightningEscalateRefill(intentId: String, sideWalletIndex: UInt32, invoice: String, 
+        /**
+         * How much the pocket's line could still receive, in millisats.
+         */inboundRoomMsat: UInt64, 
+        /**
+         * The LSP's one-time fee for a new line, in millisats; `None` when
+         * the existing line has room.
+         */openingFeeMsat: UInt64?, 
+        /**
+         * Node id of the LSP the top-up goes through, hex.
+         */lspNodeId: String, 
+        /**
+         * The provider's terms the opening fee was priced on; `None` when the
+         * existing line has room.
+         */openingFeeTerms: LightningLspTermsFfi?, resourceDescription: UntrustedText?
     )
     /**
      * MPP `charge` on Tempo (RFC-0050). `pay_to`, `amount` and `currency` are
@@ -36623,7 +41800,7 @@ public struct FfiConverterTypeSignRequestKind: FfiConverterRustBuffer {
         case 9: return .solanaEscalateRefill(intentId: try FfiConverterString.read(from: &buf), cluster: try FfiConverterString.read(from: &buf), walletAddress: try FfiConverterString.read(from: &buf), mintAddress: try FfiConverterString.read(from: &buf), agent: try FfiConverterString.read(from: &buf), amount: try FfiConverterString.read(from: &buf), payTo: try FfiConverterOptionString.read(from: &buf), resourceUrl: try FfiConverterOptionTypeUntrustedText.read(from: &buf), resourceDescription: try FfiConverterOptionTypeUntrustedText.read(from: &buf)
         )
         
-        case 10: return .lightningEscalateRefill(intentId: try FfiConverterString.read(from: &buf), sideWalletIndex: try FfiConverterUInt32.read(from: &buf), invoice: try FfiConverterString.read(from: &buf), peerAddress: try FfiConverterString.read(from: &buf), resourceDescription: try FfiConverterOptionTypeUntrustedText.read(from: &buf)
+        case 10: return .lightningEscalateRefill(intentId: try FfiConverterString.read(from: &buf), sideWalletIndex: try FfiConverterUInt32.read(from: &buf), invoice: try FfiConverterString.read(from: &buf), inboundRoomMsat: try FfiConverterUInt64.read(from: &buf), openingFeeMsat: try FfiConverterOptionUInt64.read(from: &buf), lspNodeId: try FfiConverterString.read(from: &buf), openingFeeTerms: try FfiConverterOptionTypeLightningLspTermsFfi.read(from: &buf), resourceDescription: try FfiConverterOptionTypeUntrustedText.read(from: &buf)
         )
         
         case 11: return .mppCharge(intentId: try FfiConverterString.read(from: &buf), challengeHeader: try FfiConverterString.read(from: &buf), resourceUrl: try FfiConverterString.read(from: &buf), resourceDescription: try FfiConverterOptionTypeUntrustedText.read(from: &buf), payTo: try FfiConverterString.read(from: &buf), amount: try FfiConverterString.read(from: &buf), currency: try FfiConverterString.read(from: &buf), sender: try FfiConverterString.read(from: &buf), chainId: try FfiConverterUInt64.read(from: &buf), maxFeePerGas: try FfiConverterString.read(from: &buf), maxPriorityFeePerGas: try FfiConverterString.read(from: &buf)
@@ -36740,12 +41917,15 @@ public struct FfiConverterTypeSignRequestKind: FfiConverterRustBuffer {
             FfiConverterOptionTypeUntrustedText.write(resourceDescription, into: &buf)
             
         
-        case let .lightningEscalateRefill(intentId,sideWalletIndex,invoice,peerAddress,resourceDescription):
+        case let .lightningEscalateRefill(intentId,sideWalletIndex,invoice,inboundRoomMsat,openingFeeMsat,lspNodeId,openingFeeTerms,resourceDescription):
             writeInt(&buf, Int32(10))
             FfiConverterString.write(intentId, into: &buf)
             FfiConverterUInt32.write(sideWalletIndex, into: &buf)
             FfiConverterString.write(invoice, into: &buf)
-            FfiConverterString.write(peerAddress, into: &buf)
+            FfiConverterUInt64.write(inboundRoomMsat, into: &buf)
+            FfiConverterOptionUInt64.write(openingFeeMsat, into: &buf)
+            FfiConverterString.write(lspNodeId, into: &buf)
+            FfiConverterOptionTypeLightningLspTermsFfi.write(openingFeeTerms, into: &buf)
             FfiConverterOptionTypeUntrustedText.write(resourceDescription, into: &buf)
             
         
@@ -37382,6 +42562,262 @@ extension SolanaGuardPresence: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * The answer to [`fetch_solana_kora_fee_quote`].
+ */
+
+public enum SolanaKoraFeeQuoteOutcome {
+    
+    case quoted(quote: SolanaVerifiedFeeQuote
+    )
+    case fallback(fallback: SolanaKoraQuoteFallback
+    )
+}
+
+
+#if compiler(>=6)
+extension SolanaKoraFeeQuoteOutcome: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaKoraFeeQuoteOutcome: FfiConverterRustBuffer {
+    typealias SwiftType = SolanaKoraFeeQuoteOutcome
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaKoraFeeQuoteOutcome {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .quoted(quote: try FfiConverterTypeSolanaVerifiedFeeQuote.read(from: &buf)
+        )
+        
+        case 2: return .fallback(fallback: try FfiConverterTypeSolanaKoraQuoteFallback.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SolanaKoraFeeQuoteOutcome, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .quoted(quote):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeSolanaVerifiedFeeQuote.write(quote, into: &buf)
+            
+        
+        case let .fallback(fallback):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeSolanaKoraQuoteFallback.write(fallback, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaKoraFeeQuoteOutcome_lift(_ buf: RustBuffer) throws -> SolanaKoraFeeQuoteOutcome {
+    return try FfiConverterTypeSolanaKoraFeeQuoteOutcome.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaKoraFeeQuoteOutcome_lower(_ value: SolanaKoraFeeQuoteOutcome) -> RustBuffer {
+    return FfiConverterTypeSolanaKoraFeeQuoteOutcome.lower(value)
+}
+
+
+extension SolanaKoraFeeQuoteOutcome: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why there is no live quote to use. Each is a reason to show the owner, and
+ * each leaves the choice of the pinned-rate path to the host.
+ */
+
+public enum SolanaKoraQuoteFallbackReason {
+    
+    /**
+     * The node is a plain Kora node that does not quote prices.
+     */
+    case plainKora
+    /**
+     * The node does not know the SOL price right now.
+     */
+    case priceUnknown
+    /**
+     * The node could not be reached or its answer could not be read.
+     */
+    case network
+    /**
+     * Paygent has pinned no fee account for this cluster, so no quote can be
+     * checked there.
+     */
+    case noPinnedFeeReceiver
+    case unknownCluster
+    case wrongOp
+    case wrongCluster
+    case expired
+    /**
+     * The quote pays an account other than Paygent's pinned one.
+     */
+    case wrongFeeReceiver
+    case zeroRate
+    /**
+     * The quote's figures are not what its own price produces.
+     */
+    case inconsistent
+    case actualAboveMax
+    case maxAboveCap
+    case malformedToken
+}
+
+
+#if compiler(>=6)
+extension SolanaKoraQuoteFallbackReason: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSolanaKoraQuoteFallbackReason: FfiConverterRustBuffer {
+    typealias SwiftType = SolanaKoraQuoteFallbackReason
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaKoraQuoteFallbackReason {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .plainKora
+        
+        case 2: return .priceUnknown
+        
+        case 3: return .network
+        
+        case 4: return .noPinnedFeeReceiver
+        
+        case 5: return .unknownCluster
+        
+        case 6: return .wrongOp
+        
+        case 7: return .wrongCluster
+        
+        case 8: return .expired
+        
+        case 9: return .wrongFeeReceiver
+        
+        case 10: return .zeroRate
+        
+        case 11: return .inconsistent
+        
+        case 12: return .actualAboveMax
+        
+        case 13: return .maxAboveCap
+        
+        case 14: return .malformedToken
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SolanaKoraQuoteFallbackReason, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .plainKora:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .priceUnknown:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .network:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .noPinnedFeeReceiver:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .unknownCluster:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .wrongOp:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .wrongCluster:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .wrongFeeReceiver:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .zeroRate:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .inconsistent:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .actualAboveMax:
+            writeInt(&buf, Int32(12))
+        
+        
+        case .maxAboveCap:
+            writeInt(&buf, Int32(13))
+        
+        
+        case .malformedToken:
+            writeInt(&buf, Int32(14))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaKoraQuoteFallbackReason_lift(_ buf: RustBuffer) throws -> SolanaKoraQuoteFallbackReason {
+    return try FfiConverterTypeSolanaKoraQuoteFallbackReason.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSolanaKoraQuoteFallbackReason_lower(_ value: SolanaKoraQuoteFallbackReason) -> RustBuffer {
+    return FfiConverterTypeSolanaKoraQuoteFallbackReason.lower(value)
+}
+
+
+extension SolanaKoraQuoteFallbackReason: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Per-owner authorization mode passed alongside the owner pubkeys when
  * deriving the guard address. Mirrors the on-chain owner-mode byte
  * (0 = raw P256, 1 = WebAuthn) and [`paygent_solana::GuardOwnerMode`].
@@ -37700,94 +43136,6 @@ public func FfiConverterTypeSolanaOwnerOpFfi_lower(_ value: SolanaOwnerOpFfi) ->
 
 
 extension SolanaOwnerOpFfi: Equatable, Hashable {}
-
-
-
-
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
- * Spending-limit reset period for a per-agent allowance. Mirrors the
- * on-chain `Period` Borsh tag and [`paygent_solana::Period`].
- */
-
-public enum SolanaPeriod {
-    
-    case oneTime
-    case day
-    case week
-    case month
-}
-
-
-#if compiler(>=6)
-extension SolanaPeriod: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeSolanaPeriod: FfiConverterRustBuffer {
-    typealias SwiftType = SolanaPeriod
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaPeriod {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .oneTime
-        
-        case 2: return .day
-        
-        case 3: return .week
-        
-        case 4: return .month
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: SolanaPeriod, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .oneTime:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .day:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .week:
-            writeInt(&buf, Int32(3))
-        
-        
-        case .month:
-            writeInt(&buf, Int32(4))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeSolanaPeriod_lift(_ buf: RustBuffer) throws -> SolanaPeriod {
-    return try FfiConverterTypeSolanaPeriod.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeSolanaPeriod_lower(_ value: SolanaPeriod) -> RustBuffer {
-    return FfiConverterTypeSolanaPeriod.lower(value)
-}
-
-
-extension SolanaPeriod: Equatable, Hashable {}
 
 
 
@@ -38881,6 +44229,109 @@ extension UserActionFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * An owner operation that moves money. Top-up and reclaim keep the money
+ * inside the owner's own accounts; `SendToOthers` does not, and
+ * `RecoverStrayCoin` goes wherever the owner points it.
+ */
+
+public enum ValueOpFfi {
+    
+    /**
+     * Move money from the treasury to an agent's sidewallet beyond its
+     * allowance.
+     */
+    case topUpAgent
+    /**
+     * Pull an agent's unspent sidewallet balance back into the treasury.
+     */
+    case reclaimFromAgent
+    /**
+     * Recover the network coin someone sent to the treasury account itself,
+     * to an owner-chosen destination that may be a third party.
+     */
+    case recoverStrayCoin
+    /**
+     * Send money to someone else, including the owner's recovery withdraw.
+     */
+    case sendToOthers
+}
+
+
+#if compiler(>=6)
+extension ValueOpFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeValueOpFfi: FfiConverterRustBuffer {
+    typealias SwiftType = ValueOpFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ValueOpFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .topUpAgent
+        
+        case 2: return .reclaimFromAgent
+        
+        case 3: return .recoverStrayCoin
+        
+        case 4: return .sendToOthers
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ValueOpFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .topUpAgent:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .reclaimFromAgent:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .recoverStrayCoin:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .sendToOthers:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeValueOpFfi_lift(_ buf: RustBuffer) throws -> ValueOpFfi {
+    return try FfiConverterTypeValueOpFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeValueOpFfi_lower(_ value: ValueOpFfi) -> RustBuffer {
+    return FfiConverterTypeValueOpFfi.lower(value)
+}
+
+
+extension ValueOpFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Why the owner declined a creation request.
  */
 
@@ -39227,30 +44678,6 @@ fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionBool: FfiConverterRustBuffer {
-    typealias SwiftType = Bool?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterBool.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterBool.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -39371,6 +44798,30 @@ fileprivate struct FfiConverterOptionTypeAgentPocketHost: FfiConverterRustBuffer
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeAllowanceReview: FfiConverterRustBuffer {
+    typealias SwiftType = AllowanceReview?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeAllowanceReview.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeAllowanceReview.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeSolanaPocketReceipt: FfiConverterRustBuffer {
     typealias SwiftType = SolanaPocketReceipt?
 
@@ -39411,6 +44862,30 @@ fileprivate struct FfiConverterOptionTypeAgentRecordFfi: FfiConverterRustBuffer 
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeAgentRecordFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeCctpBurnSubmittedFfi: FfiConverterRustBuffer {
+    typealias SwiftType = CctpBurnSubmittedFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeCctpBurnSubmittedFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeCctpBurnSubmittedFfi.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -39491,6 +44966,30 @@ fileprivate struct FfiConverterOptionTypeEvmChainFfi: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeEvmFeeQuoteFfi: FfiConverterRustBuffer {
+    typealias SwiftType = EvmFeeQuoteFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeEvmFeeQuoteFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeEvmFeeQuoteFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeFeeBalanceFfi: FfiConverterRustBuffer {
     typealias SwiftType = FeeBalanceFfi?
 
@@ -39539,8 +45038,8 @@ fileprivate struct FfiConverterOptionTypeGuardLimitReadingFfi: FfiConverterRustB
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeLightningChannelFfi: FfiConverterRustBuffer {
-    typealias SwiftType = LightningChannelFfi?
+fileprivate struct FfiConverterOptionTypeLightningHeadlineTermsFfi: FfiConverterRustBuffer {
+    typealias SwiftType = LightningHeadlineTermsFfi?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
@@ -39548,13 +45047,85 @@ fileprivate struct FfiConverterOptionTypeLightningChannelFfi: FfiConverterRustBu
             return
         }
         writeInt(&buf, Int8(1))
-        FfiConverterTypeLightningChannelFfi.write(value, into: &buf)
+        FfiConverterTypeLightningHeadlineTermsFfi.write(value, into: &buf)
     }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
-        case 1: return try FfiConverterTypeLightningChannelFfi.read(from: &buf)
+        case 1: return try FfiConverterTypeLightningHeadlineTermsFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeLightningLspTermsFfi: FfiConverterRustBuffer {
+    typealias SwiftType = LightningLspTermsFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeLightningLspTermsFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeLightningLspTermsFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeLightningProviderFfi: FfiConverterRustBuffer {
+    typealias SwiftType = LightningProviderFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeLightningProviderFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeLightningProviderFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeLightningProviderSettingFfi: FfiConverterRustBuffer {
+    typealias SwiftType = LightningProviderSettingFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeLightningProviderSettingFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeLightningProviderSettingFfi.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -39731,6 +45302,30 @@ fileprivate struct FfiConverterOptionTypePausedSolanaAllowanceFfi: FfiConverterR
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypePeriodDraftFfi: FfiConverterRustBuffer {
+    typealias SwiftType = PeriodDraftFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePeriodDraftFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePeriodDraftFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypePersonInviteInbox: FfiConverterRustBuffer {
     typealias SwiftType = PersonInviteInbox?
 
@@ -39803,6 +45398,30 @@ fileprivate struct FfiConverterOptionTypeSellerDisplayFfi: FfiConverterRustBuffe
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeSolanaBaseFeeFfi: FfiConverterRustBuffer {
+    typealias SwiftType = SolanaBaseFeeFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeSolanaBaseFeeFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeSolanaBaseFeeFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeSolanaResumePrefillFfi: FfiConverterRustBuffer {
     typealias SwiftType = SolanaResumePrefillFfi?
 
@@ -39843,6 +45462,30 @@ fileprivate struct FfiConverterOptionTypeSolanaWebAuthnOwnerOpPrep: FfiConverter
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeSolanaWebAuthnOwnerOpPrep.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeSuggestedAllowanceFfi: FfiConverterRustBuffer {
+    typealias SwiftType = SuggestedAllowanceFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeSuggestedAllowanceFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeSuggestedAllowanceFfi.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -40035,6 +45678,30 @@ fileprivate struct FfiConverterOptionTypeChainKeyTargetFfi: FfiConverterRustBuff
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeChainKeyTargetFfi.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeChainRefFfi: FfiConverterRustBuffer {
+    typealias SwiftType = ChainRefFfi?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeChainRefFfi.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeChainRefFfi.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -40347,6 +46014,30 @@ fileprivate struct FfiConverterOptionSequenceString: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterSequenceString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypePeriodSeconds: FfiConverterRustBuffer {
+    typealias SwiftType = PeriodSeconds?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePeriodSeconds.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePeriodSeconds.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -40755,6 +46446,31 @@ fileprivate struct FfiConverterSequenceTypeApproverRecord: FfiConverterRustBuffe
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeChainCodePresenceFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [ChainCodePresenceFfi]
+
+    public static func write(_ value: [ChainCodePresenceFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeChainCodePresenceFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ChainCodePresenceFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ChainCodePresenceFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeChainCodePresenceFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeChainConfigFfi: FfiConverterRustBuffer {
     typealias SwiftType = [ChainConfigFfi]
 
@@ -40897,6 +46613,31 @@ fileprivate struct FfiConverterSequenceTypeChainUsdcBalanceFfi: FfiConverterRust
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeChainUsdcBalanceFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeDeployContractInfoFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [DeployContractInfoFfi]
+
+    public static func write(_ value: [DeployContractInfoFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeDeployContractInfoFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [DeployContractInfoFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [DeployContractInfoFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeDeployContractInfoFfi.read(from: &buf))
         }
         return seq
     }
@@ -41255,6 +46996,31 @@ fileprivate struct FfiConverterSequenceTypeLightningChannelFfi: FfiConverterRust
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeLightningLspTermsFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [LightningLspTermsFfi]
+
+    public static func write(_ value: [LightningLspTermsFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeLightningLspTermsFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [LightningLspTermsFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [LightningLspTermsFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeLightningLspTermsFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeLightningReturningFundsFfi: FfiConverterRustBuffer {
     typealias SwiftType = [LightningReturningFundsFfi]
 
@@ -41297,6 +47063,31 @@ fileprivate struct FfiConverterSequenceTypeLiveGrant: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeLiveGrant.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeMissingDeployContractFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [MissingDeployContractFfi]
+
+    public static func write(_ value: [MissingDeployContractFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMissingDeployContractFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MissingDeployContractFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MissingDeployContractFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeMissingDeployContractFfi.read(from: &buf))
         }
         return seq
     }
@@ -41930,6 +47721,31 @@ fileprivate struct FfiConverterSequenceTypeSolanaOwnerChange: FfiConverterRustBu
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeSolanaOwnerOpCarrier: FfiConverterRustBuffer {
+    typealias SwiftType = [SolanaOwnerOpCarrier]
+
+    public static func write(_ value: [SolanaOwnerOpCarrier], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeSolanaOwnerOpCarrier.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [SolanaOwnerOpCarrier] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [SolanaOwnerOpCarrier]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeSolanaOwnerOpCarrier.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeSolanaProbe: FfiConverterRustBuffer {
     typealias SwiftType = [SolanaProbe]
 
@@ -42455,6 +48271,31 @@ fileprivate struct FfiConverterSequenceTypePerChainStatusFfi: FfiConverterRustBu
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypePeriodPresetFfi: FfiConverterRustBuffer {
+    typealias SwiftType = [PeriodPresetFfi]
+
+    public static func write(_ value: [PeriodPresetFfi], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePeriodPresetFfi.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PeriodPresetFfi] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PeriodPresetFfi]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePeriodPresetFfi.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeReconcileOpFfi: FfiConverterRustBuffer {
     typealias SwiftType = [ReconcileOpFfi]
 
@@ -42707,6 +48548,50 @@ fileprivate struct FfiConverterDictionaryStringSequenceString: FfiConverterRustB
         return dict
     }
 }
+
+
+/**
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ */
+public typealias PeriodSeconds = UInt64
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePeriodSeconds: FfiConverter {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PeriodSeconds {
+        return try FfiConverterUInt64.read(from: &buf)
+    }
+
+    public static func write(_ value: PeriodSeconds, into buf: inout [UInt8]) {
+        return FfiConverterUInt64.write(value, into: &buf)
+    }
+
+    public static func lift(_ value: UInt64) throws -> PeriodSeconds {
+        return try FfiConverterUInt64.lift(value)
+    }
+
+    public static func lower(_ value: PeriodSeconds) -> UInt64 {
+        return FfiConverterUInt64.lower(value)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodSeconds_lift(_ value: UInt64) throws -> PeriodSeconds {
+    return try FfiConverterTypePeriodSeconds.lift(value)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePeriodSeconds_lower(_ value: PeriodSeconds) -> UInt64 {
+    return FfiConverterTypePeriodSeconds.lower(value)
+}
+
 private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
 private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
 
@@ -42835,6 +48720,17 @@ private func uniffiForeignFutureFree(handle: UInt64) {
 // For testing
 public func uniffiForeignFutureHandleCountPaygentMobileCore() -> Int {
     UNIFFI_FOREIGN_FUTURE_HANDLE_MAP.count
+}
+/**
+ * What a custom count field holds after its text changed to `proposed`: the
+ * digits only, at most six.
+ */
+public func acceptedPeriodCount(proposed: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_accepted_period_count(
+        FfiConverterString.lower(proposed),$0
+    )
+})
 }
 /**
  * The headline label and amount.
@@ -43608,6 +49504,52 @@ public func buildEvmSettledResponse(intentId: String, chainId: UInt64, txHash: S
 })
 }
 /**
+ * Build the transfer an EVM or Tempo wallet signs to send `amount` dollars
+ * (decimal, e.g. `"12.50"`) to `treasury`. `wallet_chain` is the chain the
+ * wallet reports now (hex, decimal or CAIP-2); nothing is built unless it is
+ * `chain`. Pass the returned `chain_id` in the `eth_sendTransaction` request
+ * too, so the wallet refuses if it switches chain before signing.
+ *
+ * # Errors
+ *
+ * A Solana or unknown network, a wallet on another chain, a zero, malformed
+ * or oversized amount, or a malformed or zero treasury address.
+ */
+public func buildExternalEvmDeposit(chain: ChainRefFfi, walletChain: String, treasury: String, amount: String)throws  -> ExternalEvmDepositFfi  {
+    return try  FfiConverterTypeExternalEvmDepositFfi_lift(try rustCallWithError(FfiConverterTypeExternalDepositRefusal_lift) {
+    uniffi_paygent_mobile_core_fn_func_build_external_evm_deposit(
+        FfiConverterTypeChainRefFfi_lower(chain),
+        FfiConverterString.lower(walletChain),
+        FfiConverterString.lower(treasury),
+        FfiConverterString.lower(amount),$0
+    )
+})
+}
+/**
+ * Build the unsigned Solana transaction `external_wallet` signs (and pays the
+ * fee for) to send `amount` dollars into the vault of the guard at
+ * `treasury_guard_pda` on `cluster` (wire name). `treasury_guard_pda` is the
+ * guard from `derive_solana_guard_pda`, never the vault token account shown
+ * as the deposit address. `recent_blockhash` is base58.
+ *
+ * # Errors
+ *
+ * An unknown cluster or one without USDC, a malformed key or blockhash, a
+ * treasury that cannot be a guard, the wallet being the guard, or a zero,
+ * malformed or oversized amount.
+ */
+public func buildExternalSolanaDeposit(cluster: String, treasuryGuardPda: String, externalWallet: String, amount: String, recentBlockhash: String)throws  -> ExternalSolanaDepositFfi  {
+    return try  FfiConverterTypeExternalSolanaDepositFfi_lift(try rustCallWithError(FfiConverterTypeExternalDepositRefusal_lift) {
+    uniffi_paygent_mobile_core_fn_func_build_external_solana_deposit(
+        FfiConverterString.lower(cluster),
+        FfiConverterString.lower(treasuryGuardPda),
+        FfiConverterString.lower(externalWallet),
+        FfiConverterString.lower(amount),
+        FfiConverterString.lower(recentBlockhash),$0
+    )
+})
+}
+/**
  * The `device.join-accepted` message JSON.
  *
  * # Errors
@@ -43672,6 +49614,20 @@ public func buildOwnerOpCall(rpcUrl: String, chainId: UInt64, safe: String, op: 
         )
 }
 /**
+ * The payment link (EIP-681 on EVM and Tempo, Solana Pay on Solana) for
+ * `account` on `network`, asking for `amount` -- a human decimal such as
+ * `"12.5"` -- when given.
+ */
+public func buildPaymentLink(network: ChainRefFfi, account: String, amount: String?)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypePaymentLinkRefusal_lift) {
+    uniffi_paygent_mobile_core_fn_func_build_payment_link(
+        FfiConverterTypeChainRefFfi_lower(network),
+        FfiConverterString.lower(account),
+        FfiConverterOptionString.lower(amount),$0
+    )
+})
+}
+/**
  * Seal a rejection under the wallet's `body_key` with the routing header (see
  * [`complete_approval`]).
  */
@@ -43722,23 +49678,23 @@ public func buildRequestAuthorizationTransport(delegationJson: String, prfSecret
 }
 /**
  * Build the inner call `(to, value, data)` for a `SafeModuleGuard.
- * setSpendingLimit(module, token, maxPerTx, dailyMax)` update.
+ * setSpendingLimit(module, token, amount, period)` update.
  */
-public func buildSetSpendingLimitCall(`guard`: String, module: String, token: String, maxPerTxHex: String, dailyMaxHex: String)throws  -> TransferCallFfi  {
+public func buildSetSpendingLimitCall(`guard`: String, module: String, token: String, amountHex: String, periodSeconds: PeriodSeconds)throws  -> TransferCallFfi  {
     return try  FfiConverterTypeTransferCallFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_build_set_spending_limit_call(
         FfiConverterString.lower(`guard`),
         FfiConverterString.lower(module),
         FfiConverterString.lower(token),
-        FfiConverterString.lower(maxPerTxHex),
-        FfiConverterString.lower(dailyMaxHex),$0
+        FfiConverterString.lower(amountHex),
+        FfiConverterTypePeriodSeconds_lower(periodSeconds),$0
     )
 })
 }
 /**
  * FFI shim over [`paygent_authorizer_core::build_solana_add_agent_message`].
  */
-public func buildSolanaAddAgentMessage(guardPdaB58: String, mintB58: String, pocketB58: String, silentKeyHex: String, ceilingDecimal: String, period: SolanaPeriod, nonceDecimal: String)throws  -> SolanaGuardMessage  {
+public func buildSolanaAddAgentMessage(guardPdaB58: String, mintB58: String, pocketB58: String, silentKeyHex: String, ceilingDecimal: String, periodSeconds: PeriodSeconds, nonceDecimal: String)throws  -> SolanaGuardMessage  {
     return try  FfiConverterTypeSolanaGuardMessage_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_build_solana_add_agent_message(
         FfiConverterString.lower(guardPdaB58),
@@ -43746,7 +49702,7 @@ public func buildSolanaAddAgentMessage(guardPdaB58: String, mintB58: String, poc
         FfiConverterString.lower(pocketB58),
         FfiConverterString.lower(silentKeyHex),
         FfiConverterString.lower(ceilingDecimal),
-        FfiConverterTypeSolanaPeriod_lower(period),
+        FfiConverterTypePeriodSeconds_lower(periodSeconds),
         FfiConverterString.lower(nonceDecimal),$0
     )
 })
@@ -43782,14 +49738,16 @@ public func buildSolanaEscalateRefillMessage(guardPdaB58: String, mintB58: Strin
 }
 /**
  * FFI shim over [`paygent_authorizer_core::build_solana_guard_message`].
+ * `period_seconds` is bound by `SetLimit` only; the other ops ignore it.
  */
-public func buildSolanaGuardMessage(op: SolanaGuardOp, guardPdaB58: String, mintB58: String, amountDecimal: String, nonceDecimal: String)throws  -> SolanaGuardMessage  {
+public func buildSolanaGuardMessage(op: SolanaGuardOp, guardPdaB58: String, mintB58: String, amountDecimal: String, periodSeconds: PeriodSeconds, nonceDecimal: String)throws  -> SolanaGuardMessage  {
     return try  FfiConverterTypeSolanaGuardMessage_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_build_solana_guard_message(
         FfiConverterTypeSolanaGuardOp_lower(op),
         FfiConverterString.lower(guardPdaB58),
         FfiConverterString.lower(mintB58),
         FfiConverterString.lower(amountDecimal),
+        FfiConverterTypePeriodSeconds_lower(periodSeconds),
         FfiConverterString.lower(nonceDecimal),$0
     )
 })
@@ -43839,14 +49797,14 @@ public func buildSolanaRemoveAgentMessage(guardPdaB58: String, mintB58: String, 
  * FFI shim over
  * [`paygent_authorizer_core::build_solana_set_agent_limit_message`].
  */
-public func buildSolanaSetAgentLimitMessage(guardPdaB58: String, mintB58: String, pocketB58: String, ceilingDecimal: String, period: SolanaPeriod, nonceDecimal: String)throws  -> SolanaGuardMessage  {
+public func buildSolanaSetAgentLimitMessage(guardPdaB58: String, mintB58: String, pocketB58: String, ceilingDecimal: String, periodSeconds: PeriodSeconds, nonceDecimal: String)throws  -> SolanaGuardMessage  {
     return try  FfiConverterTypeSolanaGuardMessage_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_build_solana_set_agent_limit_message(
         FfiConverterString.lower(guardPdaB58),
         FfiConverterString.lower(mintB58),
         FfiConverterString.lower(pocketB58),
         FfiConverterString.lower(ceilingDecimal),
-        FfiConverterTypeSolanaPeriod_lower(period),
+        FfiConverterTypePeriodSeconds_lower(periodSeconds),
         FfiConverterString.lower(nonceDecimal),$0
     )
 })
@@ -43910,6 +49868,17 @@ public func canHideSolanaChain(`guard`: SolanaGuardPresence, mandateRemaining: S
 })
 }
 /**
+ * Whether the owner can pay the network fees of their end of a CCTP move
+ * between networks. On Solana every leg is the device gas purse's.
+ */
+public func canPayCctpFeeMyself(network: SelfPayNetworkFfi) -> SelfPayFfi  {
+    return try!  FfiConverterTypeSelfPayFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_can_pay_cctp_fee_myself(
+        FfiConverterTypeSelfPayNetworkFfi_lower(network),$0
+    )
+})
+}
+/**
  * Whether the owner can pay the fee for `op` on `network` themselves.
  */
 public func canPayFeeMyself(network: SelfPayNetworkFfi, op: AdminOpFfi) -> SelfPayFfi  {
@@ -43917,6 +49886,18 @@ public func canPayFeeMyself(network: SelfPayNetworkFfi, op: AdminOpFfi) -> SelfP
     uniffi_paygent_mobile_core_fn_func_can_pay_fee_myself(
         FfiConverterTypeSelfPayNetworkFfi_lower(network),
         FfiConverterTypeAdminOpFfi_lower(op),$0
+    )
+})
+}
+/**
+ * Whether the owner can pay the fee for money-moving `op` on `network`
+ * themselves.
+ */
+public func canPayValueFeeMyself(network: SelfPayNetworkFfi, op: ValueOpFfi) -> SelfPayFfi  {
+    return try!  FfiConverterTypeSelfPayFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_can_pay_value_fee_myself(
+        FfiConverterTypeSelfPayNetworkFfi_lower(network),
+        FfiConverterTypeValueOpFfi_lower(op),$0
     )
 })
 }
@@ -43969,6 +49950,20 @@ public func cancelPersonInvite(invites: [PendingInvite], inviteId: String)throws
 public func cctpMoveMintCall(recordJson: String)throws  -> TransferCallFfi  {
     return try  FfiConverterTypeTransferCallFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_cctp_move_mint_call(
+        FfiConverterString.lower(recordJson),$0
+    )
+})
+}
+/**
+ * The two networks, domains and amount of a stored move record.
+ *
+ * # Errors
+ *
+ * A record that does not decode.
+ */
+public func cctpMoveRecordPlan(recordJson: String)throws  -> CctpNetworkPlanFfi  {
+    return try  FfiConverterTypeCctpNetworkPlanFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_cctp_move_record_plan(
         FfiConverterString.lower(recordJson),$0
     )
 })
@@ -44045,6 +50040,36 @@ public func chainsNeedingModuleUpgrade(readings: [ModuleUpgradeReadingFfi]) -> [
     return try!  FfiConverterSequenceUInt64.lift(try! rustCall() {
     uniffi_paygent_mobile_core_fn_func_chains_needing_module_upgrade(
         FfiConverterSequenceTypeModuleUpgradeReadingFfi.lower(readings),$0
+    )
+})
+}
+/**
+ * Compare the chain the wallet reports (hex, decimal, or CAIP-2 as
+ * WalletConnect reports it) with the deposit's target.
+ */
+public func checkExternalWalletChain(chain: ChainRefFfi, reported: String) -> ExternalChainVerdictFfi  {
+    return try!  FfiConverterTypeExternalChainVerdictFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_check_external_wallet_chain(
+        FfiConverterTypeChainRefFfi_lower(chain),
+        FfiConverterString.lower(reported),$0
+    )
+})
+}
+/**
+ * Every contract `chain_ids` lack for a first deploy, given what the host
+ * read. Empty means every chain may be offered; an address the host did not
+ * read counts as missing.
+ *
+ * # Errors
+ *
+ * `InvalidInput` when a presence address does not parse.
+ */
+public func checkFirstDeployContracts(chainIds: [UInt64], withAgent: Bool, presence: [ChainCodePresenceFfi])throws  -> [MissingDeployContractFfi]  {
+    return try  FfiConverterSequenceTypeMissingDeployContractFfi.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_check_first_deploy_contracts(
+        FfiConverterSequenceUInt64.lower(chainIds),
+        FfiConverterBool.lower(withAgent),
+        FfiConverterSequenceTypeChainCodePresenceFfi.lower(presence),$0
     )
 })
 }
@@ -44324,6 +50349,19 @@ public func completeSolanaSetLimit(sessionToken: String, signatureDer: Data, own
     )
 })
 }
+/**
+ * Turn one assertion over the prep's challenge into the three carriers.
+ * Submit them in order, each confirmed before the next.
+ */
+public func completeSolanaSetupWithAgentWebauthn(sessionToken: String, assertion: WebAuthnAssertion, ownerPubkeyHex: String)throws  -> [SolanaOwnerOpCarrier]  {
+    return try  FfiConverterSequenceTypeSolanaOwnerOpCarrier.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_complete_solana_setup_with_agent_webauthn(
+        FfiConverterString.lower(sessionToken),
+        FfiConverterTypeWebAuthnAssertion_lower(assertion),
+        FfiConverterString.lower(ownerPubkeyHex),$0
+    )
+})
+}
 public func completeSolanaWithdrawViaRelay(sessionToken: String, signatureDer: Data, ownerPubkeyHex: String)throws  -> SolanaOwnerOpCarrier  {
     return try  FfiConverterTypeSolanaOwnerOpCarrier_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_complete_solana_withdraw_via_relay(
@@ -44363,29 +50401,6 @@ public func computeChainSyncReport(knownOwners: [OwnerIdentityFfi], chains: [Cha
         FfiConverterSequenceTypeUnreadableChainFfi.lower(unreadable),$0
     )
 })
-}
-/**
- * [`get_native_balance`]'s sibling for the guard-factory read: compute the
- * `SafeModuleGuard` address `SafeModuleGuardFactory.createGuard(safe)` would
- * deploy for `safe`, using the CALLER-SUPPLIED factory address rather than
- * the hardened default. Recovery/backfill probes call this once per factory
- * (`guard_factory_address()` and `legacy_guard_factory_address()`, below)
- * when a wallet has no stored guard address, because the two factories
- * compute different counterfactual addresses for the same Safe.
- */
-public func computeGuardAddressWithFactory(rpcUrl: String, chainId: UInt64, factory: String, safe: String)async throws  -> String  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_compute_guard_address_with_factory(FfiConverterString.lower(rpcUrl),FfiConverterUInt64.lower(chainId),FfiConverterString.lower(factory),FfiConverterString.lower(safe)
-                )
-            },
-            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
-            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
-            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeMobileError_lift
-        )
 }
 public func computeSafeOpHash(params: SafeOpParamsFfi)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
@@ -45035,6 +51050,20 @@ public func evmFeeRunway(chainId: UInt64, kind: TxKindFfi, nativeBalance: String
 })
 }
 /**
+ * [`evm_fee_runway`] under a live quote (see [`evm_quoted_cost_wei`]).
+ */
+public func evmFeeRunwayQuoted(chainId: UInt64, kind: TxKindFfi, nativeBalance: String, quote: EvmFeeQuoteFfi, gasEstimate: UInt64?)throws  -> UInt32?  {
+    return try  FfiConverterOptionUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_evm_fee_runway_quoted(
+        FfiConverterUInt64.lower(chainId),
+        FfiConverterTypeTxKindFfi_lower(kind),
+        FfiConverterString.lower(nativeBalance),
+        FfiConverterTypeEvmFeeQuoteFfi_lower(quote),
+        FfiConverterOptionUInt64.lower(gasEstimate),$0
+    )
+})
+}
+/**
  * Why no EVM owner op can be signed from this device, or `None` when one can.
  */
 public func evmOwnerOpsBlockedReason(targets: EvmOwnerTargetsFfi) -> String?  {
@@ -45052,6 +51081,22 @@ public func evmPurseAddressFromPrfSecret(prfSecretB64: String)throws  -> String 
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_func_evm_purse_address_from_prf_secret(
         FfiConverterString.lower(prfSecretB64),$0
+    )
+})
+}
+/**
+ * Wei a `kind` operation reserves under a live quote: the max fee times
+ * `gas_estimate` (a live estimate for this operation on this network), or
+ * times the cost table's figure without one. `None` when no gas figure is
+ * known or the product overflows.
+ */
+public func evmQuotedCostWei(chainId: UInt64, kind: TxKindFfi, quote: EvmFeeQuoteFfi, gasEstimate: UInt64?)throws  -> String?  {
+    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_evm_quoted_cost_wei(
+        FfiConverterUInt64.lower(chainId),
+        FfiConverterTypeTxKindFfi_lower(kind),
+        FfiConverterTypeEvmFeeQuoteFfi_lower(quote),
+        FfiConverterOptionUInt64.lower(gasEstimate),$0
     )
 })
 }
@@ -45164,6 +51209,52 @@ public func fetchCctpAttestation(fromChainId: UInt64, toChainId: UInt64, burnTxH
         )
 }
 /**
+ * [`fetch_cctp_attestation`](crate::owner_money::fetch_cctp_attestation) for
+ * a network plan: `burn_tx` is a `0x` hash on EVM or a base58 signature on
+ * Solana.
+ *
+ * # Errors
+ *
+ * A malformed burn id or an unreachable service.
+ */
+public func fetchCctpNetworkAttestation(plan: CctpNetworkPlanFfi, burnTx: String)async throws  -> CctpAttestationFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_fetch_cctp_network_attestation(FfiConverterTypeCctpNetworkPlanFfi_lower(plan),FfiConverterString.lower(burnTx)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeCctpAttestationFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Ask the Kora node at `kora_url` for a live fee quote for `op` on `cluster`
+ * (`mainnet-beta|devnet|testnet`) and check it at `now_unix_secs`.
+ *
+ * Never fails: every reason there is no usable quote is a
+ * [`SolanaKoraFeeQuoteOutcome::Fallback`], so the host always has an answer to
+ * show and decides for itself whether to prepare at the pinned rate.
+ */
+public func fetchSolanaKoraFeeQuote(koraUrl: String, apiKey: String?, op: SolanaOwnerOp, cluster: String, nowUnixSecs: Int64)async  -> SolanaKoraFeeQuoteOutcome  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_fetch_solana_kora_fee_quote(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterTypeSolanaOwnerOp_lower(op),FfiConverterString.lower(cluster),FfiConverterInt64.lower(nowUnixSecs)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaKoraFeeQuoteOutcome_lift,
+            errorHandler: nil
+            
+        )
+}
+/**
  * Attach the owner passkey's assertion to the transaction.
  *
  * The change and the keychain read are passed again rather than a flag being
@@ -45201,6 +51292,17 @@ public func finalizeTempoOwnerTx(unsignedTxRlp: String, ownerDid: String, assert
         FfiConverterString.lower(unsignedTxRlp),
         FfiConverterString.lower(ownerDid),
         FfiConverterTypeWebAuthnAssertionFfi_lower(assertion),$0
+    )
+})
+}
+/**
+ * The contracts a first deploy needs on every chain. `with_agent` adds the
+ * CREATE2 deployer that places the agent's executor module.
+ */
+public func firstDeployContracts(withAgent: Bool) -> [DeployContractInfoFfi]  {
+    return try!  FfiConverterSequenceTypeDeployContractInfoFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_first_deploy_contracts(
+        FfiConverterBool.lower(withAgent),$0
     )
 })
 }
@@ -45454,25 +51556,18 @@ public func groupOwnerKeys(chains: [ChainOwnerStateFfi], records: [ApproverRecor
 })
 }
 /**
- * The current, hardened `SafeModuleGuardFactory` address (`GUARD_FACTORY`).
- * Plain re-exported `const`s are not visible across the UniFFI boundary, so
- * clients that need this value at runtime (Kotlin/Swift) call this getter
- * rather than reading the Rust constant directly.
+ * The `SafeModuleGuardFactory` address on `chain_id`. Plain re-exported
+ * `const`s are not visible across the UniFFI boundary, so Kotlin/Swift call
+ * this getter rather than reading the Rust constant directly.
+ *
+ * # Errors
+ *
+ * A chain the factory is not deployed on: no guard can be created there.
  */
-public func guardFactoryAddress() -> String  {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_func_guard_factory_address($0
-    )
-})
-}
-/**
- * Did a setup write a limit for the agent? A written zero counts when the
- * guard's `configured` flag says so; see `GuardLimitReading::binds`.
- */
-public func guardLimitBinds(limit: GuardLimitReadingFfi) -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_func_guard_limit_binds(
-        FfiConverterTypeGuardLimitReadingFfi_lower(limit),$0
+public func guardFactoryAddress(chainId: UInt64)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_guard_factory_address(
+        FfiConverterUInt64.lower(chainId),$0
     )
 })
 }
@@ -45713,15 +51808,82 @@ public func lastsPhrase(durationSeconds: UInt64) -> String  {
 })
 }
 /**
- * The pre-hardening `SafeModuleGuardFactory` address (`LEGACY_GUARD_FACTORY`).
- * A wallet deployed before the repoint to [`guard_factory_address`] has its
- * guard at the address this factory computes, not the hardened one. Pass
- * this to `compute_guard_address_with_factory` when backfilling a stored
- * guard for such a wallet.
+ * The provider used when none is configured: Megalith on mainnet and on
+ * Mutinynet (a signet), none elsewhere.
  */
-public func legacyGuardFactoryAddress() -> String  {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_func_legacy_guard_factory_address($0
+public func lightningDefaultProvider(network: Bolt11NetworkFfi) -> LightningProviderFfi?  {
+    return try!  FfiConverterOptionTypeLightningProviderFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_lightning_default_provider(
+        FfiConverterTypeBolt11NetworkFfi_lower(network),$0
+    )
+})
+}
+/**
+ * The terms to show for a provider's whole menu, with their figures
+ * written. `None` when the menu is empty or no entry holds its own smallest
+ * payment.
+ */
+public func lightningHeadlineTerms(menu: [LightningLspTermsFfi]) -> LightningHeadlineTermsFfi?  {
+    return try!  FfiConverterOptionTypeLightningHeadlineTermsFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_lightning_headline_terms(
+        FfiConverterSequenceTypeLightningLspTermsFfi.lower(menu),$0
+    )
+})
+}
+/**
+ * Parse a provider from `node_id@host:port` and an optional LSPS2 token.
+ * Refuses a node id that is not a public key and an address without a port,
+ * naming which part is wrong. Pure: nothing is contacted.
+ */
+public func lightningParseProvider(provider: String, token: String?)throws  -> LightningProviderFfi  {
+    return try  FfiConverterTypeLightningProviderFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_lightning_parse_provider(
+        FfiConverterString.lower(provider),
+        FfiConverterOptionString.lower(token),$0
+    )
+})
+}
+/**
+ * Ask `provider` (`node_id@host:port`, with an optional LSPS2 `token`) for
+ * its LSPS2 menu of terms, without changing anything. Blocks for up to 20
+ * seconds. Refuses a provider that cannot be reached or does not answer as
+ * an LSPS2 provider.
+ */
+public func lightningProbeProvider(provider: String, providerToken: String?)throws  -> [LightningLspTermsFfi]  {
+    return try  FfiConverterSequenceTypeLightningLspTermsFfi.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_lightning_probe_provider(
+        FfiConverterString.lower(provider),
+        FfiConverterOptionString.lower(providerToken),$0
+    )
+})
+}
+/**
+ * What a top-up of `amount_sats` to an agent whose line can receive
+ * `inbound_room_msat` more would cost, before the daemon is asked for an
+ * invoice. `terms` are the provider's, from
+ * [`crate::lightning_probe_provider`] and [`lightning_select_terms`]; they may
+ * be `None` when the amount fits the existing line. Pure: the same decision
+ * the pocket makes when it issues the invoice, and the one the approval
+ * re-checks.
+ */
+public func lightningQuoteTopUp(amountSats: UInt64, inboundRoomMsat: UInt64, terms: LightningLspTermsFfi?)throws  -> LightningTopUpQuoteFfi  {
+    return try  FfiConverterTypeLightningTopUpQuoteFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_lightning_quote_top_up(
+        FfiConverterUInt64.lower(amountSats),
+        FfiConverterUInt64.lower(inboundRoomMsat),
+        FfiConverterOptionTypeLightningLspTermsFfi.lower(terms),$0
+    )
+})
+}
+/**
+ * The menu entry a new line of `amount_sats` would be opened on: the
+ * cheapest whose size range holds the amount, the same choice the node makes.
+ */
+public func lightningSelectTerms(menu: [LightningLspTermsFfi], amountSats: UInt64)throws  -> LightningLspTermsFfi  {
+    return try  FfiConverterTypeLightningLspTermsFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_lightning_select_terms(
+        FfiConverterSequenceTypeLightningLspTermsFfi.lower(menu),
+        FfiConverterUInt64.lower(amountSats),$0
     )
 })
 }
@@ -45847,6 +52009,20 @@ public func maxNativeWithdraw(chainId: UInt64, nativeBalance: String, gasPrice: 
 })
 }
 /**
+ * [`max_native_withdraw`] under a live quote (see [`evm_quoted_cost_wei`]).
+ */
+public func maxNativeWithdrawQuoted(chainId: UInt64, nativeBalance: String, quote: EvmFeeQuoteFfi, gasEstimate: UInt64?, gasCoin: GasCoinFfi)throws  -> String?  {
+    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_max_native_withdraw_quoted(
+        FfiConverterUInt64.lower(chainId),
+        FfiConverterString.lower(nativeBalance),
+        FfiConverterTypeEvmFeeQuoteFfi_lower(quote),
+        FfiConverterOptionUInt64.lower(gasEstimate),
+        FfiConverterTypeGasCoinFfi_lower(gasCoin),$0
+    )
+})
+}
+/**
  * The most pairings one [`NostrFleet`] carries -- the relay's per-connection
  * cap. A host with more shards them across fleets.
  */
@@ -45957,6 +52133,19 @@ public func openPushPayload(pushSubkey: Data, envelope: EncryptedEnvelopeFfi)thr
     uniffi_paygent_mobile_core_fn_func_open_push_payload(
         FfiConverterData.lower(pushSubkey),
         FfiConverterTypeEncryptedEnvelopeFfi_lower(envelope),$0
+    )
+})
+}
+/**
+ * Open an agent's failure report. A report naming a transaction opens as
+ * `Pending`; read the transaction with [`get_request_outcome`] and pass the
+ * result to [`reported_failure_state`].
+ */
+public func openRequestFailed(envelope: EncryptedEnvelopeFfi, bodyKey: Data)throws  -> FailedReportFfi  {
+    return try  FfiConverterTypeFailedReportFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_open_request_failed(
+        FfiConverterTypeEncryptedEnvelopeFfi_lower(envelope),
+        FfiConverterData.lower(bodyKey),$0
     )
 })
 }
@@ -46205,6 +52394,19 @@ public func parsePairingUrl(url: String)throws  -> PairingQr  {
 })
 }
 /**
+ * Read scanned or pasted text as a payment request. `network_hint` is the
+ * network the payer chose; it is used only when the text names none (a bare
+ * address, or an EIP-681 link without a chain id).
+ */
+public func parsePaymentRequest(text: String, networkHint: ChainRefFfi?)throws  -> PaymentRequestFfi  {
+    return try  FfiConverterTypePaymentRequestFfi_lift(try rustCallWithError(FfiConverterTypePaymentLinkRefusal_lift) {
+    uniffi_paygent_mobile_core_fn_func_parse_payment_request(
+        FfiConverterString.lower(text),
+        FfiConverterOptionTypeChainRefFfi.lower(networkHint),$0
+    )
+})
+}
+/**
  * Read a card's text, checking every field.
  *
  * # Errors
@@ -46315,6 +52517,59 @@ public func pendingInviteRows(invites: [PendingInvite], nowMs: Int64) -> [Pendin
 })
 }
 /**
+ * True when a custom count is typed but names no period; an empty field is
+ * not yet an error.
+ */
+public func periodDraftCountInvalid(draft: PeriodDraftFfi) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_period_draft_count_invalid(
+        FfiConverterTypePeriodDraftFfi_lower(draft),$0
+    )
+})
+}
+/**
+ * The control as it opens with nothing set: a day.
+ */
+public func periodDraftDefault() -> PeriodDraftFfi  {
+    return try!  FfiConverterTypePeriodDraftFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_period_draft_default($0
+    )
+})
+}
+/**
+ * The control as it opens on a period already set: its own segment, or a
+ * custom count in days (whole days) or hours. `None` when `period_seconds`
+ * is not a period the chains accept, so a malformed read never throws across
+ * the binding.
+ */
+public func periodDraftOf(periodSeconds: UInt64) -> PeriodDraftFfi?  {
+    return try!  FfiConverterOptionTypePeriodDraftFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_period_draft_of(
+        FfiConverterUInt64.lower(periodSeconds),$0
+    )
+})
+}
+/**
+ * The period `draft` names, or `None` when a custom count is empty, not a
+ * whole number, or outside one hour to 365 days.
+ */
+public func periodDraftSeconds(draft: PeriodDraftFfi) -> PeriodSeconds?  {
+    return try!  FfiConverterOptionTypePeriodSeconds.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_period_draft_seconds(
+        FfiConverterTypePeriodDraftFfi_lower(draft),$0
+    )
+})
+}
+/**
+ * Every segment, in the order the atlas draws them.
+ */
+public func periodPresets() -> [PeriodPresetFfi]  {
+    return try!  FfiConverterSequenceTypePeriodPresetFfi.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_period_presets($0
+    )
+})
+}
+/**
  * The 32 bytes the inviter's passkey signs to vouch for the link. Call it
  * after `NostrFleet::grant_person_join`, then [`sign_person_invite`].
  *
@@ -46388,6 +52643,24 @@ public func planCctpMove(fromChainId: UInt64, toChainId: UInt64, amountHex: Stri
     uniffi_paygent_mobile_core_fn_func_plan_cctp_move(
         FfiConverterUInt64.lower(fromChainId),
         FfiConverterUInt64.lower(toChainId),
+        FfiConverterString.lower(amountHex),$0
+    )
+})
+}
+/**
+ * [`plan_cctp_move`](crate::owner_money::plan_cctp_move) for any two
+ * networks.
+ *
+ * # Errors
+ *
+ * A network CCTP does not serve (Tempo, Solana testnet), a main-to-test
+ * move, the same network twice, or a zero amount.
+ */
+public func planCctpNetworkMove(from: ChainRefFfi, to: ChainRefFfi, amountHex: String)throws  -> CctpNetworkPlanFfi  {
+    return try  FfiConverterTypeCctpNetworkPlanFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_plan_cctp_network_move(
+        FfiConverterTypeChainRefFfi_lower(from),
+        FfiConverterTypeChainRefFfi_lower(to),
         FfiConverterString.lower(amountHex),$0
     )
 })
@@ -46947,6 +53220,28 @@ public func prepareOwnerCctpMove(request: OwnerCctpMoveRequestFfi)async throws  
         )
 }
 /**
+ * Prepare the EVM burn of a move into the owner's Solana account: the only
+ * passkey signature the move needs.
+ *
+ * # Errors
+ *
+ * A move CCTP cannot make, a malformed vault, or an unreadable chain.
+ */
+public func prepareOwnerCctpMoveToSolana(request: OwnerCctpMoveToSolanaRequestFfi)async throws  -> OwnerCctpNetworkMovePreparedFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_owner_cctp_move_to_solana(FfiConverterTypeOwnerCctpMoveToSolanaRequestFfi_lower(request)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeOwnerCctpNetworkMovePreparedFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
  * Prepare an owner withdrawal of USDC or the native coin on Base, Polygon,
  * Optimism or Arbitrum. Sign the root and submit with
  * `submit_direct_transaction`.
@@ -47151,11 +53446,11 @@ public func preparePairingDelegations(delegateDid: String, ownerDeviceDid: Strin
     )
 })
 }
-public func prepareSolanaAddAgent(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaAddAgent(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47165,11 +53460,29 @@ public func prepareSolanaAddAgent(rpcUrl: String, cluster: String, walletAddress
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaAddAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaAddAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_add_agent_webauthn`] at a live quote's price. The
+ * quote prices a new pocket; the prep's `fees` are what was bound.
+ */
+public func prepareSolanaAddAgentWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agentOwner: String, silentKeyHex: String, ceiling: String, periodSeconds: PeriodSeconds, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_agent_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47184,6 +53497,23 @@ public func prepareSolanaAddOwnerWebauthn(rpcUrl: String, cluster: String, walle
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_paygent_mobile_core_fn_func_prepare_solana_add_owner_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(newOwnerHex),FfiConverterTypeSolanaOwnerMode_lower(newOwnerMode),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_add_owner_webauthn`] at a live quote's price.
+ */
+public func prepareSolanaAddOwnerWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, newOwnerHex: String, newOwnerMode: SolanaOwnerMode, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_add_owner_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(newOwnerHex),FfiConverterTypeSolanaOwnerMode_lower(newOwnerMode),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47257,11 +53587,57 @@ public func prepareSolanaAgentResumeEntered(rpcUrl: String, cluster: String, wal
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
+/**
+ * Prepare the first step of a move off Solana: an owner withdraw of `amount`
+ * USDC base units from the vault into this device's gas purse. Assemble with
+ * `complete_solana_owner_op_webauthn`, then send with
+ * [`submit_owner_cctp_move_to_evm`], which also sends the purse's burn.
+ *
+ * Until that burn lands, the staged USDC sits in the purse, guarded by this
+ * device's key alone rather than the vault's guard. Retry the burn with
+ * [`submit_owner_cctp_burn_to_evm`] or return it with
+ * [`submit_solana_cctp_unstage_via_purse`].
+ *
+ * # Errors
+ *
+ * An unreadable wallet or malformed input.
+ */
+public func prepareSolanaCctpStageWebauthn(rpcUrl: String, cluster: String, walletAddress: String, purse: String, amount: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_cctp_stage_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(purse),FfiConverterString.lower(amount),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
 public func prepareSolanaCloseAgentWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_paygent_mobile_core_fn_func_prepare_solana_close_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_close_agent_webauthn`] at a live quote's price.
+ */
+public func prepareSolanaCloseAgentWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, pocket: String, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_close_agent_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(pocket),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47323,11 +53699,11 @@ public func prepareSolanaEscalateRefillWebauthn(request: SignRequestSummary, rpc
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaInitialize(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaInitialize(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47337,11 +53713,28 @@ public func prepareSolanaInitialize(rpcUrl: String, cluster: String, walletIndex
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaInitializeWebauthn(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaInitializeWebauthn(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_initialize_webauthn`] at a live quote's price.
+ */
+public func prepareSolanaInitializeWebauthnQuoted(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_initialize_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47409,6 +53802,23 @@ public func prepareSolanaRemoveOwnerWebauthn(rpcUrl: String, cluster: String, wa
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
+/**
+ * [`crate::prepare_solana_remove_owner_webauthn`] at a live quote's price.
+ */
+public func prepareSolanaRemoveOwnerWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, targetOwnerHex: String, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_remove_owner_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(targetOwnerHex),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
 public func prepareSolanaRevokeWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
@@ -47426,14 +53836,14 @@ public func prepareSolanaRevokeWebauthn(rpcUrl: String, cluster: String, walletA
 /**
  * Prepare the owner-signed guard-global `set_limit` (raw P256 path): the
  * aggregate per-period ceiling across all agents. Unlike the per-agent
- * [`prepare_solana_set_limit`], no `agent`/`period` — the admin `set_limit`
- * op binds only the new global ceiling at the guard's control-plane nonce.
+ * [`prepare_solana_set_limit`], no `agent` — the admin `set_limit`
+ * op binds only the new global ceiling and period at the guard's control-plane nonce.
  */
-public func prepareSolanaSetGuardLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
+public func prepareSolanaSetGuardLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47447,11 +53857,11 @@ public func prepareSolanaSetGuardLimit(rpcUrl: String, cluster: String, walletAd
  * WebAuthn variant of [`prepare_solana_set_guard_limit`]: returns the 32-byte
  * op Merkle ROOT as the WebAuthn challenge.
  */
-public func prepareSolanaSetGuardLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaSetGuardLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47461,11 +53871,28 @@ public func prepareSolanaSetGuardLimitWebauthn(rpcUrl: String, cluster: String, 
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaSetLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
+/**
+ * [`crate::prepare_solana_set_guard_limit_webauthn`] at a live quote's price.
+ */
+public func prepareSolanaSetGuardLimitWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, ceiling: String, periodSeconds: PeriodSeconds, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_guard_limit_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+public func prepareSolanaSetLimit(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47475,11 +53902,29 @@ public func prepareSolanaSetLimit(rpcUrl: String, cluster: String, walletAddress
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
-public func prepareSolanaSetLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, period: SolanaPeriod, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+public func prepareSolanaSetLimitWebauthn(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaWebAuthnOwnerOpPrep  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypeSolanaPeriod_lower(period),FfiConverterString.lower(feeReceiver)
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_set_limit_webauthn`] at a live quote's price, paid
+ * to Paygent's pinned fee account.
+ */
+public func prepareSolanaSetLimitWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, agent: String, ceiling: String, periodSeconds: PeriodSeconds, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_limit_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterString.lower(agent),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47500,6 +53945,59 @@ public func prepareSolanaSetThresholdWebauthn(rpcUrl: String, cluster: String, w
             completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_set_threshold_webauthn`] at a live quote's price.
+ */
+public func prepareSolanaSetThresholdWebauthnQuoted(rpcUrl: String, cluster: String, walletAddress: String, mintAddress: String, newThreshold: UInt8, quoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaWebAuthnOwnerOpPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_set_threshold_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(mintAddress),FfiConverterUInt8.lower(newThreshold),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaWebAuthnOwnerOpPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Prepare a new Solana account with its first agent at `ceiling` per
+ * `period`, all three fees at the pinned rate paid to `fee_receiver`.
+ */
+public func prepareSolanaSetupWithAgentWebauthn(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], agentOwner: String, silentKeyHex: String, ceiling: String, periodSeconds: PeriodSeconds, feeReceiver: String)async throws  -> SolanaSetupWithAgentPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_setup_with_agent_webauthn(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(feeReceiver)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaSetupWithAgentPrep_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::prepare_solana_setup_with_agent_webauthn`] with each of the three
+ * fees at its own live quote.
+ */
+public func prepareSolanaSetupWithAgentWebauthnQuoted(rpcUrl: String, cluster: String, walletIndex: UInt32, vault: String, mintAddress: String, initialOwners: [String], initialOwnerModes: [SolanaOwnerMode], agentOwner: String, silentKeyHex: String, ceiling: String, periodSeconds: PeriodSeconds, initializeQuoteToken: String, setGuardLimitQuoteToken: String, addAgentQuoteToken: String, nowUnixSecs: Int64)async throws  -> SolanaSetupWithAgentPrep  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_prepare_solana_setup_with_agent_webauthn_quoted(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterUInt32.lower(walletIndex),FfiConverterString.lower(vault),FfiConverterString.lower(mintAddress),FfiConverterSequenceString.lower(initialOwners),FfiConverterSequenceTypeSolanaOwnerMode.lower(initialOwnerModes),FfiConverterString.lower(agentOwner),FfiConverterString.lower(silentKeyHex),FfiConverterString.lower(ceiling),FfiConverterTypePeriodSeconds_lower(periodSeconds),FfiConverterString.lower(initializeQuoteToken),FfiConverterString.lower(setGuardLimitQuoteToken),FfiConverterString.lower(addAgentQuoteToken),FfiConverterInt64.lower(nowUnixSecs)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaSetupWithAgentPrep_lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
@@ -47733,6 +54231,24 @@ public func probeConnectivity(chainId: UInt64, paygentBase: String, relayState: 
         )
 }
 /**
+ * The SOL the purse needs for `leg` at `base_fee`, beyond its own
+ * rent-exempt minimum. `purse_usdc_account_exists` says whether the purse's
+ * USDC account is already open (a stage opens it otherwise).
+ *
+ * # Errors
+ *
+ * A non-positive base fee, or an overflowing cost.
+ */
+public func quoteCctpPurseCost(leg: CctpPurseLegFfi, baseFee: SolanaBaseFeeFfi, purseUsdcAccountExists: Bool)throws  -> CctpPurseCostFfi  {
+    return try  FfiConverterTypeCctpPurseCostFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_quote_cctp_purse_cost(
+        FfiConverterTypeCctpPurseLegFfi_lower(leg),
+        FfiConverterTypeSolanaBaseFeeFfi_lower(baseFee),
+        FfiConverterBool.lower(purseUsdcAccountExists),$0
+    )
+})
+}
+/**
  * Quote the fee binding for owner op `op` against a Kora node.
  *
  * `kora_url` is the node's JSON-RPC endpoint (e.g. `https://kora.paygent.net`);
@@ -47745,6 +54261,24 @@ public func quoteSolanaOpFee(koraUrl: String, apiKey: String?, op: SolanaOwnerOp
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_paygent_mobile_core_fn_func_quote_solana_op_fee(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterTypeSolanaOwnerOp_lower(op)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaFeeQuote_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::quote_solana_op_fee`] for an op on `cluster`: refused when Paygent
+ * has pinned a fee account for the cluster and the node pays another.
+ */
+public func quoteSolanaOpFeeForCluster(koraUrl: String, apiKey: String?, op: SolanaOwnerOp, cluster: String)async throws  -> SolanaFeeQuote  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_quote_solana_op_fee_for_cluster(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterTypeSolanaOwnerOp_lower(op),FfiConverterString.lower(cluster)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -47779,10 +54313,10 @@ public func readAccountBalances(wallets: [String], chains: [EvmChainProbe])async
  * `eth_getStorageAt` -- the same slot `Safe.setModuleGuard(address)` writes.
  * `None` when no module guard is configured.
  *
- * Unlike [`compute_guard_address_with_factory`], which only computes an
- * address a `SafeModuleGuardFactory` COULD deploy a guard at (`createGuard`
- * is permissionless -- anyone can deploy either factory's guard for any
- * Safe without the Safe's consent), this reads what the Safe itself is
+ * Unlike a factory's `computeAddress`, which only names where a
+ * `SafeModuleGuardFactory` COULD deploy a guard (`createGuard` is
+ * permissionless -- anyone can deploy a guard for any Safe without the
+ * Safe's consent), this reads what the Safe itself is
  * actually wired to enforce. Callers reconciling a stored/derived guard
  * address against on-chain reality should treat this as ground truth.
  */
@@ -47810,6 +54344,26 @@ public func readEnvelopeHeader(envelope: EncryptedEnvelopeFfi)throws  -> Routing
         FfiConverterTypeEncryptedEnvelopeFfi_lower(envelope),$0
     )
 })
+}
+/**
+ * Read a network's live EIP-1559 fee quote straight from its public RPC,
+ * falling back to `eth_gasPrice` on a chain without a base fee. `None` when
+ * nothing usable answered.
+ */
+public func readEvmFeeQuote(chain: EvmChainProbe)async  -> EvmFeeQuoteFfi?  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_read_evm_fee_quote(FfiConverterTypeEvmChainProbe_lower(chain)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterOptionTypeEvmFeeQuoteFfi.lift,
+            errorHandler: nil
+            
+        )
 }
 /**
  * When each EVM device key of `records` last approved an owner transaction
@@ -47871,6 +54425,26 @@ public func readFeeRunways(wallet: String, chains: [EvmChainProbe], kind: TxKind
         )
 }
 /**
+ * [`read_fee_runways`] priced at each network's live quote
+ * ([`read_evm_fee_quote`]); `gas_price` in each reading is the quote's max
+ * fee.
+ */
+public func readFeeRunwaysQuoted(wallet: String, chains: [EvmChainProbe], kind: TxKindFfi)async  -> [FeeRunwayReadingFfi]  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_read_fee_runways_quoted(FfiConverterString.lower(wallet),FfiConverterSequenceTypeEvmChainProbe.lower(chains),FfiConverterTypeTxKindFfi_lower(kind)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeFeeRunwayReadingFfi.lift,
+            errorHandler: nil
+            
+        )
+}
+/**
  * What one relay's answer to an invite report means, as JSON tagged by
  * `outcome`: `recorded`, `notHere`, `tooMany`, `notAParty`, `unauthorized`,
  * `unavailable`, or `refused` (with `status`).
@@ -47881,6 +54455,27 @@ public func readInviteReportResponse(status: UInt16)throws  -> String  {
         FfiConverterUInt16.lower(status),$0
     )
 })
+}
+/**
+ * Read one chain live and return the contracts it lacks for a first deploy.
+ *
+ * # Errors
+ *
+ * `Rpc` when the chain cannot be read: an unread chain is never offered.
+ */
+public func readMissingFirstDeployContracts(rpcUrl: String, chainId: UInt64, withAgent: Bool)async throws  -> [MissingDeployContractFfi]  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_read_missing_first_deploy_contracts(FfiConverterString.lower(rpcUrl),FfiConverterUInt64.lower(chainId),FfiConverterBool.lower(withAgent)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeMissingDeployContractFfi.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
 }
 /**
  * Read, without changing anything, which executor module `safe` has enabled
@@ -47914,6 +54509,25 @@ public func readPushTestResponse(status: UInt16, body: String)throws  -> String 
         FfiConverterString.lower(body),$0
     )
 })
+}
+/**
+ * Read the Solana base fee straight from the cluster's RPC. A failed read
+ * is the pinned value with `measured` false; this never fails.
+ */
+public func readSolanaBaseFee(rpcUrl: String)async  -> SolanaBaseFeeReadingFfi  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_read_solana_base_fee(FfiConverterString.lower(rpcUrl)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeSolanaBaseFeeReadingFfi_lift,
+            errorHandler: nil
+            
+        )
 }
 /**
  * The Solana counterpart of [`read_evm_last_approvals`], over the guard
@@ -48101,7 +54715,9 @@ public func recoveryCardFilename(card: RecoveryCard) -> String  {
 /**
  * Advance a stored move record by reading the source bundler, Circle's Iris
  * service and the destination chain, at `now_ms` (milliseconds since the
- * Unix epoch). Returns the updated record JSON.
+ * Unix epoch). A move from Solana never reads the bundler; a move to Solana
+ * takes a Solana node as `destination_rpc_url`. Returns the updated record
+ * JSON.
  *
  * # Errors
  *
@@ -48146,6 +54762,19 @@ public func renameAccount(prefs: WalletPreferencesFfi, name: String)throws  -> W
     uniffi_paygent_mobile_core_fn_func_rename_account(
         FfiConverterTypeWalletPreferencesFfi_lower(prefs),
         FfiConverterString.lower(name),$0
+    )
+})
+}
+/**
+ * The state of a spend the agent reported as failed, given what the chain
+ * says about the transaction the report names (`None` before it is read).
+ * Failed only once the chain says that transaction reverted.
+ */
+public func reportedFailureState(failure: RequestFailureFfi, chain: RequestOutcomeFfi?) -> ActivityStateFfi  {
+    return try!  FfiConverterTypeActivityStateFfi_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_reported_failure_state(
+        FfiConverterTypeRequestFailureFfi_lower(failure),
+        FfiConverterOptionTypeRequestOutcomeFfi.lower(chain),$0
     )
 })
 }
@@ -48200,6 +54829,23 @@ public func resendPersonInvite(invites: [PendingInvite], inviteId: String, entro
         FfiConverterString.lower(inviteId),
         FfiConverterData.lower(entropy),
         FfiConverterInt64.lower(nowMs),$0
+    )
+})
+}
+/**
+ * When an allowance whose period ends at `period_end_ms` refills, as seen at
+ * `now_ms`. Each instant carries its own UTC offset in minutes east of UTC,
+ * read from the platform's time zone, because the two can differ across a
+ * daylight saving change.
+ */
+public func resetPhrase(periodEndMs: Int64, nowMs: Int64, endOffsetMinutes: Int32, nowOffsetMinutes: Int32, twelveHour: Bool) -> ResetWhen  {
+    return try!  FfiConverterTypeResetWhen_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_func_reset_phrase(
+        FfiConverterInt64.lower(periodEndMs),
+        FfiConverterInt64.lower(nowMs),
+        FfiConverterInt32.lower(endOffsetMinutes),
+        FfiConverterInt32.lower(nowOffsetMinutes),
+        FfiConverterBool.lower(twelveHour),$0
     )
 })
 }
@@ -48303,10 +54949,33 @@ public func retryDirectTransaction(sessionToken: String, freshAssertion: WebAuth
  * content comes back as [`ReviewedInviteFfi::AttachmentRefused`] rather than
  * as an error, because an error is unaddressed: nothing downstream then knows
  * which agent to tell, and its enrollment hangs until the request expires.
+ *
+ * An allowance request on Solana or Tempo is refused as `NotAuthentic` here,
+ * because [`ReviewedInviteFfi::Allowance`] is EVM-shaped. Call
+ * `review_allowance_request` first; it reads every network.
  */
 public func reviewAgentAttachment(envelopeJson: String, ownerDid: String, agents: [PairedAgentFfi], nowMs: Int64)throws  -> ReviewedInviteFfi  {
     return try  FfiConverterTypeReviewedInviteFfi_lift(try rustCallWithError(FfiConverterTypeOpenInviteErrorFfi_lift) {
     uniffi_paygent_mobile_core_fn_func_review_agent_attachment(
+        FfiConverterString.lower(envelopeJson),
+        FfiConverterString.lower(ownerDid),
+        FfiConverterSequenceTypePairedAgentFfi.lower(agents),
+        FfiConverterInt64.lower(nowMs),$0
+    )
+})
+}
+/**
+ * Open and authenticate an invite-mailbox envelope exactly as
+ * `review_agent_attachment` does, and return it as an [`AllowanceReview`]
+ * when it is an allowance request; `None` for any other invite.
+ *
+ * # Errors
+ *
+ * The refusal `review_agent_attachment` would return.
+ */
+public func reviewAllowanceRequest(envelopeJson: String, ownerDid: String, agents: [PairedAgentFfi], nowMs: Int64)throws  -> AllowanceReview?  {
+    return try  FfiConverterOptionTypeAllowanceReview.lift(try rustCallWithError(FfiConverterTypeOpenInviteErrorFfi_lift) {
+    uniffi_paygent_mobile_core_fn_func_review_allowance_request(
         FfiConverterString.lower(envelopeJson),
         FfiConverterString.lower(ownerDid),
         FfiConverterSequenceTypePairedAgentFfi.lower(agents),
@@ -48391,6 +55060,22 @@ public func sealPushPayload(pushSubkey: Data, plaintext: String)throws  -> Encry
 })
 }
 /**
+ * Seal the agent's report that the payment for `intent_id` definitively
+ * failed.
+ */
+public func sealRequestFailed(intentId: String, chain: String, failure: RequestFailureFfi, bodyKey: Data, subject: String, senderDid: String)throws  -> EncryptedEnvelopeFfi  {
+    return try  FfiConverterTypeEncryptedEnvelopeFfi_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_seal_request_failed(
+        FfiConverterString.lower(intentId),
+        FfiConverterString.lower(chain),
+        FfiConverterTypeRequestFailureFfi_lower(failure),
+        FfiConverterData.lower(bodyKey),
+        FfiConverterString.lower(subject),
+        FfiConverterString.lower(senderDid),$0
+    )
+})
+}
+/**
  * Seal the agent's report that the payment for `intent_id` landed.
  */
 public func sealRequestSettled(intentId: String, chain: String, txHash: String, amount: String, bodyKey: Data, subject: String, senderDid: String)throws  -> EncryptedEnvelopeFfi  {
@@ -48455,7 +55140,7 @@ public func serializeRecoveryCard(card: RecoveryCard)throws  -> String  {
 })
 }
 /**
- * A `0x` account address or hex key, as `0xabcd...9876`.
+ * A `0x` account address or hex key, as `0x91c47e...3d07ab`.
  */
 public func shortAddress(value: String) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
@@ -48704,6 +55389,32 @@ public func solanaPurseRunway(kind: TxKindFfi, purseLamports: UInt64) -> UInt32?
 })
 }
 /**
+ * [`solana_purse_runway`] at `base_fee`, or at the pinned base fee when
+ * there is none. Refuses a zero base fee.
+ */
+public func solanaPurseRunwayQuoted(kind: TxKindFfi, purseLamports: UInt64, baseFee: SolanaBaseFeeFfi?)throws  -> UInt32?  {
+    return try  FfiConverterOptionUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_solana_purse_runway_quoted(
+        FfiConverterTypeTxKindFfi_lower(kind),
+        FfiConverterUInt64.lower(purseLamports),
+        FfiConverterOptionTypeSolanaBaseFeeFfi.lower(baseFee),$0
+    )
+})
+}
+/**
+ * Lamports a Solana `kind` operation costs its fee payer at `base_fee`, or
+ * at the pinned base fee when there is none. `None` when the fee overflows.
+ * Refuses a zero base fee.
+ */
+public func solanaQuotedLamports(kind: TxKindFfi, baseFee: SolanaBaseFeeFfi?)throws  -> UInt64?  {
+    return try  FfiConverterOptionUInt64.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_solana_quoted_lamports(
+        FfiConverterTypeTxKindFfi_lower(kind),
+        FfiConverterOptionTypeSolanaBaseFeeFfi.lower(baseFee),$0
+    )
+})
+}
+/**
  * Whether the one-time guard `initialize` may be offered, given whether the
  * guard already exists on chain, what its vault holds, and whether its
  * expected agent account exists (`None` when no agent is expected).
@@ -48782,7 +55493,7 @@ public func spendFigures(input: SpendFiguresInputFfi) -> SpendFiguresFfi  {
 })
 }
 /**
- * What fraction of a daily allowance is already spent, from 0.0 to 1.0.
+ * What fraction of the current period's allowance is already spent, from 0.0 to 1.0.
  *
  * Both arguments are base-unit integer strings. Clamped at both ends; 0.0 for
  * a zero or unreadable ceiling. Never `NaN` and never infinite, so the value
@@ -48830,6 +55541,26 @@ public func startAgentRemoval(agent: AgentRecordFfi) -> AgentRemovalRecordFfi  {
 })
 }
 /**
+ * Start the JSON record for a burn that landed on Solana: its transaction
+ * signature and the message account it wrote.
+ *
+ * # Errors
+ *
+ * A plan that does not start on Solana, or an invalid vault, recipient,
+ * signature or account.
+ */
+public func startCctpMoveFromSolanaRecord(plan: CctpNetworkPlanFfi, vault: String, evmRecipient: String, burnSignature: String, burnEventAccount: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_start_cctp_move_from_solana_record(
+        FfiConverterTypeCctpNetworkPlanFfi_lower(plan),
+        FfiConverterString.lower(vault),
+        FfiConverterString.lower(evmRecipient),
+        FfiConverterString.lower(burnSignature),
+        FfiConverterString.lower(burnEventAccount),$0
+    )
+})
+}
+/**
  * Start the JSON record for a burn the bundler accepted.
  *
  * # Errors
@@ -48842,6 +55573,24 @@ public func startCctpMoveRecord(plan: CctpMovePlanFfi, route: CctpBurnRouteFfi, 
         FfiConverterTypeCctpMovePlanFfi_lower(plan),
         FfiConverterTypeCctpBurnRouteFfi_lower(route),
         FfiConverterString.lower(safe),
+        FfiConverterString.lower(burnUserOpHash),$0
+    )
+})
+}
+/**
+ * Start the JSON record for an EVM burn to a Solana vault that the bundler
+ * accepted. The route is fixed: Circle never forwards a mint to Solana.
+ *
+ * # Errors
+ *
+ * A plan that does not end on Solana, or an invalid account, vault or hash.
+ */
+public func startCctpMoveToSolanaRecord(plan: CctpNetworkPlanFfi, safe: String, vault: String, burnUserOpHash: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_paygent_mobile_core_fn_func_start_cctp_move_to_solana_record(
+        FfiConverterTypeCctpNetworkPlanFfi_lower(plan),
+        FfiConverterString.lower(safe),
+        FfiConverterString.lower(vault),
         FfiConverterString.lower(burnUserOpHash),$0
     )
 })
@@ -48940,14 +55689,130 @@ public func submitEvmPurseDeploy(sessionToken: String, assertion: WebAuthnAssert
         )
 }
 /**
+ * Retry the burn of a move off Solana whose stage landed and whose burn did
+ * not.
+ *
+ * # Errors
+ *
+ * As [`submit_owner_cctp_move_to_evm`].
+ */
+public func submitOwnerCctpBurnToEvm(plan: CctpNetworkPlanFfi, rpcUrl: String, evmRecipient: String, purseSeedB64: String, pinnedPubkeyB58: String)async throws  -> CctpBurnSubmittedFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_owner_cctp_burn_to_evm(FfiConverterTypeCctpNetworkPlanFfi_lower(plan),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(evmRecipient),FfiConverterString.lower(purseSeedB64),FfiConverterString.lower(pinnedPubkeyB58)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeCctpBurnSubmittedFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Mint a move from an EVM chain into the owner's Solana account
+ * (`wallet_address`), the purse paying, straight to `rpc_url`. Refuses a
+ * message that credits any other account. Returns the signature.
+ *
+ * # Errors
+ *
+ * A plan that is not EVM to Solana, a wrong seed, a message for another
+ * account, or an RPC failure.
+ */
+public func submitOwnerCctpMintOnSolana(plan: CctpNetworkPlanFfi, rpcUrl: String, walletAddress: String, messageHex: String, attestationHex: String, purseSeedB64: String, pinnedPubkeyB58: String)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_owner_cctp_mint_on_solana(FfiConverterTypeCctpNetworkPlanFfi_lower(plan),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(walletAddress),FfiConverterString.lower(messageHex),FfiConverterString.lower(attestationHex),FfiConverterString.lower(purseSeedB64),FfiConverterString.lower(pinnedPubkeyB58)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Send a move off Solana: the assembled stage carrier, then the purse's burn
+ * of the plan's amount naming `evm_recipient` (the owner's Safe) on the
+ * plan's EVM chain. Both are paid by the purse, straight to `rpc_url`.
+ *
+ * # Errors
+ *
+ * A plan that is not Solana to EVM, a zero recipient, a wrong seed, a
+ * carrier that is not a stage into this purse, or an RPC failure.
+ */
+public func submitOwnerCctpMoveToEvm(plan: CctpNetworkPlanFfi, rpcUrl: String, stageTransactionBase64: String, evmRecipient: String, purseSeedB64: String, pinnedPubkeyB58: String)async throws  -> CctpMoveToEvmSubmittedFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_owner_cctp_move_to_evm(FfiConverterTypeCctpNetworkPlanFfi_lower(plan),FfiConverterString.lower(rpcUrl),FfiConverterString.lower(stageTransactionBase64),FfiConverterString.lower(evmRecipient),FfiConverterString.lower(purseSeedB64),FfiConverterString.lower(pinnedPubkeyB58)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeCctpMoveToEvmSubmittedFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Close a burn's message account and return its rent to the purse, once
+ * Circle's five-day window has passed. `now_unix` is the caller's clock.
+ *
+ * # Errors
+ *
+ * A wrong seed, a window still open, an account already closed, or an RPC
+ * failure.
+ */
+public func submitSolanaCctpReclaimViaPurse(rpcUrl: String, cluster: String, eventAccount: String, messageHex: String, attestationHex: String, nowUnix: Int64, purseSeedB64: String, pinnedPubkeyB58: String)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_solana_cctp_reclaim_via_purse(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(eventAccount),FfiConverterString.lower(messageHex),FfiConverterString.lower(attestationHex),FfiConverterInt64.lower(nowUnix),FfiConverterString.lower(purseSeedB64),FfiConverterString.lower(pinnedPubkeyB58)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Return USDC staged in the purse, whose burn never landed, to the vault of
+ * `wallet_address`, the purse paying.
+ *
+ * # Errors
+ *
+ * A wrong seed, nothing staged, or an RPC failure.
+ */
+public func submitSolanaCctpUnstageViaPurse(rpcUrl: String, cluster: String, walletAddress: String, purseSeedB64: String, pinnedPubkeyB58: String)async throws  -> CctpUnstagedFfi  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_solana_cctp_unstage_via_purse(FfiConverterString.lower(rpcUrl),FfiConverterString.lower(cluster),FfiConverterString.lower(walletAddress),FfiConverterString.lower(purseSeedB64),FfiConverterString.lower(pinnedPubkeyB58)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeCctpUnstagedFfi_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
  * Submit an assembled (base64), fee-payer-placeholder owner-op carrier straight
  * to a Solana RPC node with this device's gas purse paying the fee -- the
- * Kora-free rail for owner-signed transfers. `purse_seed_b64` is the cached
+ * only rail for owner-signed transfers, and the Kora-free bypass for
+ * administration and self-to-self movement. `purse_seed_b64` is the cached
  * 32-byte seed (base64url); `pinned_pubkey_b58` is the pubkey pinned at mint.
  * The seed must re-derive exactly the pinned pubkey before any network traffic,
- * and the carrier must be a transfer/withdraw (the allowlist refuses admin ops
- * and any purse-draining instruction); both fail closed. Returns the on-chain
- * transaction signature (base58).
+ * and the carrier must hold exactly one guard op the purse may pay for (the
+ * allowlist refuses any other op and any purse-draining instruction); both
+ * fail closed. Returns the on-chain transaction signature (base58).
  */
 public func submitSolanaOwnerOpViaPurse(rpcUrl: String, transactionBase64: String, purseSeedB64: String, pinnedPubkeyB58: String)async throws  -> String  {
     return
@@ -48973,6 +55838,45 @@ public func submitSolanaOwnerOpViaRelay(koraUrl: String, apiKey: String?, transa
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_paygent_mobile_core_fn_func_submit_solana_owner_op_via_relay(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterString.lower(transactionBase64)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * [`crate::submit_solana_owner_op_via_relay`] at the pinned rate for a carrier
+ * on `cluster`: refused when Paygent has pinned a fee account for the cluster
+ * and the node pays another.
+ */
+public func submitSolanaOwnerOpViaRelayForCluster(koraUrl: String, apiKey: String?, transactionBase64: String, cluster: String)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_solana_owner_op_via_relay_for_cluster(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterString.lower(transactionBase64),FfiConverterString.lower(cluster)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
+ * Submit a carrier prepared by a `_quoted` prepare through Kora. The quote is
+ * checked again at `now_unix_secs`, and the node is refused unless it pays
+ * Paygent's pinned fee account. An expired quote is refused: fetch a new one
+ * and prepare again.
+ */
+public func submitSolanaOwnerOpViaRelayQuoted(koraUrl: String, apiKey: String?, transactionBase64: String, cluster: String, quoteToken: String, nowUnixSecs: Int64)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_submit_solana_owner_op_via_relay_quoted(FfiConverterString.lower(koraUrl),FfiConverterOptionString.lower(apiKey),FfiConverterString.lower(transactionBase64),FfiConverterString.lower(cluster),FfiConverterString.lower(quoteToken),FfiConverterInt64.lower(nowUnixSecs)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
@@ -49413,6 +56317,9 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_accepted_period_count() != 56842) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_account_headline() != 949) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -49578,6 +56485,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_build_evm_settled_response() != 49555) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_build_external_evm_deposit() != 60399) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_build_external_solana_deposit() != 34700) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_build_join_accepted() != 5399) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -49590,16 +56503,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_build_owner_op_call() != 33491) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_build_payment_link() != 21449) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_build_rejection_response() != 19266) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_build_request_authorization_transport() != 25395) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_build_set_spending_limit_call() != 30452) {
+    if (uniffi_paygent_mobile_core_checksum_func_build_set_spending_limit_call() != 30788) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_build_solana_add_agent_message() != 33296) {
+    if (uniffi_paygent_mobile_core_checksum_func_build_solana_add_agent_message() != 5658) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_build_solana_add_owner_message() != 34417) {
@@ -49608,7 +56524,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_build_solana_escalate_refill_message() != 22489) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_build_solana_guard_message() != 30739) {
+    if (uniffi_paygent_mobile_core_checksum_func_build_solana_guard_message() != 46191) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_build_solana_member_message() != 50) {
@@ -49620,7 +56536,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_build_solana_remove_agent_message() != 23304) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_build_solana_set_agent_limit_message() != 34468) {
+    if (uniffi_paygent_mobile_core_checksum_func_build_solana_set_agent_limit_message() != 42850) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_build_solana_withdraw_message() != 20486) {
@@ -49635,7 +56551,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_can_hide_solana_chain() != 24831) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_can_pay_cctp_fee_myself() != 16062) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_can_pay_fee_myself() != 34558) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_can_pay_value_fee_myself() != 7328) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_can_retry_direct_chain() != 57246) {
@@ -49648,6 +56570,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_cctp_move_mint_call() != 64749) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_cctp_move_record_plan() != 26276) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_cctp_move_route() != 51790) {
@@ -49666,6 +56591,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_chains_needing_module_upgrade() != 59219) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_check_external_wallet_chain() != 41746) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_check_first_deploy_contracts() != 29396) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_check_solana_purse_float() != 39954) {
@@ -49725,6 +56656,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_complete_solana_set_limit() != 2155) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_complete_solana_setup_with_agent_webauthn() != 15906) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_complete_solana_withdraw_via_relay() != 17565) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -49732,9 +56666,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_compute_chain_sync_report() != 32765) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_paygent_mobile_core_checksum_func_compute_guard_address_with_factory() != 49979) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_compute_safe_op_hash() != 65093) {
@@ -49875,10 +56806,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_evm_fee_runway() != 54195) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_evm_fee_runway_quoted() != 61481) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_evm_owner_ops_blocked_reason() != 1769) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_evm_purse_address_from_prf_secret() != 15791) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_evm_quoted_cost_wei() != 41446) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_evm_single_signature_threshold() != 58809) {
@@ -49905,10 +56842,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_fetch_cctp_attestation() != 35938) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_fetch_cctp_network_attestation() != 58800) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_fetch_solana_kora_fee_quote() != 46107) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_finalize_tempo_owner_key_change() != 58104) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_finalize_tempo_owner_tx() != 43303) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_first_deploy_contracts() != 35726) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_format_sats() != 10348) {
@@ -49959,10 +56905,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_group_owner_keys() != 9004) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_guard_factory_address() != 41470) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_paygent_mobile_core_checksum_func_guard_limit_binds() != 35935) {
+    if (uniffi_paygent_mobile_core_checksum_func_guard_factory_address() != 39291) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_guard_limit_state() != 19459) {
@@ -50016,7 +56959,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_lasts_phrase() != 61896) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_legacy_guard_factory_address() != 16996) {
+    if (uniffi_paygent_mobile_core_checksum_func_lightning_default_provider() != 14490) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_lightning_headline_terms() != 13354) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_lightning_parse_provider() != 18244) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_lightning_probe_provider() != 20029) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_lightning_quote_top_up() != 10281) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_lightning_select_terms() != 50709) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_limit_period_phrase() != 58345) {
@@ -50043,6 +57001,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_max_native_withdraw() != 64970) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_max_native_withdraw_quoted() != 58164) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_max_nostr_fleet_pairings() != 4547) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50065,6 +57026,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_open_push_payload() != 28810) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_open_request_failed() != 11380) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_open_request_settled() != 50252) {
@@ -50121,6 +57085,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_parse_pairing_url() != 9127) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_parse_payment_request() != 35833) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_parse_recovery_card() != 28741) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50145,6 +57112,21 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_pending_invite_rows() != 40230) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_period_draft_count_invalid() != 3368) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_period_draft_default() != 63067) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_period_draft_of() != 59981) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_period_draft_seconds() != 51966) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_period_presets() != 2055) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_person_invite_challenge() != 35925) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50158,6 +57140,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_plan_cctp_move() != 45925) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_plan_cctp_network_move() != 53243) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_plan_device_join() != 29091) {
@@ -50256,6 +57241,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_owner_cctp_move() != 40889) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_owner_cctp_move_to_solana() != 64120) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_owner_evm_withdraw() != 15531) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50283,13 +57271,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_pairing_delegations() != 11205) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent() != 12809) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent() != 4310) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent_webauthn() != 51388) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent_webauthn() != 60298) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_agent_webauthn_quoted() != 17455) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_owner_webauthn() != 9132) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_add_owner_webauthn_quoted() != 34188) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_agent_pause() != 30412) {
@@ -50301,7 +57295,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_agent_resume_entered() != 17036) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_cctp_stage_webauthn() != 34402) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_close_agent_webauthn() != 40554) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_close_agent_webauthn_quoted() != 5774) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill() != 33476) {
@@ -50313,10 +57313,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_escalate_refill_webauthn() != 8603) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize() != 21305) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize() != 47890) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize_webauthn() != 15957) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize_webauthn() != 27790) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_initialize_webauthn_quoted() != 53283) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_owner_sweep_pocket_webauthn() != 65449) {
@@ -50328,22 +57331,40 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_remove_owner_webauthn() != 25943) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_remove_owner_webauthn_quoted() != 26677) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_revoke_webauthn() != 6093) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit() != 36093) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit() != 32859) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit_webauthn() != 51334) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit_webauthn() != 24417) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit() != 11388) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_guard_limit_webauthn_quoted() != 15206) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit_webauthn() != 7999) {
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit() != 50908) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit_webauthn() != 3230) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_limit_webauthn_quoted() != 61028) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_threshold_webauthn() != 63632) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_set_threshold_webauthn_quoted() != 39926) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_setup_with_agent_webauthn() != 22040) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_setup_with_agent_webauthn_quoted() != 5482) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_prepare_solana_sweep_lamports_webauthn() != 49587) {
@@ -50382,16 +57403,25 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_probe_connectivity() != 51482) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_quote_cctp_purse_cost() != 9711) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_quote_solana_op_fee() != 30607) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_quote_solana_op_fee_for_cluster() != 27854) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_account_balances() != 51601) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_read_enforced_module_guard() != 43105) {
+    if (uniffi_paygent_mobile_core_checksum_func_read_enforced_module_guard() != 52690) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_envelope_header() != 11017) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_read_evm_fee_quote() != 5744) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_evm_last_approvals() != 14835) {
@@ -50403,13 +57433,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_read_fee_runways() != 10284) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_read_fee_runways_quoted() != 47259) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_read_invite_report_response() != 37383) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_read_missing_first_deploy_contracts() != 48647) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_module_upgrade_status() != 23306) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_push_test_response() != 18596) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_read_solana_base_fee() != 8762) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_read_solana_last_approvals() != 19063) {
@@ -50445,13 +57484,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_recovery_card_filename() != 11428) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_refresh_cctp_move() != 29197) {
+    if (uniffi_paygent_mobile_core_checksum_func_refresh_cctp_move() != 60414) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_relative_timestamp() != 65036) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_rename_account() != 17040) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_reported_failure_state() != 13594) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_request_cctp_reattestation() != 40192) {
@@ -50461,6 +57503,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_resend_person_invite() != 34440) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_reset_phrase() != 20434) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_resolve_guard_address() != 17490) {
@@ -50475,7 +57520,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_retry_direct_transaction() != 5233) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_review_agent_attachment() != 50511) {
+    if (uniffi_paygent_mobile_core_checksum_func_review_agent_attachment() != 55332) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_review_allowance_request() != 4426) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_sanitize_wallet_label() != 11396) {
@@ -50493,6 +57541,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_seal_push_payload() != 38642) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_seal_request_failed() != 660) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_seal_request_settled() != 9549) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50505,7 +57556,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_serialize_recovery_card() != 46186) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_short_address() != 44273) {
+    if (uniffi_paygent_mobile_core_checksum_func_short_address() != 23355) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_short_copyable_value() != 32529) {
@@ -50565,6 +57616,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_solana_purse_runway() != 45754) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_solana_purse_runway_quoted() != 41088) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_solana_quoted_lamports() != 60273) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_solana_setup_readiness() != 47546) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50583,7 +57640,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_spend_figures() != 46360) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_spent_fraction() != 65232) {
+    if (uniffi_paygent_mobile_core_checksum_func_spent_fraction() != 56549) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_split_balances() != 47749) {
@@ -50595,7 +57652,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_start_agent_removal() != 8202) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_func_start_cctp_move_from_solana_record() != 14291) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_func_start_cctp_move_record() != 62185) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_start_cctp_move_to_solana_record() != 55114) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_stripe_onramp_link() != 28708) {
@@ -50616,10 +57679,31 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_submit_evm_purse_deploy() != 33546) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_submit_solana_owner_op_via_purse() != 23562) {
+    if (uniffi_paygent_mobile_core_checksum_func_submit_owner_cctp_burn_to_evm() != 57966) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_owner_cctp_mint_on_solana() != 1132) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_owner_cctp_move_to_evm() != 5376) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_solana_cctp_reclaim_via_purse() != 18089) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_solana_cctp_unstage_via_purse() != 38303) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_solana_owner_op_via_purse() != 921) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_submit_solana_owner_op_via_relay() != 18245) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_solana_owner_op_via_relay_for_cluster() != 27465) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_submit_solana_owner_op_via_relay_quoted() != 18463) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_submit_solana_purse_drain() != 191) {
@@ -50775,6 +57859,30 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_allowancedecline_request_id() != 16475) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_decline() != 12926) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_limit_change() != 62939) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_network() != 18196) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_period_seconds() != 5360) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_prepare_solana_set_limit_webauthn() != 4328) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_prepare_tempo_limit() != 32542) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_read_tempo_limit() != 38649) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_allowancereview_summary() != 14146) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_attachmentdecline_delegate_did() != 26873) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50808,25 +57916,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_channels() != 48704) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_connect_side_wallet() != 5289) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_estimate_closed_line_send() != 3278) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_funding_address() != 41361) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_has_usable_channel() != 39744) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_has_usable_channel() != 41181) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_inbound_room_msat() != 59233) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_node_id() != 22323) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_open_recorded_side_wallet_channel() != 29260) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_open_side_wallet_channel() != 22290) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_pay_refill() != 62476) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_pay_refill() != 24898) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_pending_channels() != 62817) {
@@ -50835,19 +57937,25 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_plan_withdrawal() != 52579) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_prepare_refill() != 19454) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_prepare_refill() != 43138) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_provider() != 12149) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_provision_side_wallet() != 21634) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_record_side_wallet_peer_address() != 55129) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_receive() != 47824) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_record_side_wallet_provisioned() != 45239) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_record_side_wallet_provisioned() != 17235) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_side_wallet_channel() != 7948) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_send_closed_line_funds() != 44721) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_set_provider() != 37204) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_side_wallet_node_id() != 29555) {
@@ -50856,16 +57964,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_side_wallet_peers() != 58792) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_side_wallet_reachability() != 54802) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_spendable_onchain_balance_sats() != 32796) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_spendable_onchain_balance_sats() != 50699) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_stop() != 3022) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_sync() != 51839) {
+    if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_sync() != 23906) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_lightningtreasury_withdraw() != 31721) {
@@ -50979,6 +58084,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_attachment() != 47577) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_network_allowance() != 2326) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_session() != 50711) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -50998,6 +58106,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_verify_attachment_granted() != 5589) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_verify_network_allowance_declined() != 10412) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_requestlinkverifier_verify() != 58848) {
@@ -51096,7 +58207,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_verifiedrequestlink_request_json() != 15657) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_constructor_lightningtreasury_start() != 14597) {
+    if (uniffi_paygent_mobile_core_checksum_constructor_lightningtreasury_start() != 33157) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_constructor_nostrfleet_new() != 11578) {
@@ -51117,9 +58228,9 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentHost()
     uniffiCallbackInitAgentPocketHost()
     uniffiCallbackInitAgentSessionHost()
-    uniffiEnsurePaygentUntrustedInitialized()
-    uniffiEnsurePaygentAgentCoreInitialized()
     uniffiEnsurePaygentPolicyInitialized()
+    uniffiEnsurePaygentAgentCoreInitialized()
+    uniffiEnsurePaygentUntrustedInitialized()
     return InitializationResult.ok
 }()
 

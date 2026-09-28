@@ -10,6 +10,47 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.8.1
+
+### First published here: the 0.8.0 changes
+
+The spend-limit and network-allowance changes are described under 0.8.0
+below. That version was never published, so 0.8.1 is the first package that
+carries them. `agent.request_network_allowance` and
+`agent.verify_network_allowance_declined` are recorded as `since = "0.8.1"`.
+
+## 0.8.0 (never published)
+
+The `swift-v0.8.0` tag was cut from a tree whose Swift glue still referred to
+the `Period` alias the core had removed, so the package failed to compile in
+the publish job and no 0.8.0 package exists.
+
+### Spend limits are one amount per period in seconds
+
+`Period` (day, week, month) is removed. Every allowance is now an amount and a
+period in seconds, `periodSeconds`, a `UInt64`: `0` for one-time,
+otherwise from one hour (3600) to one year (31536000). A period outside those
+bounds is refused when the value crosses into the core, before anything is
+signed.
+
+### Asking for an allowance on Solana or Tempo
+
+`agent.request_network_allowance` joins the agent tier. It takes the same
+`AllowanceRequestInput` as `agent.request_allowance` plus an
+`AllowanceNetwork`: `.evm` signs exactly what `agent.request_allowance` signs,
+`.solana(cluster:)` asks for one ceiling per period on that cluster
+(`chainId` must be 0), and `.tempo` asks for the Tempo chain `chainId` names.
+Solana and Tempo limits are one amount per period, so a request whose two
+ceilings differ throws before the key signs. `agent.request_allowance` is
+unchanged.
+
+`agent.verify_network_allowance_declined` reads the owner's "no" to such a
+request. It takes the network the request named as an optional `ChainRefFfi`
+beside the request id and chain id, because a Solana request carries chain id
+0 and the chain check alone cannot tell two clusters apart.
+`agent.verify_allowance_declined` keeps its signature and now refuses a
+decline that names a network other than an EVM chain.
+
 ## 0.7.0
 
 ### Submitting a UserOp with no Paygent server

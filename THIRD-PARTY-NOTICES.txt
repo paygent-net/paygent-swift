@@ -10005,6 +10005,7 @@ Used by:
   - paygent-solana-agent-store 0.1.0
   - paygent-solana-authorizer 0.1.0
   - paygent-solana-client 0.1.0
+  - paygent-spend-limit 0.1.0
   - paygent-spending-limits 0.1.0
   - paygent-tpm 0.1.0
   - paygent-untrusted 0.1.0
