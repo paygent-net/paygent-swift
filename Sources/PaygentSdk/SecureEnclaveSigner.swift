@@ -69,6 +69,14 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
         /// The keychain refused. Carries the raw `OSStatus` because the
         /// security framework's failures are distinguished only by it.
         case keychain(OSStatus)
+        /// The data-protection keychain refused this process. On macOS that
+        /// means the binary is not signed with a `keychain-access-groups`
+        /// entitlement and an embedded provisioning profile that authorizes
+        /// it: a command-line tool or an XPC service needs both. Carries
+        /// `errSecMissingEntitlement` (-34018) or
+        /// `errSecInteractionNotAllowed` (-25308). On iOS, -25308 can instead
+        /// mean the device has not been unlocked since it booted.
+        case missingKeychainEntitlement(OSStatus)
         /// The stored key reference did not load. The device was restored from
         /// another device's backup, or the item was written by something else.
         case unusableStoredKey(String)
@@ -84,6 +92,10 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
                 return "this device has no usable Secure Enclave"
             case .keychain(let status):
                 return "keychain refused with OSStatus \(status)"
+            case .missingKeychainEntitlement(let status):
+                return "the data-protection keychain refused with OSStatus \(status): "
+                    + "sign this binary with a keychain-access-groups entitlement and "
+                    + "embed a provisioning profile that grants it"
             case .unusableStoredKey(let detail):
                 return "the stored key reference did not load: \(detail)"
             case .malformedDigest(let detail):
@@ -106,6 +118,7 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
 
     private let key: SecureEnclave.P256.Signing.PrivateKey
     private let account: String
+    private let accessGroup: String?
 
     /// Load the key stored under `account`, creating it on first run.
     ///
@@ -113,22 +126,38 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
     /// that varies between launches silently mints a second identity, and the
     /// first one is the one the chain knows.
     ///
+    /// `accessGroup` is the keychain access group the item lives in. `nil`
+    /// uses the process's default group, the first entry of its
+    /// `keychain-access-groups` entitlement. Pass one to share the key between
+    /// executables signed by the same team, such as an app and its XPC
+    /// service.
+    ///
+    /// The item lives in the data-protection keychain on every platform. On
+    /// iOS that is the only keychain there is. On macOS it is not the default:
+    /// the file-based login keychain is, and an XPC service may not write to
+    /// that one. Reaching the data-protection keychain requires the binary to
+    /// be signed with a `keychain-access-groups` entitlement and to embed a
+    /// provisioning profile that grants it. Without them this throws
+    /// ``Failure/missingKeychainEntitlement(_:)``; there is no fallback to the
+    /// login keychain.
+    ///
     /// The item is stored `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` --
     /// readable by a background launch once the user has unlocked the device
     /// since boot, and excluded from backups and from iCloud Keychain, so the
     /// reference cannot travel to a device whose Enclave could not use it
     /// anyway.
-    public convenience init(account: String) throws {
+    public convenience init(account: String, accessGroup: String? = nil) throws {
         guard SecureEnclave.isAvailable else { throw Failure.noSecureEnclave }
 
-        if let blob = try Self.loadBlob(account: account) {
+        let query = Self.keychainQuery(account: account, accessGroup: accessGroup)
+        if let blob = try Self.loadBlob(query: query) {
             let key: SecureEnclave.P256.Signing.PrivateKey
             do {
                 key = try SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: blob)
             } catch {
                 throw Failure.unusableStoredKey(String(describing: error))
             }
-            self.init(key: key, account: account)
+            self.init(key: key, account: account, accessGroup: accessGroup)
             return
         }
 
@@ -138,13 +167,18 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
         } catch {
             throw Failure.unusableStoredKey(String(describing: error))
         }
-        try Self.storeBlob(key.dataRepresentation, account: account)
-        self.init(key: key, account: account)
+        try Self.storeBlob(key.dataRepresentation, query: query)
+        self.init(key: key, account: account, accessGroup: accessGroup)
     }
 
-    private init(key: SecureEnclave.P256.Signing.PrivateKey, account: String) {
+    private init(
+        key: SecureEnclave.P256.Signing.PrivateKey,
+        account: String,
+        accessGroup: String?
+    ) {
         self.key = key
         self.account = account
+        self.accessGroup = accessGroup
     }
 
     /// The signing public key as 130 hexadecimal characters: SEC1-uncompressed,
@@ -185,9 +219,10 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
     /// cannot sign again, and its public key has to be removed on-chain by the
     /// owner.
     public func destroy() throws {
-        let status = SecItemDelete(Self.query(account: account) as CFDictionary)
+        let query = Self.keychainQuery(account: account, accessGroup: accessGroup)
+        let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw Failure.keychain(status)
+            throw Self.keychainFailure(status)
         }
     }
 
@@ -195,16 +230,43 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
 
     private static let service = "net.paygent.agent.secure-enclave-key"
 
-    private static func query(account: String) -> [String: Any] {
-        [
+    /// The attributes that name this key's keychain item. Every read, write
+    /// and delete starts from this, so they cannot disagree about which
+    /// keychain or which item they mean.
+    ///
+    /// `kSecUseDataProtectionKeychain` is set unconditionally. On iOS it
+    /// changes nothing. On macOS it selects the data-protection keychain over
+    /// the file-based login keychain, which a sandboxed process or an XPC
+    /// service cannot write to.
+    static func keychainQuery(account: String, accessGroup: String?) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: true,
         ]
+        if let accessGroup {
+            query[kSecAttrAccessGroup as String] = accessGroup
+        }
+        return query
     }
 
-    private static func loadBlob(account: String) throws -> Data? {
-        var query = query(account: account)
+    /// The error for a keychain status other than success or not-found.
+    ///
+    /// -34018 and -25308 are what the data-protection keychain answers a
+    /// process that is not entitled to it, so they get a failure that names
+    /// the entitlement rather than a bare number.
+    static func keychainFailure(_ status: OSStatus) -> Failure {
+        switch status {
+        case errSecMissingEntitlement, errSecInteractionNotAllowed:
+            return .missingKeychainEntitlement(status)
+        default:
+            return .keychain(status)
+        }
+    }
+
+    private static func loadBlob(query base: [String: Any]) throws -> Data? {
+        var query = base
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -219,18 +281,18 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
         case errSecItemNotFound:
             return nil
         default:
-            throw Failure.keychain(status)
+            throw keychainFailure(status)
         }
     }
 
-    private static func storeBlob(_ blob: Data, account: String) throws {
-        var attributes = query(account: account)
+    private static func storeBlob(_ blob: Data, query: [String: Any]) throws {
+        var attributes = query
         attributes[kSecValueData as String] = blob
         attributes[kSecAttrAccessible as String] =
             kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
         let status = SecItemAdd(attributes as CFDictionary, nil)
-        guard status == errSecSuccess else { throw Failure.keychain(status) }
+        guard status == errSecSuccess else { throw keychainFailure(status) }
     }
 
     // MARK: - Hex

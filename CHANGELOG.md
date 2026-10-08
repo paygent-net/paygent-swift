@@ -10,6 +10,54 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.9.0
+
+No operation moved. This release changes where `SecureEnclaveSigner` keeps its
+key, which is a breaking change on macOS.
+
+### The key lives in the data-protection keychain
+
+`SecureEnclaveSigner` now reads, writes and deletes its keychain item with
+`kSecUseDataProtectionKeychain` set, on every platform. On iOS that changes
+nothing: the data-protection keychain is the only one there. On macOS the
+default was the file-based login keychain, which an XPC service may not write
+to (`SecItemAdd` returned -25308), so `SecureEnclaveAgentHost(account:)` could
+never create a key inside one.
+
+**Breaking, on macOS only:** a key saved by 0.8.x is in the login keychain,
+and 0.9.0 does not look there. The first launch on 0.9.0 finds no key under
+the account and creates a new one, with a new public key that the chain does
+not know. There is no migration. To recover, let it provision the new agent
+key, then have the owner add it and remove the old one -- the same add-new,
+remove-old swap that replaces any agent key. Until the owner does, the new key
+cannot spend.
+
+### macOS needs a keychain entitlement
+
+On macOS the data-protection keychain is reachable only by a binary signed with
+a `keychain-access-groups` entitlement and an embedded provisioning profile
+that grants it. That includes command-line tools and XPC services, which
+usually carry neither. Without them the keychain answers -34018
+(`errSecMissingEntitlement`) or -25308 (`errSecInteractionNotAllowed`), and
+`SecureEnclaveSigner` throws the new
+`SecureEnclaveSigner.Failure.missingKeychainEntitlement(_:)`, whose message
+names the entitlement. It never falls back to the login keychain.
+`SecureEnclaveAgentHost(account:)` returns `nil` in that case, and
+`SecureEnclaveAgentHost.make(account:)` throws the same failure.
+
+`Failure` gained that case, so an exhaustive `switch` over it needs one more
+arm.
+
+### Choosing the access group
+
+`SecureEnclaveSigner(account:accessGroup:)`,
+`SecureEnclaveAgentHost(account:accessGroup:)` and
+`SecureEnclaveAgentHost.make(account:accessGroup:)` take an optional
+`accessGroup`. `nil`, the default, uses the process's default group, the first
+entry of its `keychain-access-groups` entitlement, so 0.8.x call sites compile
+unchanged. Pass a group to share the key between executables from the same
+team, such as an app and its XPC service.
+
 ## 0.8.1
 
 ### First published here: the 0.8.0 changes

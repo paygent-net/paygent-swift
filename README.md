@@ -14,16 +14,22 @@ a problem or ask for a change by opening an issue here.
 
 ## Requirements
 
-iOS 16 or later. Xcode 15.4 or later (the manifest is `swift-tools-version:5.10`).
+iOS 16 or later, or macOS 13 or later on Apple silicon. Xcode 15.4 or later
+(the manifest is `swift-tools-version:5.10`).
 
-There is no macOS or Mac Catalyst build: the binary carries an iOS device slice
-and two iOS simulator slices only.
+The binary carries an iOS device slice, two iOS simulator slices and a
+macOS arm64 slice. There is no x86_64 macOS slice and no Mac Catalyst build.
+
+On macOS, `SecureEnclaveSigner` keeps its key in the data-protection keychain,
+which only a binary signed with a `keychain-access-groups` entitlement and an
+embedded provisioning profile can reach. Command-line tools and XPC services
+need both.
 
 ## Adding it
 
 In Xcode: **File > Add Package Dependencies...**, paste
 `https://github.com/paygent-net/paygent-swift`, and set the dependency rule to **Up to Next Minor
-Version** from `0.8.1`.
+Version** from `0.9.0`.
 
 From another package:
 
@@ -32,7 +38,7 @@ From another package:
 dependencies: [
     .package(
         url: "https://github.com/paygent-net/paygent-swift.git",
-        .upToNextMinor(from: "0.8.1")
+        .upToNextMinor(from: "0.9.0")
     ),
 ],
 targets: [

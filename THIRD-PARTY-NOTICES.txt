@@ -10010,6 +10010,7 @@ Used by:
   - paygent-tpm 0.1.0
   - paygent-untrusted 0.1.0
   - paygent-userop 0.1.0
+  - paygent-value-format 0.1.0
   - paygent-verification 0.1.0
   - paygent-wasm 0.1.0
   - paygent-win-cng 0.1.0

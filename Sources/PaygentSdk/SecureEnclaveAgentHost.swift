@@ -25,7 +25,7 @@ import PaygentMobileCore
 ///
 /// The initializer is failable rather than throwing because there is exactly
 /// one thing a caller can do about any of its failures, and it is the same
-/// thing: stop claiming device hardware. Use ``make(account:)`` when the reason
+/// thing: stop claiming device hardware. Use ``make(account:accessGroup:)`` when the reason
 /// matters, for a log or a support screen.
 public final class SecureEnclaveAgentHost: AgentHost, @unchecked Sendable {
     private let signer: SecureEnclaveSigner
@@ -33,14 +33,24 @@ public final class SecureEnclaveAgentHost: AgentHost, @unchecked Sendable {
     /// Build a host over the key stored under `account`, creating the key on
     /// first run. `nil` when this device has no usable Secure Enclave, or the
     /// keychain refused.
-    public convenience init?(account: String) {
-        guard let signer = try? SecureEnclaveSigner(account: account) else { return nil }
+    ///
+    /// The key lives in the data-protection keychain, in `accessGroup` when one
+    /// is given. On macOS that requires a `keychain-access-groups` entitlement
+    /// and an embedded provisioning profile, including for a command-line tool
+    /// or an XPC service; see ``SecureEnclaveSigner/init(account:accessGroup:)``.
+    public convenience init?(account: String, accessGroup: String? = nil) {
+        guard let signer = try? SecureEnclaveSigner(account: account, accessGroup: accessGroup)
+        else { return nil }
         self.init(signer: signer)
     }
 
     /// The same thing, with the failure preserved.
-    public static func make(account: String) throws -> SecureEnclaveAgentHost {
-        SecureEnclaveAgentHost(signer: try SecureEnclaveSigner(account: account))
+    public static func make(
+        account: String,
+        accessGroup: String? = nil
+    ) throws -> SecureEnclaveAgentHost {
+        SecureEnclaveAgentHost(
+            signer: try SecureEnclaveSigner(account: account, accessGroup: accessGroup))
     }
 
     /// Wrap a signer the caller already built -- one made under a different
