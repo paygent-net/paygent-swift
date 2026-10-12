@@ -1,7 +1,6 @@
 // The code from the "Paying for a resource" documentation article, as a target
 // something compiles.
 
-import PaygentMobileCore
 import PaygentSdk
 
 /// What a server's `402` demanded, as this example's caller reads it off the

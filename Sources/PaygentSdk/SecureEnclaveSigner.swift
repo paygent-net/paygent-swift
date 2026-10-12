@@ -341,3 +341,7 @@ public final class SecureEnclaveSigner: @unchecked Sendable {
         }
     }
 }
+
+extension SecureEnclaveSigner.Failure: Foundation.LocalizedError {
+    public var errorDescription: String? { description }
+}

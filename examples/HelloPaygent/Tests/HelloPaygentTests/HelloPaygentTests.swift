@@ -1,9 +1,7 @@
 import XCTest
 
-// PaygentSdk only. Everything used below is either declared by it (`Amount`) or
-// named by one of its aliases, and one import is the ordinary way to consume
-// this package. The file next door imports both modules, which is where that
-// combination is exercised.
+// PaygentSdk only: it re-exports the bindings, so one import is the whole of
+// what a consumer writes.
 import PaygentSdk
 
 @testable import HelloPaygent

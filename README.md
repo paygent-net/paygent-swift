@@ -29,7 +29,7 @@ need both.
 
 In Xcode: **File > Add Package Dependencies...**, paste
 `https://github.com/paygent-net/paygent-swift`, and set the dependency rule to **Up to Next Minor
-Version** from `0.9.0`.
+Version** from `0.10.0`.
 
 From another package:
 
@@ -38,7 +38,7 @@ From another package:
 dependencies: [
     .package(
         url: "https://github.com/paygent-net/paygent-swift.git",
-        .upToNextMinor(from: "0.9.0")
+        .upToNextMinor(from: "0.10.0")
     ),
 ],
 targets: [
@@ -57,7 +57,7 @@ so `from:` would accept every `0.x` release, including the ones that break your
 build. Before `1.0.0` a breaking change lands in the **minor**; see
 [Versioning](#versioning).
 
-Resolution downloads a ~230 MB binary once and caches it.
+Resolution downloads the binary once and caches it.
 
 ## Using it
 
@@ -71,7 +71,6 @@ something else. The SDK supplies the payment logic.
 
 ```swift
 import PaygentSdk
-import PaygentMobileCore
 
 let agent = try PaygentAgent(
     // `rpcBase` is any Ethereum JSON-RPC endpoint. Paygent runs one as a
@@ -108,16 +107,14 @@ open *PaygentSdk > Paying for a resource*. The same code is in
 
 ## What is in the package
 
-| product | surface | for |
-|---|---|---|
-| `PaygentSdk` | the agent tier: `PaygentAgent`, the `AgentHost` you implement, and the records those operations exchange | an app that spends inside a mandate its owner granted |
-| `PaygentMobileCore` | everything the underlying library exports, owner-tier wallet administration included | the owner's own authorizer app |
+One product, `PaygentSdk`: the agent surface and nothing else. `PaygentAgent`,
+the five host protocols you implement, the records those operations exchange,
+and the amount and untrusted-text helpers. `import PaygentSdk` is the only
+import you need.
 
-`PaygentSdk` is a curated view of the same one binary, not a second build. It
-narrows what you are *offered*, not what your app *ships*: both products link
-the same binary and neither is smaller. Import `PaygentSdk` and you see the
-agent tier; nothing stops you importing `PaygentMobileCore` and seeing the rest,
-and there is no support promise on what you find there.
+The binary is built with that surface alone. The owner's side -- pairing,
+approvals, wallet administration -- is not in it, so it is neither offered to
+your code nor shipped in your app.
 
 ## Versioning
 

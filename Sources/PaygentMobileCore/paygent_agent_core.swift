@@ -1946,6 +1946,12 @@ public struct CommandContext {
      * short-circuits before the command runs.
      */
     public var forceEscalation: Bool
+    /**
+     * The scopes of the bearer token a remote caller presented. `None` is a
+     * local transport (Unix socket, named pipe, stdio, in-process), which
+     * carries no token and keeps full local trust.
+     */
+    public var scopes: ScopeSet?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -1971,12 +1977,18 @@ public struct CommandContext {
          * only to revert at the on-chain guard). Always `false` for
          * commands that go through the normal gate -- there the gate
          * short-circuits before the command runs.
-         */forceEscalation: Bool) {
+         */forceEscalation: Bool, 
+        /**
+         * The scopes of the bearer token a remote caller presented. `None` is a
+         * local transport (Unix socket, named pipe, stdio, in-process), which
+         * carries no token and keeps full local trust.
+         */scopes: ScopeSet? = nil) {
         self.surface = surface
         self.chainId = chainId
         self.walletAddress = walletAddress
         self.signingCapability = signingCapability
         self.forceEscalation = forceEscalation
+        self.scopes = scopes
     }
 }
 
@@ -2002,6 +2014,9 @@ extension CommandContext: Equatable, Hashable {
         if lhs.forceEscalation != rhs.forceEscalation {
             return false
         }
+        if lhs.scopes != rhs.scopes {
+            return false
+        }
         return true
     }
 
@@ -2011,6 +2026,7 @@ extension CommandContext: Equatable, Hashable {
         hasher.combine(walletAddress)
         hasher.combine(signingCapability)
         hasher.combine(forceEscalation)
+        hasher.combine(scopes)
     }
 }
 
@@ -2027,7 +2043,8 @@ public struct FfiConverterTypeCommandContext: FfiConverterRustBuffer {
                 chainId: FfiConverterOptionUInt64.read(from: &buf), 
                 walletAddress: FfiConverterOptionString.read(from: &buf), 
                 signingCapability: FfiConverterOptionTypeSigningCapability.read(from: &buf), 
-                forceEscalation: FfiConverterBool.read(from: &buf)
+                forceEscalation: FfiConverterBool.read(from: &buf), 
+                scopes: FfiConverterOptionTypeScopeSet.read(from: &buf)
         )
     }
 
@@ -2037,6 +2054,7 @@ public struct FfiConverterTypeCommandContext: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.walletAddress, into: &buf)
         FfiConverterOptionTypeSigningCapability.write(value.signingCapability, into: &buf)
         FfiConverterBool.write(value.forceEscalation, into: &buf)
+        FfiConverterOptionTypeScopeSet.write(value.scopes, into: &buf)
     }
 }
 
@@ -3000,6 +3018,94 @@ public func FfiConverterTypePaymentKeyStatus_lift(_ buf: RustBuffer) throws -> P
 #endif
 public func FfiConverterTypePaymentKeyStatus_lower(_ value: PaymentKeyStatus) -> RustBuffer {
     return FfiConverterTypePaymentKeyStatus.lower(value)
+}
+
+
+/**
+ * The OAuth scopes a remote caller's bearer token was issued with.
+ *
+ * Exactly three exist: `read` (non-mutating tools), `pay` (spend within the
+ * agent's allowance) and `escalate` (ask the owner's phone to approve what
+ * the allowance does not cover). A token is a space-separated list of them
+ * (RFC 6749 section 3.3). The only way to build one from text is
+ * [`ScopeSet::parse`], which refuses any other word, so a set that holds an
+ * unknown scope cannot exist.
+ */
+public struct ScopeSet {
+    public var read: Bool
+    public var pay: Bool
+    public var escalate: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(read: Bool, pay: Bool, escalate: Bool) {
+        self.read = read
+        self.pay = pay
+        self.escalate = escalate
+    }
+}
+
+#if compiler(>=6)
+extension ScopeSet: Sendable {}
+#endif
+
+
+extension ScopeSet: Equatable, Hashable {
+    public static func ==(lhs: ScopeSet, rhs: ScopeSet) -> Bool {
+        if lhs.read != rhs.read {
+            return false
+        }
+        if lhs.pay != rhs.pay {
+            return false
+        }
+        if lhs.escalate != rhs.escalate {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(read)
+        hasher.combine(pay)
+        hasher.combine(escalate)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeScopeSet: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ScopeSet {
+        return
+            try ScopeSet(
+                read: FfiConverterBool.read(from: &buf), 
+                pay: FfiConverterBool.read(from: &buf), 
+                escalate: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ScopeSet, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.read, into: &buf)
+        FfiConverterBool.write(value.pay, into: &buf)
+        FfiConverterBool.write(value.escalate, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeScopeSet_lift(_ buf: RustBuffer) throws -> ScopeSet {
+    return try FfiConverterTypeScopeSet.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeScopeSet_lower(_ value: ScopeSet) -> RustBuffer {
+    return FfiConverterTypeScopeSet.lower(value)
 }
 
 
@@ -5619,6 +5725,30 @@ fileprivate struct FfiConverterOptionTypePaySettlement: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypePaySettlement.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeScopeSet: FfiConverterRustBuffer {
+    typealias SwiftType = ScopeSet?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeScopeSet.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeScopeSet.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }

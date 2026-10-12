@@ -17,7 +17,7 @@ let package = Package(
     name: "PayAnInvoice",
     platforms: [ .iOS(.v16) ],
     products: [ .library(name: "PayAnInvoice", targets: ["PayAnInvoice"]) ],
-    dependencies: [ .package(url: "https://github.com/paygent-net/paygent-swift.git", .upToNextMinor(from: "0.9.0")) ],
+    dependencies: [ .package(url: "https://github.com/paygent-net/paygent-swift.git", .upToNextMinor(from: "0.10.0")) ],
     targets: [
         .target(
             name: "PayAnInvoice",
@@ -33,7 +33,6 @@ let package = Package(
             // build-public-package.sh rewrites it alongside the line above.
             dependencies: [
                 .product(name: "PaygentSdk", package: "paygent-swift"),
-                .product(name: "PaygentMobileCore", package: "paygent-swift"),
             ]
         ),
     ]

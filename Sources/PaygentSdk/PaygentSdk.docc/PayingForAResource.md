@@ -17,7 +17,6 @@ answer you have to handle, and two of them mean money moved.
 
 ```swift
 import PaygentSdk
-import PaygentMobileCore
 
 let agent = try PaygentAgent(
     configJson: #"{"rpcBase": "https://rpc.paygent.net"}"#,

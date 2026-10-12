@@ -10,6 +10,43 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.10.0
+
+No operation moved. This release changes what the package contains, which is a
+breaking change for any target that names the `PaygentMobileCore` product or
+calls something outside the agent surface.
+
+### One product, built with the agent surface alone
+
+The package now has one product, `PaygentSdk`, and the binary behind it is
+built with the agent surface only: `PaygentAgent`, the five host protocols,
+the records their operations exchange, and the amount and untrusted-text
+helpers. The owner's side of the core -- pairing, approvals, wallet
+administration, Lightning -- is no longer compiled into it, so it is neither
+offered to your code nor shipped in your app.
+
+`PaygentSdk` re-exports the module that binds the core, so `import PaygentSdk`
+is the only import you need, and every agent type is reachable through it,
+including the few that 0.9.0 did not name.
+
+**Breaking:**
+
+* The `PaygentMobileCore` product is gone. A target that lists
+  `.product(name: "PaygentMobileCore", package: "paygent-swift")` fails to
+  resolve; remove that line and keep the `PaygentSdk` one.
+* `import PaygentMobileCore` is no longer needed. It still compiles today,
+  because SwiftPM puts the module on the search path, but it is not part of
+  the contract; import `PaygentSdk` instead.
+* Anything you reached through `PaygentMobileCore` that is not on the agent
+  surface no longer exists in the binary. Code that used it stops compiling.
+
+### Failures carry their message in `localizedDescription`
+
+`SecureEnclaveSigner.Failure` now conforms to `LocalizedError`, so
+`error.localizedDescription` returns the same message as `description` --
+including the one naming the missing keychain entitlement -- instead of
+Foundation's generic "The operation couldn't be completed".
+
 ## 0.9.0
 
 No operation moved. This release changes where `SecureEnclaveSigner` keeps its

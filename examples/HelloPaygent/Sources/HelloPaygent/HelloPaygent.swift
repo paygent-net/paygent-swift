@@ -2,7 +2,6 @@
 // over it.
 
 import Foundation
-import PaygentMobileCore
 import PaygentSdk
 
 /// A host that holds no key and has stored nothing.
