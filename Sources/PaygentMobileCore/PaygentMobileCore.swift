@@ -1346,6 +1346,250 @@ public func FfiConverterTypeAgentHost_lower(_ value: AgentHost) -> UnsafeMutable
 
 
 /**
+ * A pairing this agent has opened and the owner has not yet answered.
+ *
+ * Show [`Self::qr_url`] to the owner, then await [`Self::complete`].
+ */
+public protocol AgentOwnerPairingProtocol: AnyObject, Sendable {
+    
+    /**
+     * Withdraw the pairing before the owner answers it. A pairing the relay
+     * has already forgotten counts as withdrawn.
+     */
+    func cancel() async throws 
+    
+    /**
+     * Wait for the owner to scan and approve, check what they handed over,
+     * store the record through `store`, and connect.
+     *
+     * Nothing is stored unless both owner grants verify against the passkey
+     * the pairing carried and the agent grant names this agent, and unless
+     * the owner's permission to write to their inbox is really signed by the
+     * owner for this agent. A record the host could not store is a failure,
+     * not a link: one that does not survive a restart would strand the
+     * attachment it is about to be used for.
+     *
+     * Throws [`MobileError::Rpc`] when the pairing expires unanswered or the
+     * relay cannot be reached, and [`MobileError::InvalidInput`] for an
+     * answer that does not verify. A pairing completes at most once.
+     */
+    func complete(store: OwnerLinkStore) async throws  -> OwnerLink
+    
+    /**
+     * This agent's identity, the `did:key` of its hardware key.
+     */
+    func delegateDid()  -> String
+    
+    /**
+     * Unix milliseconds after which the relay forgets this pairing.
+     */
+    func expiresAtMs()  -> Int64
+    
+    /**
+     * The link the owner scans with their authorizer.
+     */
+    func qrUrl()  -> String
+    
+}
+/**
+ * A pairing this agent has opened and the owner has not yet answered.
+ *
+ * Show [`Self::qr_url`] to the owner, then await [`Self::complete`].
+ */
+open class AgentOwnerPairing: AgentOwnerPairingProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_agentownerpairing(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_agentownerpairing(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Withdraw the pairing before the owner answers it. A pairing the relay
+     * has already forgotten counts as withdrawn.
+     */
+open func cancel()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_agentownerpairing_cancel(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_void,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_void,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * Wait for the owner to scan and approve, check what they handed over,
+     * store the record through `store`, and connect.
+     *
+     * Nothing is stored unless both owner grants verify against the passkey
+     * the pairing carried and the agent grant names this agent, and unless
+     * the owner's permission to write to their inbox is really signed by the
+     * owner for this agent. A record the host could not store is a failure,
+     * not a link: one that does not survive a restart would strand the
+     * attachment it is about to be used for.
+     *
+     * Throws [`MobileError::Rpc`] when the pairing expires unanswered or the
+     * relay cannot be reached, and [`MobileError::InvalidInput`] for an
+     * answer that does not verify. A pairing completes at most once.
+     */
+open func complete(store: OwnerLinkStore)async throws  -> OwnerLink  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_agentownerpairing_complete(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeOwnerLinkStore_lower(store)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_pointer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_pointer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_pointer,
+            liftFunc: FfiConverterTypeOwnerLink_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * This agent's identity, the `did:key` of its hardware key.
+     */
+open func delegateDid() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentownerpairing_delegate_did(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Unix milliseconds after which the relay forgets this pairing.
+     */
+open func expiresAtMs() -> Int64  {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentownerpairing_expires_at_ms(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The link the owner scans with their authorizer.
+     */
+open func qrUrl() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_agentownerpairing_qr_url(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentOwnerPairing: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = AgentOwnerPairing
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> AgentOwnerPairing {
+        return AgentOwnerPairing(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: AgentOwnerPairing) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentOwnerPairing {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: AgentOwnerPairing, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentOwnerPairing_lift(_ pointer: UnsafeMutableRawPointer) throws -> AgentOwnerPairing {
+    return try FfiConverterTypeAgentOwnerPairing.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentOwnerPairing_lower(_ value: AgentOwnerPairing) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeAgentOwnerPairing.lower(value)
+}
+
+
+
+
+
+
+/**
  * The agent's Solana pocket. Optional: without it, the three pocket
  * operations refuse.
  */
@@ -1936,6 +2180,437 @@ public func FfiConverterTypeAgentSessionHost_lower(_ value: AgentSessionHost) ->
 
 
 /**
+ * A live, paired line to the owner.
+ *
+ * Holds one relay connection, reconnecting on its own while the object is
+ * alive. Dropping the last reference closes it.
+ */
+public protocol OwnerLinkProtocol: AnyObject, Sendable {
+    
+    /**
+     * Wait for the owner's answer to the attachment request `request_id`.
+     *
+     * `chain_id` is the chain asked for and `rpc_url` a JSON-RPC endpoint on
+     * it, where the wallet address in a grant is recomputed from the owner's
+     * passkey rather than believed. A grant that does not verify throws
+     * [`MobileError::InvalidInput`] and is never stored. Throws
+     * [`MobileError::Rpc`] when nothing arrives within `timeout_secs`, or
+     * when the address could not be recomputed -- the one refusal worth
+     * calling this again for, since the grant is kept for that retry.
+     */
+    func awaitAttachment(requestId: String, chainId: UInt64, rpcUrl: String, timeoutSecs: UInt32) async throws  -> AttachmentAnswer
+    
+    /**
+     * This link as the escalation host a [`crate::PaygentAgent`] is built
+     * with, so an over-limit x402 payment reaches this owner.
+     */
+    func escalationHost()  -> AgentEscalationHost
+    
+    /**
+     * The owner's passkey identity this link is paired with.
+     */
+    func ownerDid()  -> String
+    
+    /**
+     * Ask the owner to attach this agent to a wallet, and return the request
+     * id to await.
+     *
+     * `input` names the owner and the allowance asked for; it is signed with
+     * this device's hardware key, sealed for the owner, and published. The
+     * owner must be the one this link is paired with.
+     */
+    func requestAttachment(input: AttachmentRequestInput) async throws  -> String
+    
+}
+/**
+ * A live, paired line to the owner.
+ *
+ * Holds one relay connection, reconnecting on its own while the object is
+ * alive. Dropping the last reference closes it.
+ */
+open class OwnerLink: OwnerLinkProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_ownerlink(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_ownerlink(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Wait for the owner's answer to the attachment request `request_id`.
+     *
+     * `chain_id` is the chain asked for and `rpc_url` a JSON-RPC endpoint on
+     * it, where the wallet address in a grant is recomputed from the owner's
+     * passkey rather than believed. A grant that does not verify throws
+     * [`MobileError::InvalidInput`] and is never stored. Throws
+     * [`MobileError::Rpc`] when nothing arrives within `timeout_secs`, or
+     * when the address could not be recomputed -- the one refusal worth
+     * calling this again for, since the grant is kept for that retry.
+     */
+open func awaitAttachment(requestId: String, chainId: UInt64, rpcUrl: String, timeoutSecs: UInt32)async throws  -> AttachmentAnswer  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_ownerlink_await_attachment(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(requestId),FfiConverterUInt64.lower(chainId),FfiConverterString.lower(rpcUrl),FfiConverterUInt32.lower(timeoutSecs)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeAttachmentAnswer_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * This link as the escalation host a [`crate::PaygentAgent`] is built
+     * with, so an over-limit x402 payment reaches this owner.
+     */
+open func escalationHost() -> AgentEscalationHost  {
+    return try!  FfiConverterTypeAgentEscalationHost_lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_ownerlink_escalation_host(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * The owner's passkey identity this link is paired with.
+     */
+open func ownerDid() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_paygent_mobile_core_fn_method_ownerlink_owner_did(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
+     * Ask the owner to attach this agent to a wallet, and return the request
+     * id to await.
+     *
+     * `input` names the owner and the allowance asked for; it is signed with
+     * this device's hardware key, sealed for the owner, and published. The
+     * owner must be the one this link is paired with.
+     */
+open func requestAttachment(input: AttachmentRequestInput)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_ownerlink_request_attachment(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeAttachmentRequestInput_lower(input)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeOwnerLink: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = OwnerLink
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> OwnerLink {
+        return OwnerLink(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: OwnerLink) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OwnerLink {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: OwnerLink, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerLink_lift(_ pointer: UnsafeMutableRawPointer) throws -> OwnerLink {
+    return try FfiConverterTypeOwnerLink.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerLink_lower(_ value: OwnerLink) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeOwnerLink.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Where the owner link's record lives between launches.
+ *
+ * The record holds the pairing secret and the relay transport key, so the
+ * host stores it in the platform keychain. It is opaque JSON: the host writes
+ * what it is handed and passes it back to [`owner_link_restore`] unchanged.
+ * It is rewritten when the agent is attached to a wallet and when the owner
+ * renews the agent's permission to write to it.
+ */
+public protocol OwnerLinkStore: AnyObject, Sendable {
+    
+    /**
+     * Replace the stored record with `record_json`.
+     */
+    func saveOwnerLink(recordJson: String) throws 
+    
+}
+/**
+ * Where the owner link's record lives between launches.
+ *
+ * The record holds the pairing secret and the relay transport key, so the
+ * host stores it in the platform keychain. It is opaque JSON: the host writes
+ * what it is handed and passes it back to [`owner_link_restore`] unchanged.
+ * It is rewritten when the agent is attached to a wallet and when the owner
+ * renews the agent's permission to write to it.
+ */
+open class OwnerLinkStoreImpl: OwnerLinkStore, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_paygent_mobile_core_fn_clone_ownerlinkstore(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_paygent_mobile_core_fn_free_ownerlinkstore(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Replace the stored record with `record_json`.
+     */
+open func saveOwnerLink(recordJson: String)throws   {try rustCallWithError(FfiConverterTypeAgentHostError_lift) {
+    uniffi_paygent_mobile_core_fn_method_ownerlinkstore_save_owner_link(self.uniffiClonePointer(),
+        FfiConverterString.lower(recordJson),$0
+    )
+}
+}
+    
+
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceOwnerLinkStore {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // This creates 1-element array, since this seems to be the only way to construct a const
+    // pointer that we can pass to the Rust code.
+    static let vtable: [UniffiVTableCallbackInterfaceOwnerLinkStore] = [UniffiVTableCallbackInterfaceOwnerLinkStore(
+        saveOwnerLink: { (
+            uniffiHandle: UInt64,
+            recordJson: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeOwnerLinkStore.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.saveOwnerLink(
+                     recordJson: try FfiConverterString.lift(recordJson)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeAgentHostError_lower
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            let result = try? FfiConverterTypeOwnerLinkStore.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface OwnerLinkStore: handle missing in uniffiFree")
+            }
+        }
+    )]
+}
+
+private func uniffiCallbackInitOwnerLinkStore() {
+    uniffi_paygent_mobile_core_fn_init_callback_vtable_ownerlinkstore(UniffiCallbackInterfaceOwnerLinkStore.vtable)
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeOwnerLinkStore: FfiConverter {
+    fileprivate static let handleMap = UniffiHandleMap<OwnerLinkStore>()
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = OwnerLinkStore
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> OwnerLinkStore {
+        return OwnerLinkStoreImpl(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: OwnerLinkStore) -> UnsafeMutableRawPointer {
+        guard let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: handleMap.insert(obj: value))) else {
+            fatalError("Cast to UnsafeMutableRawPointer failed")
+        }
+        return ptr
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OwnerLinkStore {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: OwnerLinkStore, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerLinkStore_lift(_ pointer: UnsafeMutableRawPointer) throws -> OwnerLinkStore {
+    return try FfiConverterTypeOwnerLinkStore.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOwnerLinkStore_lower(_ value: OwnerLinkStore) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeOwnerLinkStore.lower(value)
+}
+
+
+
+
+
+
+/**
  * The bounded-spend delegate surface, as one opaque handle.
  *
  * Build it once per app and keep it: it holds the intent store an escalation
@@ -2113,10 +2788,12 @@ public protocol PaygentAgentProtocol: AnyObject, Sendable {
     /**
      * Ask an owner to attach this agent to a wallet (RFC-0065 S5).
      *
-     * Returns the `agent.attachment-request` body as JSON, for the app to
-     * seal into the owner's invite mailbox with `seal_invite` and publish to
-     * `principal_invites_subject`. The answer comes back to
-     * [`Self::agent_verify_attachment_granted`].
+     * Returns the signed `agent.attachment-request` body as JSON. An app that
+     * is paired with its owner through [`crate::OwnerLink`] does not need
+     * this: `OwnerLink::request_attachment` signs, seals and delivers the
+     * same body, and `OwnerLink::await_attachment` verifies the answer. This
+     * is the body alone, for a host carrying it some other way; the answer
+     * then goes to [`Self::agent_verify_attachment_granted`].
      *
      * JSON rather than a record because those exact bytes are what the
      * hardware signature covers, and a body a host re-serialized from a
@@ -2684,10 +3361,12 @@ open func agentRequestAllowance(input: AllowanceRequestInput)async throws  -> St
     /**
      * Ask an owner to attach this agent to a wallet (RFC-0065 S5).
      *
-     * Returns the `agent.attachment-request` body as JSON, for the app to
-     * seal into the owner's invite mailbox with `seal_invite` and publish to
-     * `principal_invites_subject`. The answer comes back to
-     * [`Self::agent_verify_attachment_granted`].
+     * Returns the signed `agent.attachment-request` body as JSON. An app that
+     * is paired with its owner through [`crate::OwnerLink`] does not need
+     * this: `OwnerLink::request_attachment` signs, seals and delivers the
+     * same body, and `OwnerLink::await_attachment` verifies the answer. This
+     * is the body alone, for a host carrying it some other way; the answer
+     * then goes to [`Self::agent_verify_attachment_granted`].
      *
      * JSON rather than a record because those exact bytes are what the
      * hardware signature covers, and a body a host re-serialized from a
@@ -3765,6 +4444,89 @@ extension AgentSignerBacking: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * How the owner answered an attachment request.
+ */
+
+public enum AttachmentAnswer {
+    
+    /**
+     * Attached. The wallet is verified and remembered in the link's record,
+     * so escalations to it work from here on.
+     */
+    case granted(attachment: VerifiedAttachment
+    )
+    /**
+     * The owner declined, for `reason`.
+     */
+    case rejected(reason: String
+    )
+}
+
+
+#if compiler(>=6)
+extension AttachmentAnswer: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAttachmentAnswer: FfiConverterRustBuffer {
+    typealias SwiftType = AttachmentAnswer
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AttachmentAnswer {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .granted(attachment: try FfiConverterTypeVerifiedAttachment.read(from: &buf)
+        )
+        
+        case 2: return .rejected(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AttachmentAnswer, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .granted(attachment):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeVerifiedAttachment.write(attachment, into: &buf)
+            
+        
+        case let .rejected(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentAnswer_lift(_ buf: RustBuffer) throws -> AttachmentAnswer {
+    return try FfiConverterTypeAttachmentAnswer.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAttachmentAnswer_lower(_ value: AttachmentAnswer) -> RustBuffer {
+    return FfiConverterTypeAttachmentAnswer.lower(value)
+}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Which network a row is about. A Solana cluster has no numeric chain id,
  * and Tempo is not a Safe chain, so the family is part of the reference.
  */
@@ -3855,7 +4617,7 @@ extension ChainRefFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Mirrors `paygent_authorizer_core::FeeQuoteRefusal`: why a live fee quote
+ * Mirrors `paygent_sdk::FeeQuoteRefusal`: why a live fee quote
  * (Kora, an EVM relayer, or Circle's forwarding fee), or the operation
  * priced at it, was refused.
  */
@@ -3882,6 +4644,11 @@ public enum FeeQuoteRefusalFfi {
      * move, so it is not signed. The agent has to ask for more.
      */
     case feeAboveAmount
+    /**
+     * Paygent's fee payer could not be reached, or its answer could not be
+     * read. Retry later, or gas the op from the device gas purse.
+     */
+    case unreachable
 }
 
 
@@ -3907,6 +4674,8 @@ public struct FfiConverterTypeFeeQuoteRefusalFfi: FfiConverterRustBuffer {
         
         case 4: return .feeAboveAmount
         
+        case 5: return .unreachable
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -3929,6 +4698,10 @@ public struct FfiConverterTypeFeeQuoteRefusalFfi: FfiConverterRustBuffer {
         
         case .feeAboveAmount:
             writeInt(&buf, Int32(4))
+        
+        
+        case .unreachable:
+            writeInt(&buf, Int32(5))
         
         }
     }
@@ -4071,7 +4844,7 @@ extension LightningPayFailureFfi: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Mirrors `paygent_authorizer_core::LimitEntryRefusal`: which part of an
+ * Mirrors `paygent_sdk::LimitEntryRefusal`: which part of an
  * owner-entered limit was wrong.
  */
 
@@ -4259,6 +5032,17 @@ public enum MobileError: Swift.Error {
     case OwnerChangeRefused(reason: String
     )
     /**
+     * The owner dismissed the passkey prompt an owner flow asked for. Show
+     * nothing: it is the owner's "no", not a failure.
+     */
+    case OwnerCancelled
+    /**
+     * The passkey prompt an owner flow asked for failed for a reason other
+     * than the owner dismissing it.
+     */
+    case PromptFailed(detail: String
+    )
+    /**
      * `agent_pay` failed and no money moved. Safe to retry as it stands.
      *
      * `kind` says which failure it was, so a host can tell an unwired rail
@@ -4372,30 +5156,34 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
         case 14: return .OwnerChangeRefused(
             reason: try FfiConverterString.read(from: &buf)
             )
-        case 15: return .PayFailed(
+        case 15: return .OwnerCancelled
+        case 16: return .PromptFailed(
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 17: return .PayFailed(
             kind: try FfiConverterTypePayErrorKind.read(from: &buf), 
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 16: return .PaySettlementUnknown(
+        case 18: return .PaySettlementUnknown(
             kind: try FfiConverterTypePayErrorKind.read(from: &buf), 
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 17: return .LightningInsufficientFunds(
+        case 19: return .LightningInsufficientFunds(
             requestedSats: try FfiConverterOptionUInt64.read(from: &buf), 
             spendableSats: try FfiConverterUInt64.read(from: &buf), 
             returningSats: try FfiConverterUInt64.read(from: &buf), 
             earliestMaturityHeight: try FfiConverterOptionUInt32.read(from: &buf)
             )
-        case 18: return .LightningCooperativeCloseUnavailable(
+        case 20: return .LightningCooperativeCloseUnavailable(
             offlineNodeIds: try FfiConverterSequenceString.read(from: &buf)
             )
-        case 19: return .LightningInvalidAddress(
+        case 21: return .LightningInvalidAddress(
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 20: return .LightningWrongNetwork(
+        case 22: return .LightningWrongNetwork(
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 21: return .LightningPaymentNotSent(
+        case 23: return .LightningPaymentNotSent(
             failure: try FfiConverterTypeLightningPayFailureFfi.read(from: &buf)
             )
 
@@ -4483,20 +5271,29 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             FfiConverterString.write(reason, into: &buf)
             
         
-        case let .PayFailed(kind,detail):
+        case .OwnerCancelled:
             writeInt(&buf, Int32(15))
+        
+        
+        case let .PromptFailed(detail):
+            writeInt(&buf, Int32(16))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .PayFailed(kind,detail):
+            writeInt(&buf, Int32(17))
             FfiConverterTypePayErrorKind.write(kind, into: &buf)
             FfiConverterString.write(detail, into: &buf)
             
         
         case let .PaySettlementUnknown(kind,detail):
-            writeInt(&buf, Int32(16))
+            writeInt(&buf, Int32(18))
             FfiConverterTypePayErrorKind.write(kind, into: &buf)
             FfiConverterString.write(detail, into: &buf)
             
         
         case let .LightningInsufficientFunds(requestedSats,spendableSats,returningSats,earliestMaturityHeight):
-            writeInt(&buf, Int32(17))
+            writeInt(&buf, Int32(19))
             FfiConverterOptionUInt64.write(requestedSats, into: &buf)
             FfiConverterUInt64.write(spendableSats, into: &buf)
             FfiConverterUInt64.write(returningSats, into: &buf)
@@ -4504,22 +5301,22 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             
         
         case let .LightningCooperativeCloseUnavailable(offlineNodeIds):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(20))
             FfiConverterSequenceString.write(offlineNodeIds, into: &buf)
             
         
         case let .LightningInvalidAddress(detail):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(21))
             FfiConverterString.write(detail, into: &buf)
             
         
         case let .LightningWrongNetwork(detail):
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(22))
             FfiConverterString.write(detail, into: &buf)
             
         
         case let .LightningPaymentNotSent(failure):
-            writeInt(&buf, Int32(21))
+            writeInt(&buf, Int32(23))
             FfiConverterTypeLightningPayFailureFfi.write(failure, into: &buf)
             
         }
@@ -4976,6 +5773,31 @@ public func uniffiForeignFutureHandleCountPaygentMobileCore() -> Int {
     UNIFFI_FOREIGN_FUTURE_HANDLE_MAP.count
 }
 /**
+ * Open a pairing with an owner, as this device's hardware key.
+ *
+ * `relay_url` is the relay both sides use (`wss://relay.paygent.net`); the
+ * pairing API is reached on the same host. `agent_name` and `host_name` are
+ * what the owner's approval screen calls this agent.
+ *
+ * Throws for a host that has not declared a hardware-backed key: the
+ * identity the owner pairs with IS that key, and a key that may be a copy
+ * on disk is not paired at all rather than paired quietly.
+ */
+public func agentStartOwnerPairing(host: AgentHost, relayUrl: String, agentName: String?, hostName: String?)async throws  -> AgentOwnerPairing  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_agent_start_owner_pairing(FfiConverterTypeAgentHost_lower(host),FfiConverterString.lower(relayUrl),FfiConverterOptionString.lower(agentName),FfiConverterOptionString.lower(hostName)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_pointer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_pointer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_pointer,
+            liftFunc: FfiConverterTypeAgentOwnerPairing_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+/**
  * What an amount field should hold after an edit its own filter refused.
  *
  * A paste is trimmed to the part that is an amount; a single keystroke that
@@ -4989,21 +5811,6 @@ public func amountAcceptedChange(previous: String, proposed: String, decimals: U
     uniffi_paygent_mobile_core_fn_func_amount_accepted_change(
         FfiConverterString.lower(previous),
         FfiConverterString.lower(proposed),
-        FfiConverterUInt32.lower(decimals),$0
-    )
-})
-}
-/**
- * The longest leading part of `input` that an amount field would accept.
- *
- * This is what rescues a paste: "12.50 USDC" becomes "12.50", and an amount
- * copied with a trailing newline loses the newline. A field that only filters
- * throws the whole paste away instead.
- */
-public func amountAcceptedPrefix(input: String, decimals: UInt32) -> String  {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_func_amount_accepted_prefix(
-        FfiConverterString.lower(input),
         FfiConverterUInt32.lower(decimals),$0
     )
 })
@@ -5070,19 +5877,6 @@ public func amountFromBaseUnits(raw: String, decimals: UInt32, maxFractionDigits
         FfiConverterString.lower(raw),
         FfiConverterUInt32.lower(decimals),
         FfiConverterOptionUInt32.lower(maxFractionDigits),$0
-    )
-})
-}
-/**
- * Base units as a decimal amount truncated to at most `max_fraction_digits`
- * fraction digits. Malformed input is an error.
- */
-public func amountFromBaseUnitsTruncated(raw: String, decimals: UInt32, maxFractionDigits: UInt32)throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_paygent_mobile_core_fn_func_amount_from_base_units_truncated(
-        FfiConverterString.lower(raw),
-        FfiConverterUInt32.lower(decimals),
-        FfiConverterUInt32.lower(maxFractionDigits),$0
     )
 })
 }
@@ -5161,19 +5955,6 @@ public func amountToBaseUnits(input: String, decimals: UInt32)throws  -> String 
 })
 }
 /**
- * A token balance as a screen shows it, or an em dash when `raw` cannot be
- * read. Never an error.
- */
-public func amountTokenBalanceText(raw: String, decimals: UInt32, displayDecimals: UInt32) -> String  {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_paygent_mobile_core_fn_func_amount_token_balance_text(
-        FfiConverterString.lower(raw),
-        FfiConverterUInt32.lower(decimals),
-        FfiConverterUInt32.lower(displayDecimals),$0
-    )
-})
-}
-/**
  * Decode a hex U256 ("0xf4240") into its base-units integer string
  * ("1000000"), the inverse of [`amount_decimal_to_u256_hex`].
  *
@@ -5242,6 +6023,27 @@ public func outboundSats(msat: UInt64) -> UInt64  {
         FfiConverterUInt64.lower(msat),$0
     )
 })
+}
+/**
+ * Reconnect a stored owner link after a restart.
+ *
+ * `record_json` is what the host's [`OwnerLinkStore`] last saved. The record
+ * is checked again before anything connects: it must belong to the key this
+ * host signs with, and the owner's grants in it must still verify now.
+ */
+public func ownerLinkRestore(recordJson: String, host: AgentHost, store: OwnerLinkStore)async throws  -> OwnerLink  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_func_owner_link_restore(FfiConverterString.lower(recordJson),FfiConverterTypeAgentHost_lower(host),FfiConverterTypeOwnerLinkStore_lower(store)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_pointer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_pointer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_pointer,
+            liftFunc: FfiConverterTypeOwnerLink_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
 }
 /**
  * Sanitise text somebody other than the wallet supplied -- a merchant's
@@ -5317,10 +6119,10 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_amount_accepted_change() != 24620) {
+    if (uniffi_paygent_mobile_core_checksum_func_agent_start_owner_pairing() != 50352) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_amount_accepted_prefix() != 21838) {
+    if (uniffi_paygent_mobile_core_checksum_func_amount_accepted_change() != 24620) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_amount_accepts_partial() != 22983) {
@@ -5333,9 +6135,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_amount_from_base_units() != 47313) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_paygent_mobile_core_checksum_func_amount_from_base_units_truncated() != 252) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_amount_in_sentence() != 1857) {
@@ -5356,9 +6155,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_amount_to_base_units() != 25729) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_amount_token_balance_text() != 17481) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_paygent_mobile_core_checksum_func_amount_u256_hex_to_base_units() != 26400) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -5375,6 +6171,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_outbound_sats() != 27149) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_func_owner_link_restore() != 29296) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_untrusted_text_parse() != 1351) {
@@ -5404,6 +6203,21 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_agenthost_sign_digest() != 48305) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_agentownerpairing_cancel() != 38072) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentownerpairing_complete() != 2892) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentownerpairing_delegate_did() != 42791) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentownerpairing_expires_at_ms() != 50148) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_agentownerpairing_qr_url() != 7056) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_agentpockethost_solana_pocket_get() != 17265) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -5414,6 +6228,21 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_agentsessionhost_session_snapshot() != 56759) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_ownerlink_await_attachment() != 51431) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_ownerlink_escalation_host() != 20105) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_ownerlink_owner_did() != 20475) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_ownerlink_request_attachment() != 8403) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_paygent_mobile_core_checksum_method_ownerlinkstore_save_owner_link() != 19051) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_apply_mandate_changed() != 33076) {
@@ -5455,7 +6284,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_allowance() != 34916) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_attachment() != 47577) {
+    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_attachment() != 61619) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_request_network_allowance() != 2326) {
@@ -5515,8 +6344,9 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentHost()
     uniffiCallbackInitAgentPocketHost()
     uniffiCallbackInitAgentSessionHost()
-    uniffiEnsurePaygentPolicyInitialized()
+    uniffiCallbackInitOwnerLinkStore()
     uniffiEnsurePaygentUntrustedInitialized()
+    uniffiEnsurePaygentPolicyInitialized()
     uniffiEnsurePaygentAgentCoreInitialized()
     return InitializationResult.ok
 }()

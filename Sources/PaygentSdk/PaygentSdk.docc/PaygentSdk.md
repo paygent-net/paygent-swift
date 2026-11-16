@@ -47,6 +47,7 @@ to the owner. It fails towards asking a human, never towards spending.
 
 ### Getting started
 
+- <doc:AttachingToAnOwner>
 - <doc:PayingForAResource>
 
 ### The client

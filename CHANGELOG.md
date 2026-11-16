@@ -10,6 +10,46 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.11.0
+
+No operation moved. This release adds what an agent needs to reach its owner
+at all: pairing, and the relay carry under `agent.request_attachment` and
+`agent.escalate_x402_authorization`. Nothing existing changed, so nothing here
+is breaking.
+
+### The agent's line to its owner is in the package
+
+0.10.0 removed the owner's side of the core from the binary, and with it every
+piece of sealing and relay code. That left `agent.request_attachment` returning
+a signed body with no way to deliver it, and no way to build an
+``AgentEscalationHost`` that actually reaches anybody, unless your app wrote
+the encryption and the relay protocol itself. You should not have to, and now
+you do not.
+
+Three things are new, all reached through `import PaygentSdk`:
+
+* `agentStartOwnerPairing(host:relayUrl:agentName:hostName:)` opens a pairing
+  as your app's hardware key and returns an `AgentOwnerPairing`. Show its
+  `qrUrl()` to the owner, then await `complete(store:)`, which verifies the
+  owner's answer and returns a connected `OwnerLink`.
+* `OwnerLink` is the paired line. `requestAttachment(input:)` signs, seals and
+  publishes an attachment request; `awaitAttachment(requestId:chainId:rpcUrl:timeoutSecs:)`
+  verifies the owner's grant and returns the same `VerifiedAttachment` the
+  existing operations return. `escalationHost()` is an ``AgentEscalationHost``
+  to pass as `escalation:` when you build ``PaygentAgent``, so an over-limit
+  x402 payment goes to the owner and the signed ``Eip3009Authorization`` comes
+  back.
+* `OwnerLinkStore` is the one callback: it saves an opaque record. Keep it in
+  the keychain -- it holds the pairing secret and the relay transport key --
+  and pass it back to `ownerLinkRestore(recordJson:host:store:)` on the next
+  launch.
+
+Pairing refuses a host whose ``AgentHost`` does not declare a hardware key,
+before anything is sent. The relay admits the link only after that key signs
+for the connection.
+
+See the new "Attaching to an owner" article for the order to call these in.
+
 ## 0.10.0
 
 No operation moved. This release changes what the package contains, which is a
@@ -559,12 +599,14 @@ Owner tier (reachable, unsupported on this package): every
 `prepare_solana_*` operation drops its `maxFee` / `actualFee` arguments -- the
 engine computes the schedule the owner signs, from the operation and the SOL
 price this release pins -- and `owner.solana_owner_op_fees` takes the operation
-it is pricing. `owner.prepare_solana_add_agent_webauthn` takes the agent's
+it is pricing. `prepare_solana_add_agent_webauthn` takes the agent's
 Ed25519 key (`agentOwner`) instead of a pocket address, and creates the pocket
-in the same transaction; `owner.prepare_solana_close_agent_webauthn` no longer
-takes a rent destination, which is the wallet's guard account, and the Solana
-target of `owner.prepare_agent_disownment` drops the same three fields
-(`rentDestination`, `maxFee`, `actualFee`) for the same reason;
+in the same transaction; `prepare_solana_close_agent_webauthn` no longer
+takes a rent destination (both have since been replaced by
+`owner.solana_owner_op`), which is the wallet's guard account, and the Solana
+target of `prepare_agent_disownment` (since replaced by `owner.revoke_agent`)
+drops the same three fields (`rentDestination`, `maxFee`, `actualFee`) for
+the same reason;
 `owner.quote_solana_op_fee` takes the operation instead of two fee numbers and
 its quote gains `uncoveredUsdc`. Three rows join
 the owner tier: `owner.sol_usdc_rate_micros`, `owner.solana_fee_coverage` and
