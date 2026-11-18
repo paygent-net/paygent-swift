@@ -10,6 +10,18 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.13.1
+
+No operation moved. No Swift API changed either.
+
+### Fixed: in-limit x402 payments pay directly again
+
+An agent's in-limit x402 payment was sent to the owner for approval instead of
+being paid from the agent's key. Payments within the agent's allowance now pay
+directly again. Payments over the allowance still come back as
+`OwnerApprovalNeeded`, as in 0.13.0. Move to 0.13.1 rather than staying on
+0.13.0.
+
 ## 0.13.0
 
 One operation arrives, `agent.escalate_x402_challenge`, and the agent's

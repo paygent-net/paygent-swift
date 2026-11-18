@@ -6546,9 +6546,9 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentPocketHost()
     uniffiCallbackInitAgentSessionHost()
     uniffiCallbackInitOwnerLinkStore()
+    uniffiEnsurePaygentAgentCoreInitialized()
     uniffiEnsurePaygentPolicyInitialized()
     uniffiEnsurePaygentUntrustedInitialized()
-    uniffiEnsurePaygentAgentCoreInitialized()
     return InitializationResult.ok
 }()
 
