@@ -2662,6 +2662,19 @@ public protocol PaygentAgentProtocol: AnyObject, Sendable {
     func agentEscalateX402Authorization(request: X402EscalationRequest) async throws  -> Eip3009Authorization
     
     /**
+     * Take an x402 `402` this agent may not pay silently to the owner, and
+     * return the request headers that carry their payment.
+     *
+     * What [`PayResult::OwnerApprovalNeeded`] with `rail: "x402"` is answered
+     * with: the app hands back the `402` it received, the owner signs on their
+     * phone, and the app repeats its request with these headers attached. The
+     * `402` is read and refused here exactly as the silent payer refuses it,
+     * and the owner's authorization is packed here, so no host reads x402
+     * itself.
+     */
+    func agentEscalateX402Challenge(challenge: X402Challenge) async throws  -> [String: String]
+    
+    /**
      * A parked operation, by id. JSON `Intent`, or JSON `null` when no such
      * intent exists.
      *
@@ -2977,8 +2990,14 @@ open class PaygentAgent: PaygentAgentProtocol, @unchecked Sendable {
      * config does not parse or names no endpoint, or when the assembled
      * graph is not usable -- a wiring mistake surfaces here rather than
      * mid-payment.
+     *
+     * `allow_software_key` is the host's explicit acceptance of a key that is
+     * not hardware-backed. Without it, a host whose `signer_backing` is
+     * anything but [`AgentSignerBacking::DeviceHardware`] -- including one
+     * that throws -- is refused here, because an agent's key is its identity
+     * and one outside hardware can be copied off the device.
      */
-public convenience init(configJson: String, host: AgentHost, session: AgentSessionHost, history: AgentHistoryHost? = nil, pocket: AgentPocketHost? = nil, escalation: AgentEscalationHost? = nil)throws  {
+public convenience init(configJson: String, host: AgentHost, session: AgentSessionHost, history: AgentHistoryHost? = nil, pocket: AgentPocketHost? = nil, escalation: AgentEscalationHost? = nil, allowSoftwareKey: Bool = false)throws  {
     let pointer =
         try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_paygent_mobile_core_fn_constructor_paygentagent_new(
@@ -2987,7 +3006,8 @@ public convenience init(configJson: String, host: AgentHost, session: AgentSessi
         FfiConverterTypeAgentSessionHost_lower(session),
         FfiConverterOptionTypeAgentHistoryHost.lower(history),
         FfiConverterOptionTypeAgentPocketHost.lower(pocket),
-        FfiConverterOptionTypeAgentEscalationHost.lower(escalation),$0
+        FfiConverterOptionTypeAgentEscalationHost.lower(escalation),
+        FfiConverterBool.lower(allowSoftwareKey),$0
     )
 }
     self.init(unsafeFromRawPointer: pointer)
@@ -3134,6 +3154,34 @@ open func agentEscalateX402Authorization(request: X402EscalationRequest)async th
             completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterTypeEip3009Authorization_lift,
+            errorHandler: FfiConverterTypeMobileError_lift
+        )
+}
+    
+    /**
+     * Take an x402 `402` this agent may not pay silently to the owner, and
+     * return the request headers that carry their payment.
+     *
+     * What [`PayResult::OwnerApprovalNeeded`] with `rail: "x402"` is answered
+     * with: the app hands back the `402` it received, the owner signs on their
+     * phone, and the app repeats its request with these headers attached. The
+     * `402` is read and refused here exactly as the silent payer refuses it,
+     * and the owner's authorization is packed here, so no host reads x402
+     * itself.
+     */
+open func agentEscalateX402Challenge(challenge: X402Challenge)async throws  -> [String: String]  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_paygent_mobile_core_fn_method_paygentagent_agent_escalate_x402_challenge(
+                    self.uniffiClonePointer(),
+                    FfiConverterTypeX402Challenge_lower(challenge)
+                )
+            },
+            pollFunc: ffi_paygent_mobile_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_paygent_mobile_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_paygent_mobile_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterDictionaryStringString.lift,
             errorHandler: FfiConverterTypeMobileError_lift
         )
 }
@@ -5760,6 +5808,32 @@ fileprivate struct FfiConverterSequenceTypeTransactionSummary: FfiConverterRustB
         return seq
     }
 }
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
+    public static func write(_ value: [String: String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterString.write(value, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [String: String]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0..<len {
+            let key = try FfiConverterString.read(from: &buf)
+            let value = try FfiConverterString.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
+    }
+}
 private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
 private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
 
@@ -5890,21 +5964,24 @@ public func uniffiForeignFutureHandleCountPaygentMobileCore() -> Int {
     UNIFFI_FOREIGN_FUTURE_HANDLE_MAP.count
 }
 /**
- * Open a pairing with an owner, as this device's hardware key.
+ * Open a pairing with an owner, as this device's key.
  *
  * `relay_url` is the relay both sides use (`wss://relay.paygent.net`); the
  * pairing API is reached on the same host. `agent_name` and `host_name` are
  * what the owner's approval screen calls this agent.
  *
- * Throws for a host that has not declared a hardware-backed key: the
- * identity the owner pairs with IS that key, and a key that may be a copy
- * on disk is not paired at all rather than paired quietly.
+ * Throws for a host that has not declared a hardware-backed key, unless
+ * `allow_software_key` is set: the identity the owner pairs with IS that
+ * key, and a key that may be a copy on disk is not paired quietly. With the
+ * opt-in, the agent pairs as an escalation-only wallet: the pairing offers
+ * no P-256 key for an on-chain module, so the owner can attach nothing to
+ * it and every payment it makes is the owner's to approve.
  */
-public func agentStartOwnerPairing(host: AgentHost, relayUrl: String, agentName: String?, hostName: String?)async throws  -> AgentOwnerPairing  {
+public func agentStartOwnerPairing(host: AgentHost, relayUrl: String, agentName: String?, hostName: String?, allowSoftwareKey: Bool = false)async throws  -> AgentOwnerPairing  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_agent_start_owner_pairing(FfiConverterTypeAgentHost_lower(host),FfiConverterString.lower(relayUrl),FfiConverterOptionString.lower(agentName),FfiConverterOptionString.lower(hostName)
+                uniffi_paygent_mobile_core_fn_func_agent_start_owner_pairing(FfiConverterTypeAgentHost_lower(host),FfiConverterString.lower(relayUrl),FfiConverterOptionString.lower(agentName),FfiConverterOptionString.lower(hostName),FfiConverterBool.lower(allowSoftwareKey)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_pointer,
@@ -6147,12 +6224,16 @@ public func outboundSats(msat: UInt64) -> UInt64  {
  * `record_json` is what the host's [`OwnerLinkStore`] last saved. The record
  * is checked again before anything connects: it must belong to the key this
  * host signs with, and the owner's grants in it must still verify now.
+ *
+ * `allow_software_key` is the same opt-in [`agent_start_owner_pairing`]
+ * takes, and must be given again: a link paired on a software key is not
+ * restored by a host that has not accepted one.
  */
-public func ownerLinkRestore(recordJson: String, host: AgentHost, store: OwnerLinkStore)async throws  -> OwnerLink  {
+public func ownerLinkRestore(recordJson: String, host: AgentHost, store: OwnerLinkStore, allowSoftwareKey: Bool = false)async throws  -> OwnerLink  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_paygent_mobile_core_fn_func_owner_link_restore(FfiConverterString.lower(recordJson),FfiConverterTypeAgentHost_lower(host),FfiConverterTypeOwnerLinkStore_lower(store)
+                uniffi_paygent_mobile_core_fn_func_owner_link_restore(FfiConverterString.lower(recordJson),FfiConverterTypeAgentHost_lower(host),FfiConverterTypeOwnerLinkStore_lower(store),FfiConverterBool.lower(allowSoftwareKey)
                 )
             },
             pollFunc: ffi_paygent_mobile_core_rust_future_poll_pointer,
@@ -6236,7 +6317,7 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_agent_start_owner_pairing() != 50352) {
+    if (uniffi_paygent_mobile_core_checksum_func_agent_start_owner_pairing() != 62408) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_amount_accepted_change() != 24620) {
@@ -6290,7 +6371,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_func_outbound_sats() != 27149) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_func_owner_link_restore() != 29296) {
+    if (uniffi_paygent_mobile_core_checksum_func_owner_link_restore() != 2962) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_paygent_mobile_core_checksum_func_untrusted_text_parse() != 1351) {
@@ -6380,6 +6461,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_escalate_x402_authorization() != 45277) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_escalate_x402_challenge() != 10660) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_paygent_mobile_core_checksum_method_paygentagent_agent_intent() != 37280) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -6452,7 +6536,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_paygent_mobile_core_checksum_method_verifiedattachment_wallet_index() != 32385) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_paygent_mobile_core_checksum_constructor_paygentagent_new() != 42389) {
+    if (uniffi_paygent_mobile_core_checksum_constructor_paygentagent_new() != 60187) {
         return InitializationResult.apiChecksumMismatch
     }
 
@@ -6463,8 +6547,8 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentSessionHost()
     uniffiCallbackInitOwnerLinkStore()
     uniffiEnsurePaygentPolicyInitialized()
-    uniffiEnsurePaygentAgentCoreInitialized()
     uniffiEnsurePaygentUntrustedInitialized()
+    uniffiEnsurePaygentAgentCoreInitialized()
     return InitializationResult.ok
 }()
 

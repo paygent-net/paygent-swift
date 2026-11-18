@@ -10,6 +10,51 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.13.0
+
+One operation arrives, `agent.escalate_x402_challenge`, and the agent's
+constructor gains a parameter, `allowSoftwareKey`, defaulting to `false`. An
+app whose host declares `.relayOnly` must now pass it, so this release is
+breaking for those apps.
+
+**If your host declares a hardware key, you change nothing.** `allowSoftwareKey`
+is a trailing labelled argument with a default, so every existing
+`PaygentAgent(...)`, `agentStartOwnerPairing(...)` and `ownerLinkRestore(...)`
+call compiles and behaves as before. Two behaviours do change for you: a
+`signerBacking` that throws is now refused rather than run without a key, and a
+module payment over the remaining allowance now comes back as
+`OwnerApprovalNeeded` (below) instead of failing on chain.
+
+### A hardware key is required unless you say otherwise
+
+``PaygentAgent`` now refuses an ``AgentHost`` that does not declare a hardware
+key. Pass `allowSoftwareKey: true` to accept a software key on purpose. Such an
+agent pairs with its owner as an escalation-only wallet: every payment it
+makes is signed by the owner, and the owner never grants it an allowance. A
+host that declares a hardware key and then cannot produce one is still
+refused, with or without the option.
+
+`agentStartOwnerPairing` and `ownerLinkRestore` take the same
+`allowSoftwareKey`, defaulting to `false`. With it, a software key pairs and
+its pairing offers no key for the owner to attach, so `requestAttachment` on
+that link is refused. A host whose `signerBacking` throws is refused even with
+the option.
+
+### A module payment checks the remaining allowance first
+
+An x402 payment the agent's module would sign is now checked against the
+allowance left on chain before anything is signed. A payment over it, or one
+whose allowance cannot be read, comes back as `OwnerApprovalNeeded` instead of
+being sent and refused by the chain.
+
+### The whole escalated x402 payment in one call
+
+`agent.escalate_x402_challenge` takes the 402 your app received, has the owner
+sign the amount the server quoted, and returns the payment headers to attach
+when you repeat the request. It reads and refuses the challenge exactly as the
+silent payer does, so your app no longer builds the authorization request or
+packs the signed answer itself.
+
 ## 0.12.0
 
 No operation moved. No Swift API changed either: what changed is what an

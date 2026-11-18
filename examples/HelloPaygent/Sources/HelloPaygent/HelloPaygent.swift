@@ -134,7 +134,9 @@ public enum HelloPaygent {
             session: host,
             history: host,
             pocket: host,
-            escalation: host
+            escalation: host,
+            // The stub has no hardware key, so it says so on purpose.
+            allowSoftwareKey: true
         )
     }
 }

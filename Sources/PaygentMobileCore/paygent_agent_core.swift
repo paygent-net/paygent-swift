@@ -3499,6 +3499,154 @@ public func FfiConverterTypeTransferUserOpRequest_lower(_ value: TransferUserOpR
 
 
 /**
+ * A 402 the host received, handed back so the owner can be asked to pay it.
+ *
+ * The binding-facing twin of [`X402SilentPaymentRequest`]: the body travels
+ * as standard base64 because neither binding carries raw bytes in a record.
+ */
+public struct X402Challenge {
+    /**
+     * The URL the 402 answered.
+     */
+    public var url: String
+    /**
+     * The 402's response headers. A v2 server may carry its demand only in
+     * `PAYMENT-REQUIRED`.
+     */
+    public var headers: [String: String]
+    /**
+     * The 402's response body, standard base64.
+     */
+    public var bodyBase64: String
+    /**
+     * Which wallet pays. `None` means the host's active one.
+     */
+    public var wallet: String?
+    /**
+     * The most the caller will pay, in the quoted token's base units. A
+     * quote above it is refused before the owner is asked.
+     */
+    public var maxAmount: String?
+    /**
+     * The token contract the caller prefers, when the server offers several.
+     */
+    public var token: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The URL the 402 answered.
+         */url: String, 
+        /**
+         * The 402's response headers. A v2 server may carry its demand only in
+         * `PAYMENT-REQUIRED`.
+         */headers: [String: String], 
+        /**
+         * The 402's response body, standard base64.
+         */bodyBase64: String, 
+        /**
+         * Which wallet pays. `None` means the host's active one.
+         */wallet: String?, 
+        /**
+         * The most the caller will pay, in the quoted token's base units. A
+         * quote above it is refused before the owner is asked.
+         */maxAmount: String?, 
+        /**
+         * The token contract the caller prefers, when the server offers several.
+         */token: String?) {
+        self.url = url
+        self.headers = headers
+        self.bodyBase64 = bodyBase64
+        self.wallet = wallet
+        self.maxAmount = maxAmount
+        self.token = token
+    }
+}
+
+#if compiler(>=6)
+extension X402Challenge: Sendable {}
+#endif
+
+
+extension X402Challenge: Equatable, Hashable {
+    public static func ==(lhs: X402Challenge, rhs: X402Challenge) -> Bool {
+        if lhs.url != rhs.url {
+            return false
+        }
+        if lhs.headers != rhs.headers {
+            return false
+        }
+        if lhs.bodyBase64 != rhs.bodyBase64 {
+            return false
+        }
+        if lhs.wallet != rhs.wallet {
+            return false
+        }
+        if lhs.maxAmount != rhs.maxAmount {
+            return false
+        }
+        if lhs.token != rhs.token {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(url)
+        hasher.combine(headers)
+        hasher.combine(bodyBase64)
+        hasher.combine(wallet)
+        hasher.combine(maxAmount)
+        hasher.combine(token)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeX402Challenge: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> X402Challenge {
+        return
+            try X402Challenge(
+                url: FfiConverterString.read(from: &buf), 
+                headers: FfiConverterDictionaryStringString.read(from: &buf), 
+                bodyBase64: FfiConverterString.read(from: &buf), 
+                wallet: FfiConverterOptionString.read(from: &buf), 
+                maxAmount: FfiConverterOptionString.read(from: &buf), 
+                token: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: X402Challenge, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.url, into: &buf)
+        FfiConverterDictionaryStringString.write(value.headers, into: &buf)
+        FfiConverterString.write(value.bodyBase64, into: &buf)
+        FfiConverterOptionString.write(value.wallet, into: &buf)
+        FfiConverterOptionString.write(value.maxAmount, into: &buf)
+        FfiConverterOptionString.write(value.token, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeX402Challenge_lift(_ buf: RustBuffer) throws -> X402Challenge {
+    return try FfiConverterTypeX402Challenge.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeX402Challenge_lower(_ value: X402Challenge) -> RustBuffer {
+    return FfiConverterTypeX402Challenge.lower(value)
+}
+
+
+/**
  * A fully-negotiated EIP-3009 payment, ready to be signed by the mobile
  * authorizer. Built by the command from the server's 402 requirement
  * (`payTo` / `maxAmountRequired` / `asset` / `maxTimeoutSeconds` /
