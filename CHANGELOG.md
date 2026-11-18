@@ -10,6 +10,28 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.12.0
+
+No operation moved. No Swift API changed either: what changed is what an
+escalation carries on the wire.
+
+### Escalations are signed by your app's hardware key
+
+An over-limit x402 payment sent through `OwnerLink.escalationHost()` is now
+signed with the same Secure Enclave key your app paired with. The signature
+covers the account, the request and its expiry, so it cannot be moved to
+another account or replayed after it expires. The owner's authorizer checks it
+and refuses a request it cannot verify.
+
+This closes a gap where anyone holding a copy of the pairing secrets, but not
+the hardware key, could put a genuine-looking approval request on the owner's
+phone.
+
+Owners need an authorizer that verifies the signature. An older authorizer
+still shows a signed request but does not check the signature; an updated
+authorizer refuses unsigned requests, which is what 0.11.0 sends. Move to
+0.12.0 rather than staying on 0.11.0.
+
 ## 0.11.0
 
 No operation moved. This release adds what an agent needs to reach its owner

@@ -5016,6 +5016,13 @@ public enum MobileError: Swift.Error {
     case FeeQuoteRefused(reason: FeeQuoteRefusalFfi, detail: String
     )
     /**
+     * Mirrors `CoreError::SignRequestRefused`: an approval request was
+     * refused before it was shown. Branch on `reason`; `detail` is
+     * diagnostic text, not owner copy.
+     */
+    case SignRequestRefused(reason: SignRequestRefusalFfi, detail: String
+    )
+    /**
      * Reconcile refused because the view of the wallet is partial: these
      * deployed chains' owner sets could not be read. Carried as a list so the
      * host can name them; it has no `CoreError` counterpart because the core
@@ -5150,40 +5157,44 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             reason: try FfiConverterTypeFeeQuoteRefusalFfi.read(from: &buf), 
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 13: return .ReconcileBlocked(
+        case 13: return .SignRequestRefused(
+            reason: try FfiConverterTypeSignRequestRefusalFfi.read(from: &buf), 
+            detail: try FfiConverterString.read(from: &buf)
+            )
+        case 14: return .ReconcileBlocked(
             chains: try FfiConverterSequenceString.read(from: &buf)
             )
-        case 14: return .OwnerChangeRefused(
+        case 15: return .OwnerChangeRefused(
             reason: try FfiConverterString.read(from: &buf)
             )
-        case 15: return .OwnerCancelled
-        case 16: return .PromptFailed(
+        case 16: return .OwnerCancelled
+        case 17: return .PromptFailed(
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 17: return .PayFailed(
+        case 18: return .PayFailed(
             kind: try FfiConverterTypePayErrorKind.read(from: &buf), 
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 18: return .PaySettlementUnknown(
+        case 19: return .PaySettlementUnknown(
             kind: try FfiConverterTypePayErrorKind.read(from: &buf), 
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 19: return .LightningInsufficientFunds(
+        case 20: return .LightningInsufficientFunds(
             requestedSats: try FfiConverterOptionUInt64.read(from: &buf), 
             spendableSats: try FfiConverterUInt64.read(from: &buf), 
             returningSats: try FfiConverterUInt64.read(from: &buf), 
             earliestMaturityHeight: try FfiConverterOptionUInt32.read(from: &buf)
             )
-        case 20: return .LightningCooperativeCloseUnavailable(
+        case 21: return .LightningCooperativeCloseUnavailable(
             offlineNodeIds: try FfiConverterSequenceString.read(from: &buf)
             )
-        case 21: return .LightningInvalidAddress(
+        case 22: return .LightningInvalidAddress(
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 22: return .LightningWrongNetwork(
+        case 23: return .LightningWrongNetwork(
             detail: try FfiConverterString.read(from: &buf)
             )
-        case 23: return .LightningPaymentNotSent(
+        case 24: return .LightningPaymentNotSent(
             failure: try FfiConverterTypeLightningPayFailureFfi.read(from: &buf)
             )
 
@@ -5261,39 +5272,45 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             FfiConverterString.write(detail, into: &buf)
             
         
-        case let .ReconcileBlocked(chains):
+        case let .SignRequestRefused(reason,detail):
             writeInt(&buf, Int32(13))
+            FfiConverterTypeSignRequestRefusalFfi.write(reason, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .ReconcileBlocked(chains):
+            writeInt(&buf, Int32(14))
             FfiConverterSequenceString.write(chains, into: &buf)
             
         
         case let .OwnerChangeRefused(reason):
-            writeInt(&buf, Int32(14))
+            writeInt(&buf, Int32(15))
             FfiConverterString.write(reason, into: &buf)
             
         
         case .OwnerCancelled:
-            writeInt(&buf, Int32(15))
+            writeInt(&buf, Int32(16))
         
         
         case let .PromptFailed(detail):
-            writeInt(&buf, Int32(16))
+            writeInt(&buf, Int32(17))
             FfiConverterString.write(detail, into: &buf)
             
         
         case let .PayFailed(kind,detail):
-            writeInt(&buf, Int32(17))
-            FfiConverterTypePayErrorKind.write(kind, into: &buf)
-            FfiConverterString.write(detail, into: &buf)
-            
-        
-        case let .PaySettlementUnknown(kind,detail):
             writeInt(&buf, Int32(18))
             FfiConverterTypePayErrorKind.write(kind, into: &buf)
             FfiConverterString.write(detail, into: &buf)
             
         
-        case let .LightningInsufficientFunds(requestedSats,spendableSats,returningSats,earliestMaturityHeight):
+        case let .PaySettlementUnknown(kind,detail):
             writeInt(&buf, Int32(19))
+            FfiConverterTypePayErrorKind.write(kind, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .LightningInsufficientFunds(requestedSats,spendableSats,returningSats,earliestMaturityHeight):
+            writeInt(&buf, Int32(20))
             FfiConverterOptionUInt64.write(requestedSats, into: &buf)
             FfiConverterUInt64.write(spendableSats, into: &buf)
             FfiConverterUInt64.write(returningSats, into: &buf)
@@ -5301,22 +5318,22 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             
         
         case let .LightningCooperativeCloseUnavailable(offlineNodeIds):
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(21))
             FfiConverterSequenceString.write(offlineNodeIds, into: &buf)
             
         
         case let .LightningInvalidAddress(detail):
-            writeInt(&buf, Int32(21))
-            FfiConverterString.write(detail, into: &buf)
-            
-        
-        case let .LightningWrongNetwork(detail):
             writeInt(&buf, Int32(22))
             FfiConverterString.write(detail, into: &buf)
             
         
-        case let .LightningPaymentNotSent(failure):
+        case let .LightningWrongNetwork(detail):
             writeInt(&buf, Int32(23))
+            FfiConverterString.write(detail, into: &buf)
+            
+        
+        case let .LightningPaymentNotSent(failure):
+            writeInt(&buf, Int32(24))
             FfiConverterTypeLightningPayFailureFfi.write(failure, into: &buf)
             
         }
@@ -5349,6 +5366,106 @@ extension MobileError: Foundation.LocalizedError {
         String(reflecting: self)
     }
 }
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Mirrors `paygent_sdk::SignRequestRefusal`: why an approval request was
+ * refused before it reached the owner.
+ */
+
+public enum SignRequestRefusalFfi {
+    
+    /**
+     * The sender is not an agent this device paired with.
+     */
+    case unknownAgent
+    /**
+     * No key was recorded for the agent at pairing. Re-pair it.
+     */
+    case agentKeyMissing
+    /**
+     * The paired agent's key did not sign the request.
+     */
+    case notSignedByAgent
+    /**
+     * The request expired. The agent has to send it again.
+     */
+    case expired
+}
+
+
+#if compiler(>=6)
+extension SignRequestRefusalFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSignRequestRefusalFfi: FfiConverterRustBuffer {
+    typealias SwiftType = SignRequestRefusalFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SignRequestRefusalFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .unknownAgent
+        
+        case 2: return .agentKeyMissing
+        
+        case 3: return .notSignedByAgent
+        
+        case 4: return .expired
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SignRequestRefusalFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .unknownAgent:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .agentKeyMissing:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .notSignedByAgent:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSignRequestRefusalFfi_lift(_ buf: RustBuffer) throws -> SignRequestRefusalFfi {
+    return try FfiConverterTypeSignRequestRefusalFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSignRequestRefusalFfi_lower(_ value: SignRequestRefusalFfi) -> RustBuffer {
+    return FfiConverterTypeSignRequestRefusalFfi.lower(value)
+}
+
+
+extension SignRequestRefusalFfi: Equatable, Hashable {}
+
+
 
 
 
@@ -6345,9 +6462,9 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentPocketHost()
     uniffiCallbackInitAgentSessionHost()
     uniffiCallbackInitOwnerLinkStore()
-    uniffiEnsurePaygentUntrustedInitialized()
     uniffiEnsurePaygentPolicyInitialized()
     uniffiEnsurePaygentAgentCoreInitialized()
+    uniffiEnsurePaygentUntrustedInitialized()
     return InitializationResult.ok
 }()
 
