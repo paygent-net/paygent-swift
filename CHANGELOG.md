@@ -10,6 +10,132 @@ Licence: every release after 0.3.0 is under the Business Source License 1.1
 (`LICENSE` and `LICENSE-FAQ.md` in the package). 0.1.0, 0.2.0 and 0.3.0 were
 published under the Mozilla Public License 2.0 and remain under it.
 
+## 0.14.0
+
+Two agent operations changed: `agent.verify_allowance_declined` and
+`agent.verify_network_allowance_declined` now return why the owner's app said
+no, and a sentence to show (below). `OwnerLink.awaitAttachment` changed shape
+too. Three reason enums gained a case, so this release is breaking for apps
+that read an attachment or allowance refusal, or switch over a refusal reason.
+
+On the owner tier, which this package's binary does not carry,
+`owner.review_agent_attachment`, `owner.build_allowance_declined`,
+`owner.build_wallet_creation_rejected` and `owner.build_rejection_response`
+changed; `owner.screen_agent_attachment`, `owner.screen_creation_request` and
+`owner.refuse_sign_request` arrived; and three browser-only operations that
+granted an allowance request were removed. The owner-side notes below are for
+apps built from the full core.
+
+### Changed: a paused agent is told it is paused
+
+A request from an agent its owner has paused is now refused at once with the
+code `agent_paused`, and the owner is not shown it. It used to go unanswered
+until it expired. The new cases are `SigningRejectionReasonFfi.agentPaused`,
+`AllowanceDeclineReasonFfi.agentPaused` and
+`AgentAttachmentRejectReasonFfi.agentPaused`, plus `agentPaused` on
+`WalletCreationRejectReasonFfi`. Each comes with a sentence to show as is, for
+example "This agent is paused on the owner's Paygent app, so its requests are
+refused and nothing was signed. The owner must resume the agent before it can
+ask again."
+
+Only a request the paused agent itself signed gets this answer. Anything else
+still gets none, so the owner's app cannot be probed for whether an agent is
+paused.
+
+On the owner side, `reviewAgentAttachment` takes `pauseRecords` after
+`agents`, and `ReviewedInviteFfi` gains `.creationRefused(decline:reason:detail:)`
+beside a `reason` on `.attachmentRefused`. Pass only the pause records you
+could read: an unreadable record is not a pause.
+
+### Changed: an attachment refusal says why, and what to do
+
+`OwnerLink.awaitAttachment` returned `.rejected(reason: String)` carrying a bare
+code such as `"no_wallet"`. It now returns
+
+```swift
+.rejected(
+    reason: AgentAttachmentRejectReasonFfi,
+    chainId: UInt64,
+    token: String?,
+    message: String
+)
+```
+
+- `reason` is a typed code: `.declined`, `.unsupportedChain`,
+  `.unsupportedToken`, `.noWallet`, `.walletNotDeployed`, `.invalidRequest`,
+  `.alreadyAttached` or `.expired`. Only `.declined` is the owner's own choice;
+  the owner's app decides the others without showing the owner the request.
+- `message` is a plain-English sentence to show as is, for example "The owner's
+  account is not set up on Base Sepolia yet. An account is set up on a network
+  by its first deposit there: the owner needs to add money to it on Base
+  Sepolia, then ask again."
+- `chainId` is the network you asked on. A refusal naming any other network is
+  rejected as invalid input.
+- `token` is the token you asked for, set only with `.unsupportedToken`.
+
+Two codes are new. `.walletNotDeployed` is what an account with no deposit on
+the requested network now gets; it used to arrive as `"no_wallet"`.
+`.unsupportedToken` is what an allowance in a token other than USDC now gets;
+it used to arrive as `"unsupported_chain"`.
+
+To migrate, replace `case .rejected(let reason):` with
+`case .rejected(let reason, _, _, let message):` and show `message`.
+
+### Changed: an allowance refusal says why, and what to do
+
+`PaygentAgent.agentVerifyAllowanceDeclined` and
+`agentVerifyNetworkAllowanceDeclined` return an `AllowanceDeclinedFfi` that
+now also carries
+
+- `reason: AllowanceDeclineReasonFfi`: `.declined` (the owner said no),
+  `.expired` (the request's own expiry passed before the owner's app read it),
+  `.invalidRequest` (a zero amount, or a token or account the app could not
+  read) or `.unsupportedChain` (a network the app does not manage allowances
+  on), and `.agentPaused` and `.ownerSetsAllowance` above. Only `.declined` is
+  the owner's own choice, and an owner's app that never shows a request does
+  not send it.
+- `message: String`: a sentence to show as is, for example "This allowance
+  request expired before the owner's Paygent app read it, so the allowance on
+  Base Sepolia is unchanged. Ask again."
+
+A refusal without a reason no longer verifies.
+
+### Changed: allowance requests are declined, never shown
+
+The owner changes an agent's allowance themselves, in the Paygent app. A
+request from the agent to raise it is exactly the prompt someone holding a
+copied pairing secret would want the owner to see, so the owner's app no
+longer shows one. Every allowance request the agent's hardware key signed is
+answered at once with the new code `owner_sets_allowance`, unless the agent is
+paused (`agent_paused`) or the request is expired, unreadable or on a network
+the app does not manage, which keep their own codes. A request that does not
+authenticate still gets no answer.
+
+On the agent side, `AllowanceDeclineReasonFfi` gains `.ownerSetsAllowance`.
+Its `message` is "The owner changes this agent's allowance themselves in the
+Paygent app; allowance requests are not accepted. Ask the owner directly.
+Nothing was changed." Show it as is.
+
+On the owner side, `ReviewedInviteFfi.allowance(request:decline:)` and
+`AllowanceRequestSummaryFfi` are removed: an allowance request now arrives only
+as `.allowanceRefused(decline:reason:detail:)`. Answer it with
+`buildAllowanceDeclined(decline:reason:...)` and the `reason` it carries.
+`AllowanceLimitChangeFfi`, which nothing returned, is removed too.
+
+### Changed: a refused escalation says why
+
+When the owner's app refuses an x402 escalation, the error the agent gets back
+now carries a sentence saying why: the owner declined, the request expired
+(with its expiry time), the app could not read it, or it arrived on another
+network's channel. It used to carry a bare code such as `"rejected_by_user"`.
+The owner's app now answers an expired, unreadable or misrouted escalation at
+once instead of leaving the agent to time out.
+
+### Fixed: `version()` reports the installed package's version
+
+`PaygentMobileCore.version()` returned `0.13.0` on every release since 0.13.0,
+including 0.13.1. It now returns the version of the package you installed.
+
 ## 0.13.1
 
 No operation moved. No Swift API changed either.

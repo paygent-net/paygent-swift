@@ -17,7 +17,7 @@ let package = Package(
     name: "PayAnInvoice",
     platforms: [ .iOS(.v16) ],
     products: [ .library(name: "PayAnInvoice", targets: ["PayAnInvoice"]) ],
-    dependencies: [ .package(url: "https://github.com/paygent-net/paygent-swift.git", .upToNextMinor(from: "0.13.1")) ],
+    dependencies: [ .package(url: "https://github.com/paygent-net/paygent-swift.git", .upToNextMinor(from: "0.14.0")) ],
     targets: [
         .target(
             name: "PayAnInvoice",

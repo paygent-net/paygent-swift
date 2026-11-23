@@ -29,7 +29,7 @@ need both.
 
 In Xcode: **File > Add Package Dependencies...**, paste
 `https://github.com/paygent-net/paygent-swift`, and set the dependency rule to **Up to Next Minor
-Version** from `0.13.1`.
+Version** from `0.14.0`.
 
 From another package:
 
@@ -38,7 +38,7 @@ From another package:
 dependencies: [
     .package(
         url: "https://github.com/paygent-net/paygent-swift.git",
-        .upToNextMinor(from: "0.13.1")
+        .upToNextMinor(from: "0.14.0")
     ),
 ],
 targets: [

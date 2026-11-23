@@ -121,10 +121,29 @@ case .granted(let attachment):
         index: attachment.walletIndex(),
         executorModule: attachment.executorModule()
     )
-case .rejected(let reason):
-    showDeclined(reason)
+case .rejected(let reason, let chainId, let token, let message):
+    // `message` says what happened and what to do, in plain English: show
+    // it as is. Branch on `reason` when your app can act by itself.
+    switch reason {
+    case .walletNotDeployed:
+        // The owner's account exists but has no deposit on this network
+        // yet. Ask again once they have added money to it there.
+        waitForOwnerDeposit(chainId: chainId, message: message)
+    case .unsupportedToken:
+        // Only USDC allowances can be granted. `token` is what you asked for.
+        askAgainInUsdc(chainId: chainId, rejectedToken: token)
+    default:
+        showDeclined(message)
+    }
 }
 ```
+
+Only `.declined` is the owner's own choice. Every other reason is decided by the
+owner's app without showing them the request: a network it does not support
+(`.unsupportedChain`), a token other than that network's USDC
+(`.unsupportedToken`), no account at all (`.noWallet`), an account with no
+deposit on that network yet (`.walletNotDeployed`), or a request it could not
+read (`.invalidRequest`). `.expired` means nobody answered in time.
 
 The amount you ask for is a request. What your app may actually spend is what
 the owner set on chain, which `agentMandate` reads; it is never taken from the

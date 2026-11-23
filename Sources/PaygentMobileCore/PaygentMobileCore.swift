@@ -4004,6 +4004,14 @@ public struct AllowanceDeclinedFfi {
      * The treasury it was on, as the owner named it.
      */
     public var walletAddress: String
+    /**
+     * Why the owner's app said no.
+     */
+    public var reason: AllowanceDeclineReasonFfi
+    /**
+     * One sentence for the agent's user: what happened and what to do next.
+     */
+    public var message: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -4016,10 +4024,18 @@ public struct AllowanceDeclinedFfi {
          */chainId: UInt64, 
         /**
          * The treasury it was on, as the owner named it.
-         */walletAddress: String) {
+         */walletAddress: String, 
+        /**
+         * Why the owner's app said no.
+         */reason: AllowanceDeclineReasonFfi, 
+        /**
+         * One sentence for the agent's user: what happened and what to do next.
+         */message: String) {
         self.requestId = requestId
         self.chainId = chainId
         self.walletAddress = walletAddress
+        self.reason = reason
+        self.message = message
     }
 }
 
@@ -4039,6 +4055,12 @@ extension AllowanceDeclinedFfi: Equatable, Hashable {
         if lhs.walletAddress != rhs.walletAddress {
             return false
         }
+        if lhs.reason != rhs.reason {
+            return false
+        }
+        if lhs.message != rhs.message {
+            return false
+        }
         return true
     }
 
@@ -4046,6 +4068,8 @@ extension AllowanceDeclinedFfi: Equatable, Hashable {
         hasher.combine(requestId)
         hasher.combine(chainId)
         hasher.combine(walletAddress)
+        hasher.combine(reason)
+        hasher.combine(message)
     }
 }
 
@@ -4060,7 +4084,9 @@ public struct FfiConverterTypeAllowanceDeclinedFfi: FfiConverterRustBuffer {
             try AllowanceDeclinedFfi(
                 requestId: FfiConverterString.read(from: &buf), 
                 chainId: FfiConverterUInt64.read(from: &buf), 
-                walletAddress: FfiConverterString.read(from: &buf)
+                walletAddress: FfiConverterString.read(from: &buf), 
+                reason: FfiConverterTypeAllowanceDeclineReasonFfi.read(from: &buf), 
+                message: FfiConverterString.read(from: &buf)
         )
     }
 
@@ -4068,6 +4094,8 @@ public struct FfiConverterTypeAllowanceDeclinedFfi: FfiConverterRustBuffer {
         FfiConverterString.write(value.requestId, into: &buf)
         FfiConverterUInt64.write(value.chainId, into: &buf)
         FfiConverterString.write(value.walletAddress, into: &buf)
+        FfiConverterTypeAllowanceDeclineReasonFfi.write(value.reason, into: &buf)
+        FfiConverterString.write(value.message, into: &buf)
     }
 }
 
@@ -4220,6 +4248,160 @@ public func FfiConverterTypeEip3009Authorization_lift(_ buf: RustBuffer) throws 
 public func FfiConverterTypeEip3009Authorization_lower(_ value: Eip3009Authorization) -> RustBuffer {
     return FfiConverterTypeEip3009Authorization.lower(value)
 }
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why an attachment request was not granted. Only `Declined` is the owner's
+ * own choice; the others are decided by the owner's app.
+ */
+
+public enum AgentAttachmentRejectReasonFfi {
+    
+    /**
+     * The owner chose not to.
+     */
+    case declined
+    /**
+     * The owner's app does not support the requested chain.
+     */
+    case unsupportedChain
+    /**
+     * The owner's app sets allowances only in USDC, and the request named
+     * another token.
+     */
+    case unsupportedToken
+    /**
+     * The owner has no account to attach the agent to.
+     */
+    case noWallet
+    /**
+     * The owner's account is not set up on the requested chain yet: its first
+     * deposit there sets it up.
+     */
+    case walletNotDeployed
+    /**
+     * The request's content (label, token, amount or Solana leg) could not be
+     * read. Asking again unchanged is refused again.
+     */
+    case invalidRequest
+    /**
+     * The agent's module is already enabled on that wallet.
+     */
+    case alreadyAttached
+    /**
+     * The request's signed expiry passed before the owner could act. Not a
+     * refusal on the merits: the agent should ask again.
+     */
+    case expired
+    /**
+     * The owner has paused this agent.
+     */
+    case agentPaused
+}
+
+
+#if compiler(>=6)
+extension AgentAttachmentRejectReasonFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAgentAttachmentRejectReasonFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AgentAttachmentRejectReasonFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AgentAttachmentRejectReasonFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .declined
+        
+        case 2: return .unsupportedChain
+        
+        case 3: return .unsupportedToken
+        
+        case 4: return .noWallet
+        
+        case 5: return .walletNotDeployed
+        
+        case 6: return .invalidRequest
+        
+        case 7: return .alreadyAttached
+        
+        case 8: return .expired
+        
+        case 9: return .agentPaused
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AgentAttachmentRejectReasonFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .declined:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .unsupportedChain:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .unsupportedToken:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .noWallet:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .walletNotDeployed:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .invalidRequest:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .alreadyAttached:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .agentPaused:
+            writeInt(&buf, Int32(9))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentAttachmentRejectReasonFfi_lift(_ buf: RustBuffer) throws -> AgentAttachmentRejectReasonFfi {
+    return try FfiConverterTypeAgentAttachmentRejectReasonFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAgentAttachmentRejectReasonFfi_lower(_ value: AgentAttachmentRejectReasonFfi) -> RustBuffer {
+    return FfiConverterTypeAgentAttachmentRejectReasonFfi.lower(value)
+}
+
+
+extension AgentAttachmentRejectReasonFfi: Equatable, Hashable {}
+
+
+
+
+
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -4492,6 +4674,129 @@ extension AgentSignerBacking: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Why an allowance request was not granted. The owner's app decides every
+ * one of them without showing the request; `Declined`, the owner's own
+ * choice, is not sent by an app that never shows one.
+ */
+
+public enum AllowanceDeclineReasonFfi {
+    
+    /**
+     * The owner chose not to change the allowance.
+     */
+    case declined
+    /**
+     * The request's own signed expiry passed before the app read it.
+     */
+    case expired
+    /**
+     * The request asks for nothing the app can apply: a zero amount, or a
+     * token or account it cannot read.
+     */
+    case invalidRequest
+    /**
+     * The app does not manage allowances on that network.
+     */
+    case unsupportedChain
+    /**
+     * The owner has paused this agent.
+     */
+    case agentPaused
+    /**
+     * The owner sets this agent's allowance themselves; the app accepts no
+     * allowance request.
+     */
+    case ownerSetsAllowance
+}
+
+
+#if compiler(>=6)
+extension AllowanceDeclineReasonFfi: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAllowanceDeclineReasonFfi: FfiConverterRustBuffer {
+    typealias SwiftType = AllowanceDeclineReasonFfi
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AllowanceDeclineReasonFfi {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .declined
+        
+        case 2: return .expired
+        
+        case 3: return .invalidRequest
+        
+        case 4: return .unsupportedChain
+        
+        case 5: return .agentPaused
+        
+        case 6: return .ownerSetsAllowance
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: AllowanceDeclineReasonFfi, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .declined:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .invalidRequest:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .unsupportedChain:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .agentPaused:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .ownerSetsAllowance:
+            writeInt(&buf, Int32(6))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceDeclineReasonFfi_lift(_ buf: RustBuffer) throws -> AllowanceDeclineReasonFfi {
+    return try FfiConverterTypeAllowanceDeclineReasonFfi.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAllowanceDeclineReasonFfi_lower(_ value: AllowanceDeclineReasonFfi) -> RustBuffer {
+    return FfiConverterTypeAllowanceDeclineReasonFfi.lower(value)
+}
+
+
+extension AllowanceDeclineReasonFfi: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * How the owner answered an attachment request.
  */
 
@@ -4504,9 +4809,12 @@ public enum AttachmentAnswer {
     case granted(attachment: VerifiedAttachment
     )
     /**
-     * The owner declined, for `reason`.
+     * Not attached. `reason` is the stable code to branch on; `message` is
+     * the plain-English sentence for whoever runs the agent, saying what
+     * happened and what to do. `chain_id` is the network the request asked
+     * for; `token` is the requested token, with `UnsupportedToken` only.
      */
-    case rejected(reason: String
+    case rejected(reason: AgentAttachmentRejectReasonFfi, chainId: UInt64, token: String?, message: String
     )
 }
 
@@ -4528,7 +4836,7 @@ public struct FfiConverterTypeAttachmentAnswer: FfiConverterRustBuffer {
         case 1: return .granted(attachment: try FfiConverterTypeVerifiedAttachment.read(from: &buf)
         )
         
-        case 2: return .rejected(reason: try FfiConverterString.read(from: &buf)
+        case 2: return .rejected(reason: try FfiConverterTypeAgentAttachmentRejectReasonFfi.read(from: &buf), chainId: try FfiConverterUInt64.read(from: &buf), token: try FfiConverterOptionString.read(from: &buf), message: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -4544,9 +4852,12 @@ public struct FfiConverterTypeAttachmentAnswer: FfiConverterRustBuffer {
             FfiConverterTypeVerifiedAttachment.write(attachment, into: &buf)
             
         
-        case let .rejected(reason):
+        case let .rejected(reason,chainId,token,message):
             writeInt(&buf, Int32(2))
-            FfiConverterString.write(reason, into: &buf)
+            FfiConverterTypeAgentAttachmentRejectReasonFfi.write(reason, into: &buf)
+            FfiConverterUInt64.write(chainId, into: &buf)
+            FfiConverterOptionString.write(token, into: &buf)
+            FfiConverterString.write(message, into: &buf)
             
         }
     }
@@ -6546,8 +6857,8 @@ private let initializationResult: InitializationResult = {
     uniffiCallbackInitAgentPocketHost()
     uniffiCallbackInitAgentSessionHost()
     uniffiCallbackInitOwnerLinkStore()
-    uniffiEnsurePaygentAgentCoreInitialized()
     uniffiEnsurePaygentPolicyInitialized()
+    uniffiEnsurePaygentAgentCoreInitialized()
     uniffiEnsurePaygentUntrustedInitialized()
     return InitializationResult.ok
 }()
